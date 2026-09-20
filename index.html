@@ -293,11 +293,75 @@ prs.save('output.pptx')"></textarea>
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/pyodide@0.27.0/full/pyodide.js"></script>
 <script>
 (function(){
   "use strict";
 
+  /* ============================================================
+     การโหลด Pyodide — ลองหลาย CDN และส่ง indexURL ให้ถูกต้อง
+     ============================================================ */
+  const PYODIDE_VERSION = '0.27.0';
+  const PYODIDE_BASES = [
+    'https://cdn.jsdelivr.net/npm/pyodide@' + PYODIDE_VERSION + '/full/',
+    'https://unpkg.com/pyodide@' + PYODIDE_VERSION + '/full/',
+    'https://cdn.jsdelivr.net/pyodide/v' + PYODIDE_VERSION + '/full/'
+  ];
+
+  function loadScript(url, timeoutMs){
+    timeoutMs = timeoutMs || 25000;
+    return new Promise(function(resolve, reject){
+      const el = document.createElement('script');
+      el.src = url;
+      el.async = true;
+      let done = false;
+      const timer = setTimeout(function(){
+        if (done) return;
+        done = true;
+        el.remove();
+        reject(new Error('หมดเวลาโหลด: ' + url));
+      }, timeoutMs);
+      el.onload = function(){
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve();
+      };
+      el.onerror = function(){
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        el.remove();
+        reject(new Error('โหลดไม่สำเร็จ: ' + url));
+      };
+      document.head.appendChild(el);
+    });
+  }
+
+  let pyodideIndexURL = null;
+
+  async function resolveLoadPyodide(){
+    if (typeof window.loadPyodide === 'function') return window.loadPyodide;
+    const errors = [];
+    for (let i = 0; i < PYODIDE_BASES.length; i++){
+      const base = PYODIDE_BASES[i];
+      try{
+        logLine('กำลังโหลด Pyodide จาก ' + base, 'ln-muted');
+        await loadScript(base + 'pyodide.js');
+        if (typeof window.loadPyodide === 'function'){
+          pyodideIndexURL = base;
+          return window.loadPyodide;
+        }
+        errors.push(base + ' → โหลดสคริปต์ได้แต่ไม่พบ loadPyodide');
+      }catch(e){
+        errors.push(base + ' → ' + (e && e.message ? e.message : e));
+      }
+    }
+    throw new Error('โหลด Pyodide ไม่สำเร็จ ทุก CDN:\n' + errors.join('\n'));
+  }
+
+  /* ============================================================
+     UI
+     ============================================================ */
   const themeBtn = document.getElementById('themeBtn');
   const root = document.documentElement;
   themeBtn.addEventListener('click', function(){
@@ -446,11 +510,14 @@ print("สร้างสไลด์เสร็จแล้ว:", len(prs.slid
   async function ensurePyodide(){
     if (pyodideReady) return;
     setStatus('busy', 'กำลังโหลด Python runtime…');
-    logLine('กำลังโหลด Pyodide (Python ในเบราว์เซอร์)…', 'ln-muted');
-    pyodide = await loadPyodide();
 
-    pyodide.setStdout({ batched: (s) => { if (s) logLine(s); } });
-    pyodide.setStderr({ batched: (s) => { if (s) logLine(s, 'ln-err'); } });
+    const loadPyodideFn = await resolveLoadPyodide();
+    pyodide = await loadPyodideFn(
+      pyodideIndexURL ? { indexURL: pyodideIndexURL } : undefined
+    );
+
+    pyodide.setStdout({ batched: function(s){ if (s) logLine(s); } });
+    pyodide.setStderr({ batched: function(s){ if (s) logLine(s, 'ln-err'); } });
 
     setStatus('busy', 'กำลังติดตั้ง python-pptx…');
     logLine('กำลังติดตั้งไลบรารี python-pptx, lxml, Pillow…', 'ln-muted');
@@ -458,10 +525,10 @@ print("สร้างสไลด์เสร็จแล้ว:", len(prs.slid
     const micropip = pyodide.pyimport('micropip');
     await micropip.install('python-pptx');
 
-    pyodide.runPython(`
-import os
-os.makedirs('/work', exist_ok=True)
-`);
+    pyodide.runPython(
+      'import os\n' +
+      'os.makedirs("/work", exist_ok=True)\n'
+    );
 
     pyodideReady = true;
     setStatus('ready', 'Python runtime พร้อมใช้งาน');
@@ -487,20 +554,20 @@ os.makedirs('/work', exist_ok=True)
   }
 
   function resetWorkDir(){
-    pyodide.runPython(`
-import os, shutil
-if os.path.exists('/work'):
-    shutil.rmtree('/work')
-os.makedirs('/work', exist_ok=True)
-os.chdir('/work')
-`);
+    pyodide.runPython(
+      'import os, shutil\n' +
+      'if os.path.exists("/work"):\n' +
+      '    shutil.rmtree("/work")\n' +
+      'os.makedirs("/work", exist_ok=True)\n' +
+      'os.chdir("/work")\n'
+    );
   }
 
   function listWorkFiles(){
-    const res = pyodide.runPython(`
-import os
-sorted(os.listdir('/work'))
-`);
+    const res = pyodide.runPython(
+      'import os\n' +
+      'sorted(os.listdir("/work"))\n'
+    );
     const arr = res.toJs();
     res.destroy();
     return arr;
@@ -529,7 +596,7 @@ sorted(os.listdir('/work'))
     }
 
     const after = listWorkFiles();
-    const created = after.filter(f => !before.has(f));
+    const created = after.filter(function(f){ return !before.has(f); });
     return created;
   }
 
@@ -560,7 +627,8 @@ sorted(os.listdir('/work'))
         logLine('รันเสร็จแล้ว แต่ไม่พบไฟล์ใหม่ที่ถูกสร้างขึ้น (ตรวจสอบว่าโค้ดมีการ .save(...) ไฟล์หรือไม่)', 'ln-err');
         setStatus('err', 'รันเสร็จ แต่ไม่พบไฟล์ผลลัพธ์');
       } else {
-        for (const fname of created) {
+        for (let i = 0; i < created.length; i++){
+          const fname = created[i];
           const bytes = pyodide.FS.readFile('/work/' + fname);
           addResult(fname, bytes);
         }
@@ -570,8 +638,14 @@ sorted(os.listdir('/work'))
     } catch (err) {
       console.error(err);
       const msg = String(err && err.message ? err.message : err);
-      logLine(msg, 'ln-err');
-      setStatus('err', 'เกิดข้อผิดพลาดระหว่างรันโค้ด');
+      if (/โหลด Pyodide ไม่สำเร็จ/.test(msg)) {
+        logLine('โหลด Python runtime ไม่ได้ — มักเกิดจากเน็ตหลุด หรือตัวบล็อกโฆษณาบล็อก cdn.jsdelivr.net', 'ln-err');
+        logLine('ลองปิด Content Blocker แล้วรีเฟรช หรือเปลี่ยนไปใช้ Wi-Fi/เครือข่ายอื่น', 'ln-err');
+        setStatus('err', 'โหลด Python runtime ไม่สำเร็จ');
+      } else {
+        logLine(msg, 'ln-err');
+        setStatus('err', 'เกิดข้อผิดพลาดระหว่างรันโค้ด');
+      }
     } finally {
       busy = false;
       runBtn.disabled = false;
