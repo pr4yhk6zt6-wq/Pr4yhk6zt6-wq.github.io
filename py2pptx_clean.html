@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PY → PPTX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  --bg:#f7f7f5;
+  --surface:#ffffff;
+  --surface-2:#f1f1ee;
+  --text:#20211f;
+  --muted:#777871;
+  --line:#dedfd9;
+  --accent:#b56d1f;
+  --accent-hover:#9e5e19;
+  --ok:#317c5d;
+  --danger:#b84c3c;
+  --console:#1d1e1c;
+  --console-text:#d9dad4;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#181916; --surface:#20211e; --surface-2:#292a27;
+    --text:#eeeee9; --muted:#a5a69e; --line:#3a3b37;
+    --accent:#d7954b; --accent-hover:#e5a45b; --ok:#6db493;
+    --danger:#e47765; --console:#10110f; --console-text:#d7d8d2;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#181916; --surface:#20211e; --surface-2:#292a27;
+  --text:#eeeee9; --muted:#a5a69e; --line:#3a3b37;
+  --accent:#d7954b; --accent-hover:#e5a45b; --ok:#6db493;
+  --danger:#e47765; --console:#10110f; --console-text:#d7d8d2;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{
+  width:min(100% - 32px, 720px);
+  margin:0 auto;
+  padding:34px 0 48px;
+}
+
+.top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:54px;
+}
+.brand{display:flex;align-items:center;gap:11px}
+.brand-mark{
+  width:30px;height:30px;border-radius:7px;
+  background:var(--text);color:var(--bg);
+  display:grid;place-items:center;
+  font-size:15px;
+}
+.brand-text{font-weight:700;font-size:14px;letter-spacing:.01em}
+.brand-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.theme-btn{
+  width:34px;height:34px;border:1px solid var(--line);
+  border-radius:8px;background:transparent;color:var(--text);
+  cursor:pointer;font-size:14px;
+}
+.theme-btn:hover{background:var(--surface-2)}
+
+h1{
+  max-width:650px;
+  font-size:34px;
+  line-height:1.16;
+  font-weight:700;
+  letter-spacing:-.035em;
+  margin:0 0 12px;
+}
+h1 span{color:var(--accent)}
+.lede{
+  max-width:620px;
+  color:var(--muted);
+  font-size:14px;
+  line-height:1.75;
+  margin:0 0 30px;
+}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:0;
+  margin:0 0 12px;
+  overflow:hidden;
+  box-shadow:none;
+}
+.card-label{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+}
+.card-label span{
+  font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted);
+}
+textarea{
+  display:block;width:100%;min-height:300px;resize:vertical;
+  border:0;outline:0;border-radius:0;
+  background:var(--surface);
+  color:var(--text);
+  padding:16px;
+  font:12px/1.7 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+textarea:focus{background:var(--surface)}
+textarea::placeholder{color:var(--muted);opacity:.72}
+
+.run-row{display:flex;margin:0 0 18px}
+button.primary{
+  width:100%;
+  border:0;border-radius:9px;
+  background:var(--text);color:var(--bg);
+  font:600 13px Inter,system-ui,sans-serif;
+  padding:13px 16px;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:background .15s ease,transform .1s ease;
+}
+button.primary:hover{background:#30312e}
+button.primary:active{transform:translateY(1px)}
+button.primary:disabled{opacity:.5;cursor:not-allowed}
+.spinner{
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.35);
+  border-top-color:currentColor;
+  animation:spin .8s linear infinite;display:none;
+}
+.spinner.on{display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.status-pill{
+  display:flex;align-items:center;gap:7px;
+  font-size:11.5px;color:var(--muted);
+  margin:0 0 10px;
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ready{background:var(--ok)}
+.dot.busy{background:var(--accent);animation:pulse 1s ease-in-out infinite}
+.dot.err{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.console{
+  background:var(--console);color:var(--console-text);
+  border-radius:9px;padding:13px 14px;
+  font:11.5px/1.7 "JetBrains Mono",ui-monospace,monospace;
+  max-height:220px;overflow:auto;white-space:pre-wrap;
+  word-break:break-word;display:none;margin-bottom:10px;
+}
+.console.on{display:block}
+.console .ln-err{color:#f28a78}
+.console .ln-ok{color:#8bc9ad}
+.console .ln-muted{color:#8e9188}
+
+.results{margin-top:10px;display:none;flex-direction:column;gap:8px}
+.results.on{display:flex}
+.result-item{
+  display:flex;align-items:center;gap:11px;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:9px;padding:10px 11px;
+}
+.result-ico{
+  width:32px;height:32px;border-radius:7px;flex:none;
+  background:var(--surface-2);display:grid;place-items:center;font-size:14px;
+}
+.result-meta{flex:1;min-width:0}
+.result-name{font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.result-size{font-size:10.5px;color:var(--muted);margin-top:2px}
+.dl-btn{
+  flex:none;background:transparent;color:var(--accent);
+  border:1px solid var(--line);border-radius:7px;
+  font:600 11.5px Inter,system-ui,sans-serif;
+  padding:7px 10px;text-decoration:none;
+}
+.dl-btn:hover{background:var(--surface-2);border-color:var(--accent)}
+
+@media(max-width:560px){
+  .wrap{width:min(100% - 24px,720px);padding-top:22px}
+  .top{margin-bottom:42px}
+  h1{font-size:29px}
+  .lede{font-size:13.5px;line-height:1.7;margin-bottom:24px}
+  textarea{min-height:250px}
+}
+
+.theme-mark{
+  display:block;width:13px;height:13px;border:1.5px solid currentColor;
+  border-radius:50%;position:relative;margin:auto;
+}
+.theme-mark:after{
+  content:"";position:absolute;background:var(--bg);
+  width:8px;height:8px;border-radius:50%;right:-2px;top:-2px;
+}
+
+.python-mark{
+  position:relative;display:block;width:15px;height:15px;
+}
+.python-mark:before,.python-mark:after{
+  content:"";position:absolute;width:8px;height:8px;border:1.5px solid currentColor;
+}
+.python-mark:before{left:0;top:0;border-radius:4px 4px 2px 4px}
+.python-mark:after{right:0;bottom:0;border-radius:2px 4px 4px 4px}
+.file-mark{
+  position:relative;display:block;width:13px;height:15px;
+  border:1.5px solid currentColor;border-radius:2px;
+}
+.file-mark:after{
+  content:"";position:absolute;left:3px;right:3px;top:6px;
+  height:1px;background:currentColor;
+  box-shadow:0 3px 0 currentColor;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><span class="python-mark"></span></div>
+      <div>
+        <div class="brand-text">PY → PPTX</div>
+        <div class="brand-sub">Python to PowerPoint</div>
+      </div>
+    </div>
+    <button class="theme-btn" id="themeBtn" aria-label="สลับธีม"><span class="theme-mark"></span></button>
+  </div>
+
+  <h1>Python <span>→</span> PowerPoint</h1>
+
+  <div class="status-pill" id="statusPill">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">พร้อมใช้งาน</span>
+  </div>
+
+  <div class="card">
+    <div class="card-label">
+      <span>โค้ด PYTHON</span>
+    </div>
+    <textarea id="codeInput" spellcheck="false" placeholder="from pptx import Presentation
+from pptx.util import Inches
+
+prs = Presentation()
+slide = prs.slides.add_slide(prs.slide_layouts[0])
+slide.shapes.title.text = 'สวัสดี'
+prs.save('output.pptx')"></textarea>
+  </div>
+
+  <div class="run-row">
+    <button class="primary" id="runBtn">
+      <span class="spinner" id="spinner"></span>
+      <span id="runLabel">▶︎ รันโค้ด &amp; สร้าง .pptx</span>
+    </button>
+  </div>
+
+  <div class="console" id="consoleBox"></div>
+
+  <div class="results" id="results"></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/pyodide@0.27.0/full/pyodide.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  const themeBtn = document.getElementById('themeBtn');
+  const root = document.documentElement;
+  themeBtn.addEventListener('click', function(){
+    const cur = root.getAttribute('data-theme');
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    let next;
+    if (!cur) next = dark ? 'light' : 'dark';
+    else if (cur === 'dark') next = 'light';
+    else next = 'dark';
+    root.setAttribute('data-theme', next);
+  });
+
+  const runBtn = document.getElementById('runBtn');
+  const runLabel = document.getElementById('runLabel');
+  const spinner = document.getElementById('spinner');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const consoleBox = document.getElementById('consoleBox');
+  const resultsBox = document.getElementById('results');
+  const codeInput = document.getElementById('codeInput');
+
+  let pyodideReady = false;
+  let pyodide = null;
+  let busy = false;
+
+  function setStatus(kind, text){
+    statusDot.className = 'dot' + (kind ? ' ' + kind : '');
+    statusText.textContent = text;
+  }
+
+  function logLine(text, cls){
+    consoleBox.classList.add('on');
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = text;
+    consoleBox.appendChild(line);
+    consoleBox.scrollTop = consoleBox.scrollHeight;
+  }
+
+  function clearConsole(){
+    consoleBox.innerHTML = '';
+    consoleBox.classList.remove('on');
+  }
+
+  function clearResults(){
+    resultsBox.innerHTML = '';
+    resultsBox.classList.remove('on');
+  }
+
+  function humanSize(bytes){
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1024/1024).toFixed(2) + ' MB';
+  }
+
+  const MIME = {
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'pdf': 'application/pdf',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg'
+  };
+
+  function addResult(name, bytes){
+    resultsBox.classList.add('on');
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    const mime = MIME[ext] || 'application/octet-stream';
+    const blob = new Blob([bytes], { type: mime });
+    const url = URL.createObjectURL(blob);
+
+    const item = document.createElement('div');
+    item.className = 'result-item';
+
+    const ico = document.createElement('div');
+    ico.className = 'result-ico';
+    ico.setAttribute('aria-hidden', 'true');
+    ico.innerHTML = '<span class="file-mark"></span>';
+
+    const meta = document.createElement('div');
+    meta.className = 'result-meta';
+    const nm = document.createElement('div');
+    nm.className = 'result-name';
+    nm.textContent = name;
+    const sz = document.createElement('div');
+    sz.className = 'result-size';
+    sz.textContent = humanSize(bytes.length);
+    meta.appendChild(nm);
+    meta.appendChild(sz);
+
+    const a = document.createElement('a');
+    a.className = 'dl-btn';
+    a.href = url;
+    a.download = name;
+    a.textContent = 'ดาวน์โหลด';
+
+    item.appendChild(ico);
+    item.appendChild(meta);
+    item.appendChild(a);
+    resultsBox.appendChild(item);
+  }
+
+  const ALIAS = {
+    'pptx': 'python-pptx',
+    'docx': 'python-docx',
+    'PIL': 'Pillow',
+    'bs4': 'beautifulsoup4',
+    'yaml': 'pyyaml',
+    'dateutil': 'python-dateutil',
+    'requests': null,
+    'cv2': null,
+    'sklearn': null,
+    'selenium': null
+  };
+
+  async function ensurePyodide(){
+    if (pyodideReady) return;
+    setStatus('busy', 'กำลังเตรียมระบบ…');
+    logLine('กำลังเตรียมระบบ…', 'ln-muted');
+    pyodide = await loadPyodide();
+
+    pyodide.setStdout({ batched: (s) => { if (s) logLine(s); } });
+    pyodide.setStderr({ batched: (s) => { if (s) logLine(s, 'ln-err'); } });
+
+    setStatus('busy', 'กำลังเตรียมไลบรารี…');
+    logLine('กำลังเตรียมไลบรารี…', 'ln-muted');
+    await pyodide.loadPackage('micropip');
+    const micropip = pyodide.pyimport('micropip');
+    await micropip.install('python-pptx');
+
+    pyodide.runPython(`
+import os
+os.makedirs('/work', exist_ok=True)
+`);
+
+    pyodideReady = true;
+    setStatus('ready', 'Python runtime พร้อมใช้งาน');
+    logLine('พร้อมแล้ว', 'ln-ok');
+  }
+
+  async function installMissing(moduleName){
+    let pkg = moduleName;
+    if (Object.prototype.hasOwnProperty.call(ALIAS, moduleName)) {
+      pkg = ALIAS[moduleName];
+    }
+    if (pkg === null) return false;
+    try{
+      logLine('พยายามติดตั้งไลบรารีเพิ่ม: ' + pkg + ' …', 'ln-muted');
+      const micropip = pyodide.pyimport('micropip');
+      await micropip.install(pkg);
+      logLine('ติดตั้ง ' + pkg + ' สำเร็จ ✓', 'ln-ok');
+      return true;
+    }catch(e){
+      logLine('ติดตั้ง ' + pkg + ' ไม่สำเร็จ', 'ln-err');
+      return false;
+    }
+  }
+
+  function resetWorkDir(){
+    pyodide.runPython(`
+import os, shutil
+if os.path.exists('/work'):
+    shutil.rmtree('/work')
+os.makedirs('/work', exist_ok=True)
+os.chdir('/work')
+`);
+  }
+
+  function listWorkFiles(){
+    const res = pyodide.runPython(`
+import os
+sorted(os.listdir('/work'))
+`);
+    const arr = res.toJs();
+    res.destroy();
+    return arr;
+  }
+
+  async function runUserCode(code){
+    resetWorkDir();
+    const before = new Set(listWorkFiles());
+
+    let attempts = 0;
+    while (attempts < 5) {
+      attempts++;
+      try {
+        await pyodide.runPythonAsync(code);
+        break;
+      } catch (err) {
+        const msg = String(err && err.message ? err.message : err);
+        const m = msg.match(/ModuleNotFoundError: No module named '([^']+)'/);
+        if (m) {
+          const modName = m[1].split('.')[0];
+          const ok = await installMissing(modName);
+          if (ok) { continue; }
+        }
+        throw err;
+      }
+    }
+
+    const after = listWorkFiles();
+    const created = after.filter(f => !before.has(f));
+    return created;
+  }
+
+  runBtn.addEventListener('click', async function(){
+    if (busy) return;
+    const code = codeInput.value.trim();
+    if (!code) {
+      codeInput.focus();
+      return;
+    }
+
+    busy = true;
+    runBtn.disabled = true;
+    spinner.classList.add('on');
+    clearConsole();
+    clearResults();
+
+    try {
+      await ensurePyodide();
+
+      runLabel.textContent = 'กำลังรันโค้ด…';
+      setStatus('busy', 'กำลังรันโค้ดของคุณ…');
+      logLine('— เริ่มรันโค้ด —', 'ln-muted');
+
+      const created = await runUserCode(code);
+
+      if (created.length === 0) {
+        logLine('รันเสร็จแล้ว แต่ไม่พบไฟล์ใหม่ที่ถูกสร้างขึ้น (ตรวจสอบว่าโค้ดมีการ .save(...) ไฟล์หรือไม่)', 'ln-err');
+        setStatus('err', 'รันเสร็จ แต่ไม่พบไฟล์ผลลัพธ์');
+      } else {
+        for (const fname of created) {
+          const bytes = pyodide.FS.readFile('/work/' + fname);
+          addResult(fname, bytes);
+        }
+        logLine('เสร็จสิ้น — พบไฟล์ใหม่ ' + created.length + ' ไฟล์', 'ln-ok');
+        setStatus('ready', 'สร้างไฟล์สำเร็จ');
+      }
+    } catch (err) {
+      console.error(err);
+      const msg = String(err && err.message ? err.message : err);
+      logLine(msg, 'ln-err');
+      setStatus('err', 'เกิดข้อผิดพลาดระหว่างรันโค้ด');
+    } finally {
+      busy = false;
+      runBtn.disabled = false;
+      spinner.classList.remove('on');
+      runLabel.textContent = '▶︎ รันโค้ด & สร้าง .pptx';
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
