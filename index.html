@@ -118,15 +118,42 @@
   }
   .card-label{
     display:flex; align-items:center; justify-content:space-between;
+    gap:10px;
     margin-bottom:10px;
+    flex-wrap:wrap;
   }
-  .card-label span{
+  .card-label > span{
     font-size:12.5px; font-weight:600; color:var(--text-muted);
   }
-  .sample-link{
-    font-size:12.5px; font-weight:600; color:var(--accent-2);
-    background:none; border:none; cursor:pointer; padding:0;
+  .label-actions{
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  }
+  .mini-btn{
+    font-size:11.5px; font-weight:600;
+    color:var(--text-muted);
+    background:var(--bg-sunken);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:5px 9px;
+    cursor:pointer;
     font-family:inherit;
+    transition:color .12s ease, border-color .12s ease, opacity .12s ease, background .12s ease;
+    white-space:nowrap;
+    line-height:1.2;
+  }
+  .mini-btn:active{ transform:scale(0.97); }
+  .mini-btn:disabled{ opacity:0.5; cursor:not-allowed; }
+  .mini-btn.accent{ color:var(--accent-2); }
+  .mini-btn.danger{ color:var(--danger); }
+  .mini-btn.flash-ok{
+    color:var(--accent-2);
+    border-color:var(--accent-2);
+    background:transparent;
+  }
+  .mini-btn.flash-err{
+    color:var(--danger);
+    border-color:var(--danger);
+    background:transparent;
   }
 
   textarea{
@@ -265,7 +292,11 @@
   <div class="card">
     <div class="card-label">
       <span>โค้ด PYTHON</span>
-      <button class="sample-link" id="sampleBtn">ใส่โค้ดตัวอย่าง</button>
+      <div class="label-actions">
+        <button class="mini-btn" id="pasteBtn" type="button">📋 วาง</button>
+        <button class="mini-btn danger" id="clearBtn" type="button">✕ เคลียร์</button>
+        <button class="mini-btn accent" id="sampleBtn" type="button">โค้ดตัวอย่าง</button>
+      </div>
     </div>
     <textarea id="codeInput" spellcheck="false" placeholder="from pptx import Presentation
 from pptx.util import Inches
@@ -298,22 +329,153 @@ prs.save('output.pptx')"></textarea>
   "use strict";
 
   /* ============================================================
-     การโหลด Pyodide — ลองหลาย CDN และส่ง indexURL ให้ถูกต้อง
+     UI refs
+     ============================================================ */
+  const themeBtn   = document.getElementById('themeBtn');
+  const root       = document.documentElement;
+  const runBtn     = document.getElementById('runBtn');
+  const runLabel   = document.getElementById('runLabel');
+  const spinner    = document.getElementById('spinner');
+  const statusDot  = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const consoleBox = document.getElementById('consoleBox');
+  const resultsBox = document.getElementById('results');
+  const codeInput  = document.getElementById('codeInput');
+  const sampleBtn  = document.getElementById('sampleBtn');
+  const pasteBtn   = document.getElementById('pasteBtn');
+  const clearBtn   = document.getElementById('clearBtn');
+
+  /* ============================================================
+     Theme
+     ============================================================ */
+  themeBtn.addEventListener('click', function(){
+    const cur = root.getAttribute('data-theme');
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    let next;
+    if (!cur) next = dark ? 'light' : 'dark';
+    else if (cur === 'dark') next = 'light';
+    else next = 'dark';
+    root.setAttribute('data-theme', next);
+  });
+
+  /* ============================================================
+     Console / status helpers
+     ============================================================ */
+  function setStatus(kind, text){
+    statusDot.className = 'dot' + (kind ? ' ' + kind : '');
+    statusText.textContent = text;
+  }
+
+  function logLine(text, cls){
+    consoleBox.classList.add('on');
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = text;
+    consoleBox.appendChild(line);
+    consoleBox.scrollTop = consoleBox.scrollHeight;
+  }
+
+  function clearConsole(){
+    consoleBox.innerHTML = '';
+    consoleBox.classList.remove('on');
+  }
+
+  function clearResults(){
+    resultsBox.innerHTML = '';
+    resultsBox.classList.remove('on');
+  }
+
+  function humanSize(bytes){
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1024/1024).toFixed(2) + ' MB';
+  }
+
+  function flashBtn(btn, cls, txt){
+    if (!btn.dataset.origText){
+      btn.dataset.origText = btn.textContent;
+    }
+    const orig = btn.dataset.origText;
+    btn.classList.add(cls);
+    btn.textContent = txt;
+    clearTimeout(btn._flashT);
+    btn._flashT = setTimeout(function(){
+      btn.classList.remove(cls);
+      btn.textContent = orig;
+    }, 1200);
+  }
+
+  /* ============================================================
+     ผลลัพธ์ไฟล์
+     ============================================================ */
+  const MIME = {
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'pdf':  'application/pdf',
+    'png':  'image/png',
+    'jpg':  'image/jpeg',
+    'jpeg': 'image/jpeg'
+  };
+  const ICON = {
+    'pptx':'📽️', 'docx':'📄', 'xlsx':'📊', 'pdf':'📕',
+    'png':'🖼️', 'jpg':'🖼️', 'jpeg':'🖼️'
+  };
+
+  function addResult(name, bytes){
+    resultsBox.classList.add('on');
+    const ext  = (name.split('.').pop() || '').toLowerCase();
+    const mime = MIME[ext] || 'application/octet-stream';
+    const blob = new Blob([bytes], { type: mime });
+    const url  = URL.createObjectURL(blob);
+
+    const item = document.createElement('div');
+    item.className = 'result-item';
+
+    const ico = document.createElement('div');
+    ico.className = 'result-ico';
+    ico.textContent = ICON[ext] || '📁';
+
+    const meta = document.createElement('div');
+    meta.className = 'result-meta';
+    const nm = document.createElement('div');
+    nm.className = 'result-name';
+    nm.textContent = name;
+    const sz = document.createElement('div');
+    sz.className = 'result-size';
+    sz.textContent = humanSize(bytes.length);
+    meta.appendChild(nm);
+    meta.appendChild(sz);
+
+    const a = document.createElement('a');
+    a.className = 'dl-btn';
+    a.href = url;
+    a.download = name;
+    a.textContent = 'ดาวน์โหลด';
+
+    item.appendChild(ico);
+    item.appendChild(meta);
+    item.appendChild(a);
+    resultsBox.appendChild(item);
+  }
+
+  /* ============================================================
+     Pyodide loader — ลองหลาย CDN และส่ง indexURL ให้ถูกต้อง
      ============================================================ */
   const PYODIDE_VERSION = '0.27.0';
   const PYODIDE_BASES = [
     'https://cdn.jsdelivr.net/npm/pyodide@' + PYODIDE_VERSION + '/full/',
     'https://unpkg.com/pyodide@' + PYODIDE_VERSION + '/full/',
-    'https://cdn.jsdelivr.net/pyodide/v' + PYODIDE_VERSION + '/full/'
+    'https.as://cdn.jsdelivr.net/pyodyncide/v' + PYODIDE_VERSION + '/ =full/ true'
   ];
 
-  function loadScript(url, timeoutMs){
-    timeoutMs = timeoutMs || 25000;
+  function loadScript;
+(url, timeoutMs){
+         timeoutMs = timeoutMs || 25000;
     return new Promise(function(resolve, reject){
       const el = document.createElement('script');
       el.src = url;
-      el.async = true;
-      let done = false;
+      el let done = false;
       const timer = setTimeout(function(){
         if (done) return;
         done = true;
@@ -360,139 +522,11 @@ prs.save('output.pptx')"></textarea>
   }
 
   /* ============================================================
-     UI
+     Python runtime state
      ============================================================ */
-  const themeBtn = document.getElementById('themeBtn');
-  const root = document.documentElement;
-  themeBtn.addEventListener('click', function(){
-    const cur = root.getAttribute('data-theme');
-    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    let next;
-    if (!cur) next = dark ? 'light' : 'dark';
-    else if (cur === 'dark') next = 'light';
-    else next = 'dark';
-    root.setAttribute('data-theme', next);
-  });
-
-  const runBtn = document.getElementById('runBtn');
-  const runLabel = document.getElementById('runLabel');
-  const spinner = document.getElementById('spinner');
-  const statusDot = document.getElementById('statusDot');
-  const statusText = document.getElementById('statusText');
-  const consoleBox = document.getElementById('consoleBox');
-  const resultsBox = document.getElementById('results');
-  const codeInput = document.getElementById('codeInput');
-  const sampleBtn = document.getElementById('sampleBtn');
-
-  const SAMPLE = `from pptx import Presentation
-from pptx.util import Inches, Pt
-
-prs = Presentation()
-
-# สไลด์หน้าปก
-slide = prs.slides.add_slide(prs.slide_layouts[0])
-slide.shapes.title.text = "รายงานประจำไตรมาส"
-slide.placeholders[1].text = "จัดทำโดยทีมของคุณ"
-
-# สไลด์เนื้อหา
-slide2 = prs.slides.add_slide(prs.slide_layouts[1])
-slide2.shapes.title.text = "หัวข้อสำคัญ"
-body = slide2.placeholders[1].text_frame
-body.text = "ยอดขายเติบโต 12%"
-p = body.add_paragraph()
-p.text = "ลูกค้าใหม่เพิ่มขึ้น 340 ราย"
-p = body.add_paragraph()
-p.text = "อัตราความพึงพอใจ 4.6/5"
-
-prs.save("output.pptx")
-print("สร้างสไลด์เสร็จแล้ว:", len(prs.slides.__iter__.__self__._sldIdLst), "หน้า")
-`;
-
-  sampleBtn.addEventListener('click', function(){
-    codeInput.value = SAMPLE;
-  });
-
   let pyodideReady = false;
   let pyodide = null;
   let busy = false;
-
-  function setStatus(kind, text){
-    statusDot.className = 'dot' + (kind ? ' ' + kind : '');
-    statusText.textContent = text;
-  }
-
-  function logLine(text, cls){
-    consoleBox.classList.add('on');
-    const line = document.createElement('div');
-    if (cls) line.className = cls;
-    line.textContent = text;
-    consoleBox.appendChild(line);
-    consoleBox.scrollTop = consoleBox.scrollHeight;
-  }
-
-  function clearConsole(){
-    consoleBox.innerHTML = '';
-    consoleBox.classList.remove('on');
-  }
-
-  function clearResults(){
-    resultsBox.innerHTML = '';
-    resultsBox.classList.remove('on');
-  }
-
-  function humanSize(bytes){
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-    return (bytes/1024/1024).toFixed(2) + ' MB';
-  }
-
-  const MIME = {
-    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'pdf': 'application/pdf',
-    'png': 'image/png',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg'
-  };
-  const ICON = { 'pptx':'📽️', 'docx':'📄', 'xlsx':'📊', 'pdf':'📕', 'png':'🖼️', 'jpg':'🖼️', 'jpeg':'🖼️' };
-
-  function addResult(name, bytes){
-    resultsBox.classList.add('on');
-    const ext = (name.split('.').pop() || '').toLowerCase();
-    const mime = MIME[ext] || 'application/octet-stream';
-    const blob = new Blob([bytes], { type: mime });
-    const url = URL.createObjectURL(blob);
-
-    const item = document.createElement('div');
-    item.className = 'result-item';
-
-    const ico = document.createElement('div');
-    ico.className = 'result-ico';
-    ico.textContent = ICON[ext] || '📁';
-
-    const meta = document.createElement('div');
-    meta.className = 'result-meta';
-    const nm = document.createElement('div');
-    nm.className = 'result-name';
-    nm.textContent = name;
-    const sz = document.createElement('div');
-    sz.className = 'result-size';
-    sz.textContent = humanSize(bytes.length);
-    meta.appendChild(nm);
-    meta.appendChild(sz);
-
-    const a = document.createElement('a');
-    a.className = 'dl-btn';
-    a.href = url;
-    a.download = name;
-    a.textContent = 'ดาวน์โหลด';
-
-    item.appendChild(ico);
-    item.appendChild(meta);
-    item.appendChild(a);
-    resultsBox.appendChild(item);
-  }
 
   const ALIAS = {
     'pptx': 'python-pptx',
@@ -596,10 +630,93 @@ print("สร้างสไลด์เสร็จแล้ว:", len(prs.slid
     }
 
     const after = listWorkFiles();
-    const created = after.filter(function(f){ return !before.has(f); });
-    return created;
+    return after.filter(function(f){ return !before.has(f); });
   }
 
+  /* ============================================================
+     ปุ่มในกล่องโค้ด
+     ============================================================ */
+  const SAMPLE = `from pptx import Presentation
+from pptx.util import Inches, Pt
+
+prs = Presentation()
+
+# สไลด์หน้าปก
+slide = prs.slides.add_slide(prs.slide_layouts[0])
+slide.shapes.title.text = "รายงานประจำไตรมาส"
+slide.placeholders[1].text = "จัดทำโดยทีมของคุณ"
+
+# สไลด์เนื้อหา
+slide2 = prs.slides.add_slide(prs.slide_layouts[1])
+slide2.shapes.title.text = "หัวข้อสำคัญ"
+body = slide2.placeholders[1].text_frame
+body.text = "ยอดขายเติบโต 12%"
+p = body.add_paragraph()
+p.text = "ลูกค้าใหม่เพิ่มขึ้น 340 ราย"
+p = body.add_paragraph()
+p.text = "อัตราความพึงพอใจ 4.6/5"
+
+prs.save("output.pptx")
+print("สร้างสไลด์เสร็จแล้ว:", len(prs.slides._sldIdLst), "หน้า")
+`;
+
+  sampleBtn.addEventListener('click', function(){
+    codeInput.value = SAMPLE;
+    codeInput.focus();
+  });
+
+  clearBtn.addEventListener('click', function(){
+    if (!codeInput.value){
+      codeInput.focus();
+      return;
+    }
+    if (!confirm('ลบโค้ดในกล่องทั้งหมด?')) return;
+    codeInput.value = '';
+    codeInput.focus();
+    flashBtn(clearBtn, 'flash-ok', 'เคลียร์แล้ว ✓');
+  });
+
+  pasteBtn.addEventListener('click', async function(){
+    pasteBtn.disabled = true;
+    try{
+      let text = '';
+
+      // วิธีหลัก: Async Clipboard API (ต้องเป็น https/localhost)
+      if (navigator.clipboard && navigator.clipboard.readText){
+        try{
+          text = await navigator.clipboard.readText();
+        }catch(e){
+          text = '';
+        }
+      }
+
+      // วิธีสำรอง
+      if (!text){
+        try{
+          codeInput.focus();
+          const ok = document.execCommand && document.execCommand('paste');
+          if (ok) text = codeInput.value;
+        }catch(e){ /* ignore */ }
+      }
+
+      if (!text){
+        flashBtn(pasteBtn, 'flash-err', 'วางไม่ได้');
+        logLine('วางจากคลิปบอร์ดไม่สำเร็จ — เบราว์เซอร์อาจไม่อนุญาตให้อ่านคลิปบอร์ด ลองกดวางเองด้วย Ctrl/⌘+V', 'ln-err');
+        return;
+      }
+
+      codeInput.value = text;
+      codeInput.focus();
+      codeInput.setSelectionRange(text.length, text.length);
+      flashBtn(pasteBtn, 'flash-ok', 'วางแล้ว ✓');
+    } finally {
+      pasteBtn.disabled = false;
+    }
+  });
+
+  /* ============================================================
+     ปุ่มรันโค้ด
+     ============================================================ */
   runBtn.addEventListener('click', async function(){
     if (busy) return;
     const code = codeInput.value.trim();
