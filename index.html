@@ -6,7 +6,7 @@
 <title>PySlide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -15,105 +15,58 @@ body {
     background: #fafafa;
     color: #1a1a1a;
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    padding: 64px 24px;
     -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
 }
 
-.shell {
-    width: 100%;
-    max-width: 720px;
-}
-
-header {
-    margin-bottom: 48px;
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
     border-bottom: 1px solid #e5e5e5;
-    padding-bottom: 24px;
-}
-
-h1 {
-    font-size: 1.75rem;
-    font-weight: 500;
-    letter-spacing: -0.03em;
-}
-
-.tagline {
-    font-size: 0.8125rem;
-    font-weight: 300;
-    color: #737373;
-    margin-top: 6px;
-}
-
-section {
-    margin-bottom: 40px;
-}
-
-.label {
-    display: block;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #737373;
-    margin-bottom: 12px;
-}
-
-.field {
-    margin-bottom: 16px;
-}
-
-input[type="text"],
-textarea {
-    width: 100%;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.875rem;
-    color: #1a1a1a;
     background: #ffffff;
-    border: 1px solid #e5e5e5;
-    border-radius: 2px;
-    padding: 14px 16px;
-    transition: border-color 0.15s ease;
-    outline: none;
-    resize: vertical;
 }
 
-input[type="text"]:focus,
-textarea:focus {
-    border-color: #1a1a1a;
+.brand {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
 }
 
-textarea {
-    min-height: 100px;
-    line-height: 1.6;
+.brand h1 {
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
 }
 
-.field-hint {
-    font-size: 0.75rem;
+.brand span {
+    font-size: 0.6875rem;
     font-weight: 300;
     color: #a3a3a3;
-    margin-top: 6px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
-.row {
+.topbar-actions {
     display: flex;
-    gap: 12px;
-    align-items: stretch;
+    gap: 8px;
 }
 
 .btn {
     font-family: 'Inter', sans-serif;
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     font-weight: 500;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    padding: 14px 24px;
+    padding: 10px 18px;
     border: 1px solid #1a1a1a;
     background: #1a1a1a;
     color: #ffffff;
     border-radius: 2px;
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .btn:hover { background: #333333; border-color: #333333; }
@@ -121,10 +74,11 @@ textarea {
 .btn-ghost {
     background: transparent;
     color: #1a1a1a;
+    border-color: #d4d4d4;
 }
 
 .btn-ghost:hover {
-    background: #f0f0f0;
+    background: transparent;
     color: #1a1a1a;
     border-color: #1a1a1a;
 }
@@ -136,325 +90,408 @@ textarea {
     cursor: not-allowed;
 }
 
-.slides {
-    border-top: 1px solid #e5e5e5;
-}
-
-.slide-item {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 20px 0;
-    border-bottom: 1px solid #e5e5e5;
-}
-
-.slide-meta {
-    display: flex;
-    gap: 16px;
+.workspace {
     flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: #e5e5e5;
+    min-height: 0;
+}
+
+.pane {
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     min-width: 0;
 }
 
-.slide-index {
-    font-size: 0.75rem;
-    font-weight: 400;
-    color: #a3a3a3;
-    padding-top: 2px;
-    min-width: 20px;
-}
-
-.slide-body { flex: 1; min-width: 0; }
-
-.slide-title {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #1a1a1a;
-    margin-bottom: 4px;
-    word-break: break-word;
-}
-
-.slide-preview {
-    font-size: 0.75rem;
-    font-weight: 300;
-    color: #737373;
-    line-height: 1.5;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    word-break: break-word;
-}
-
-.remove {
-    background: none;
-    border: none;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.6875rem;
-    font-weight: 400;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #a3a3a3;
-    cursor: pointer;
-    padding: 4px 0;
-    transition: color 0.15s ease;
-    flex-shrink: 0;
-}
-
-.remove:hover { color: #b91c1c; }
-
-.empty {
-    padding: 32px 0;
-    text-align: center;
-    font-size: 0.8125rem;
-    font-weight: 300;
-    color: #a3a3a3;
+.pane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
     border-bottom: 1px solid #e5e5e5;
+    background: #ffffff;
 }
 
-.actions {
+.pane-title {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #737373;
+}
+
+.pane-meta {
+    font-size: 0.6875rem;
+    font-weight: 300;
+    color: #a3a3a3;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.editor-wrap {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    display: flex;
+}
+
+textarea {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 20px 20px 20px 56px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    color: #1a1a1a;
+    background: transparent;
+    tab-size: 2;
+    white-space: pre;
+    overflow: auto;
+}
+
+.gutter {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 40px;
+    padding: 20px 0;
+    background: #fafafa;
+    border-right: 1px solid #e5e5e5;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    color: #c4c4c4;
+    text-align: right;
+    padding-right: 10px;
+    overflow: hidden;
+    user-select: none;
+    pointer-events: none;
+}
+
+.dropzone-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.92);
+    border: 1px dashed #1a1a1a;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: #1a1a1a;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+}
+
+.editor-wrap.dragging .dropzone-overlay {
+    display: flex;
+}
+
+.console {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.7;
+    color: #525252;
+    background: #ffffff;
+    min-height: 0;
+}
+
+.console-line {
     display: flex;
     gap: 12px;
-    margin-top: 24px;
+    padding: 2px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
-.actions .btn { flex: 1; }
+.console-line .tag {
+    flex-shrink: 0;
+    color: #a3a3a3;
+    width: 60px;
+}
 
-footer {
-    margin-top: 48px;
+.console-line.info .tag { color: #a3a3a3; }
+.console-line.log .tag { color: #737373; }
+.console-line.error { color: #b91c1c; }
+.console-line.error .tag { color: #b91c1c; }
+.console-line.success { color: #15803d; }
+.console-line.success .tag { color: #15803d; }
+
+.console-empty {
+    color: #c4c4c4;
+}
+
+.footer {
+    padding: 12px 32px;
+    border-top: 1px solid #e5e5e5;
+    background: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 0.6875rem;
     font-weight: 300;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
     color: #a3a3a3;
-    text-align: center;
+    letter-spacing: 0.02em;
 }
 
-@media (max-width: 540px) {
-    body { padding: 40px 16px; }
-    .row { flex-direction: column; }
-    .actions { flex-direction: column; }
+.footer kbd {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6875rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 2px;
+    padding: 2px 6px;
+    color: #525252;
+    background: #fafafa;
+}
+
+@media (max-width: 800px) {
+    .workspace { grid-template-columns: 1fr; }
+    .topbar { padding: 16px 20px; flex-wrap: wrap; gap: 12px; }
+    .footer { padding: 12px 20px; }
+    .brand span { display: none; }
 }
 </style>
 </head>
 <body>
 
-<div class="shell">
-    <header>
+<header class="topbar">
+    <div class="brand">
         <h1>PySlide</h1>
-        <p class="tagline">Compose slides. Export a presentation.</p>
-    </header>
+        <span>JS to PPTX</span>
+    </div>
+    <div class="topbar-actions">
+        <button type="button" class="btn btn-ghost" id="clearBtn">Clear</button>
+        <button type="button" class="btn" id="runBtn">Run</button>
+    </div>
+</header>
 
-    <section>
-        <span class="label">New Slide</span>
-        <div class="field">
-            <input type="text" id="slideTitle" placeholder="Slide title" maxlength="120">
+<main class="workspace">
+    <section class="pane">
+        <div class="pane-head">
+            <span class="pane-title">Script</span>
+            <span class="pane-meta" id="lineInfo">0 lines</span>
         </div>
-        <div class="field">
-            <textarea id="slideBody" placeholder="One point per line"></textarea>
-            <p class="field-hint">Each new line becomes a bullet point.</p>
-        </div>
-        <div class="row">
-            <button type="button" class="btn" id="addBtn">Add Slide</button>
-            <button type="button" class="btn btn-ghost" id="clearFormBtn">Clear</button>
+        <div class="editor-wrap" id="editorWrap">
+            <div class="gutter" id="gutter">1</div>
+            <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+            <div class="dropzone-overlay">Drop a .js file</div>
         </div>
     </section>
 
-    <section>
-        <span class="label">Deck</span>
-        <div class="slides" id="slides"></div>
-        <div class="actions">
-            <button type="button" class="btn" id="exportBtn" disabled>Export Presentation</button>
-            <button type="button" class="btn btn-ghost" id="resetBtn" disabled>Reset Deck</button>
+    <section class="pane">
+        <div class="pane-head">
+            <span class="pane-title">Output</span>
+            <span class="pane-meta" id="statusInfo">Idle</span>
         </div>
+        <div class="console" id="console"></div>
     </section>
+</main>
 
-    <footer id="footer">PptxGenJS in the browser</footer>
-</div>
+<footer class="footer">
+    <span>API: pptx, PptxGenJS</span>
+    <span><kbd>Ctrl</kbd> <kbd>Enter</kbd> to run</span>
+</footer>
 
 <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
 <script>
-const state = { slides: [] };
+const DEFAULT_SCRIPT = `const slide = pptx.addSlide();
 
-const els = {
-    slideTitle: document.getElementById('slideTitle'),
-    slideBody: document.getElementById('slideBody'),
-    addBtn: document.getElementById('addBtn'),
-    clearFormBtn: document.getElementById('clearFormBtn'),
-    slides: document.getElementById('slides'),
-    exportBtn: document.getElementById('exportBtn'),
-    resetBtn: document.getElementById('resetBtn'),
-    footer: document.getElementById('footer'),
+slide.addText("Quarterly Report", {
+  x: 0.6,
+  y: 0.6,
+  w: 9,
+  h: 1,
+  fontSize: 36,
+  bold: true,
+  color: "1A1A1A"
+});
+
+slide.addText("Generated in the browser", {
+  x: 0.6,
+  y: 1.8,
+  w: 9,
+  h: 1,
+  fontSize: 16,
+  color: "737373"
+});
+
+await pptx.writeFile({ fileName: "presentation.pptx" });`;
+
+const editor = document.getElementById('editor');
+const gutter = document.getElementById('gutter');
+const lineInfo = document.getElementById('lineInfo');
+const consoleEl = document.getElementById('console');
+const statusInfo = document.getElementById('statusInfo');
+const runBtn = document.getElementById('runBtn');
+const clearBtn = document.getElementById('clearBtn');
+const editorWrap = document.getElementById('editorWrap');
+
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
+let running = false;
+
+function syncGutter() {
+    const lines = editor.value.split('\n').length;
+    let out = '';
+    for (let i = 1; i <= lines; i++) out += i + '\n';
+    gutter.textContent = out;
+    lineInfo.textContent = lines + (lines === 1 ? ' line' : ' lines');
+}
+
+function appendLine(text, type) {
+    const line = document.createElement('div');
+    line.className = 'console-line ' + (type || 'log');
+
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+
+    const stamp = new Date();
+    const hh = String(stamp.getHours()).padStart(2, '0');
+    const mm = String(stamp.getMinutes()).padStart(2, '0');
+    const ss = String(stamp.getSeconds()).padStart(2, '0');
+    tag.textContent = hh + ':' + mm + ':' + ss;
+
+    const body = document.createElement('span');
+    body.textContent = text;
+
+    line.appendChild(tag);
+    line.appendChild(body);
+    consoleEl.appendChild(line);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function clearConsole() {
+    consoleEl.innerHTML = '';
+    const empty = document.createElement('div');
+    empty.className = 'console-empty';
+    empty.textContent = 'Waiting for output';
+    consoleEl.appendChild(empty);
+}
+
+function setStatus(text) {
+    statusInfo.textContent = text;
+}
+
+const customConsole = {
+    log: (...args) => appendLine(args.map(formatArg).join(' '), 'log'),
+    info: (...args) => appendLine(args.map(formatArg).join(' '), 'info'),
+    warn: (...args) => appendLine(args.map(formatArg).join(' '), 'log'),
+    error: (...args) => appendLine(args.map(formatArg).join(' '), 'error'),
+    clear: clearConsole,
 };
 
-function render() {
-    els.slides.innerHTML = '';
-
-    if (state.slides.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'empty';
-        empty.textContent = 'No slides yet';
-        els.slides.appendChild(empty);
-    } else {
-        state.slides.forEach((slide, index) => {
-            const item = document.createElement('div');
-            item.className = 'slide-item';
-
-            const meta = document.createElement('div');
-            meta.className = 'slide-meta';
-
-            const idx = document.createElement('div');
-            idx.className = 'slide-index';
-            idx.textContent = String(index + 1).padStart(2, '0');
-
-            const body = document.createElement('div');
-            body.className = 'slide-body';
-
-            const title = document.createElement('div');
-            title.className = 'slide-title';
-            title.textContent = slide.title || 'Untitled';
-
-            const preview = document.createElement('div');
-            preview.className = 'slide-preview';
-            preview.textContent = slide.bullets.length > 0
-                ? slide.bullets.join(' · ')
-                : 'No content';
-
-            body.appendChild(title);
-            body.appendChild(preview);
-
-            meta.appendChild(idx);
-            meta.appendChild(body);
-
-            const remove = document.createElement('button');
-            remove.type = 'button';
-            remove.className = 'remove';
-            remove.textContent = 'Remove';
-            remove.addEventListener('click', () => {
-                state.slides.splice(index, 1);
-                render();
-            });
-
-            item.appendChild(meta);
-            item.appendChild(remove);
-            els.slides.appendChild(item);
-        });
-    }
-
-    const hasSlides = state.slides.length > 0;
-    els.exportBtn.disabled = !hasSlides;
-    els.resetBtn.disabled = !hasSlides;
-    els.footer.textContent = hasSlides
-        ? state.slides.length + ' slide' + (state.slides.length > 1 ? 's' : '') + ' ready'
-        : 'PptxGenJS in the browser';
+function formatArg(value) {
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(value); }
+    catch (e) { return String(value); }
 }
 
-function addSlide() {
-    const title = els.slideTitle.value.trim();
-    const body = els.slideBody.value.trim();
+async function run() {
+    if (running) return;
+    running = true;
+    runBtn.disabled = true;
+    setStatus('Running');
 
-    if (!title && !body) return;
+    const first = consoleEl.querySelector('.console-empty');
+    if (first) consoleEl.innerHTML = '';
 
-    const bullets = body
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
+    appendLine('Execution started', 'info');
 
-    state.slides.push({ title, bullets });
-    els.slideTitle.value = '';
-    els.slideBody.value = '';
-    els.slideTitle.focus();
-    render();
-}
+    const code = editor.value;
+    const pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_16x9';
+    pptx.author = 'PySlide';
+    pptx.title = 'Presentation';
 
-async function exportDeck() {
-    if (state.slides.length === 0) return;
-
-    els.exportBtn.disabled = true;
-    els.footer.textContent = 'Building presentation';
+    const startedAt = performance.now();
 
     try {
-        const pptx = new PptxGenJS();
-        pptx.layout = 'LAYOUT_16x9';
-        pptx.author = 'PySlide';
-        pptx.title = 'Presentation';
+        const fn = new AsyncFunction('pptx', 'PptxGenJS', 'console', code);
+        await fn(pptx, PptxGenJS, customConsole);
 
-        state.slides.forEach((slide) => {
-            const s = pptx.addSlide();
-
-            if (slide.title) {
-                s.addText(slide.title, {
-                    x: 0.6,
-                    y: 0.5,
-                    w: '90%',
-                    h: 1.0,
-                    fontSize: 32,
-                    fontFace: 'Inter',
-                    bold: true,
-                    color: '1A1A1A',
-                    valign: 'top',
-                });
-            }
-
-            if (slide.bullets.length > 0) {
-                s.addText(
-                    slide.bullets.map(text => ({ text, options: { bullet: true } })),
-                    {
-                        x: 0.6,
-                        y: slide.title ? 1.7 : 0.8,
-                        w: '90%',
-                        h: '70%',
-                        fontSize: 18,
-                        fontFace: 'Inter',
-                        color: '333333',
-                        lineSpacingMultiple: 1.4,
-                        valign: 'top',
-                    }
-                );
-            }
-        });
-
-        await pptx.writeFile({ fileName: 'presentation.pptx' });
-        els.footer.textContent = 'Presentation downloaded';
+        const elapsed = (performance.now() - startedAt).toFixed(0);
+        appendLine('Finished in ' + elapsed + ' ms', 'success');
+        setStatus('Done');
     } catch (err) {
-        els.footer.textContent = 'Export failed: ' + err.message;
+        const message = err && err.message ? err.message : String(err);
+        appendLine(message, 'error');
+        if (err && err.stack) {
+            const firstFrame = err.stack.split('\n')[1];
+            if (firstFrame) appendLine(firstFrame.trim(), 'error');
+        }
+        setStatus('Failed');
     } finally {
-        render();
+        running = false;
+        runBtn.disabled = false;
     }
 }
 
-els.addBtn.addEventListener('click', addSlide);
+editor.addEventListener('input', syncGutter);
 
-els.clearFormBtn.addEventListener('click', () => {
-    els.slideTitle.value = '';
-    els.slideBody.value = '';
-    els.slideTitle.focus();
-});
-
-els.exportBtn.addEventListener('click', exportDeck);
-
-els.resetBtn.addEventListener('click', () => {
-    if (state.slides.length === 0) return;
-    if (!confirm('Remove all slides from the deck?')) return;
-    state.slides = [];
-    render();
-});
-
-els.slideTitle.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
         e.preventDefault();
-        els.slideBody.focus();
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+        editor.selectionStart = editor.selectionEnd = start + 2;
+        syncGutter();
+    }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        run();
     }
 });
 
-els.slideBody.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        addSlide();
-    }
+editorWrap.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    editorWrap.classList.add('dragging');
 });
 
-render();
+editorWrap.addEventListener('dragleave', () => {
+    editorWrap.classList.remove('dragging');
+});
+
+editorWrap.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    editorWrap.classList.remove('dragging');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.js')) {
+        appendLine('Only .js files are accepted', 'error');
+        return;
+    }
+    const text = await file.text();
+    editor.value = text;
+    syncGutter();
+    appendLine('Loaded ' + file.name, 'info');
+});
+
+runBtn.addEventListener('click', run);
+
+clearBtn.addEventListener('click', () => {
+    editor.value = '';
+    syncGutter();
+    clearConsole();
+    setStatus('Idle');
+    editor.focus();
+});
+
+editor.value = DEFAULT_SCRIPT;
+syncGutter();
+clearConsole();
+setStatus('Idle');
 </script>
 </body>
 </html>
