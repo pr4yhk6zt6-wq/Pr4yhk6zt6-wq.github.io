@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code → PPTX Generator</title>
+
+<!-- PptxGenJS (สร้างไฟล์ PowerPoint ฝั่ง JS) -->
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<!-- Pyodide (รัน Python ในเบราว์เซอร์) -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+
+<style>
+  :root{
+    --bg:#0d1017;
+    --panel:#141924;
+    --panel-2:#1a2030;
+    --border:#242c3d;
+    --fg:#e7ebf3;
+    --muted:#8892a8;
+    --accent:#4f8cff;
+    --accent-2:#3ddc97;
+    --danger:#ff6b6b;
+    --warn:#ffcf5c;
+    --mono:"JetBrains Mono","Fira Code",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:radial-gradient(1200px 600px at 80% -10%, #1b2740 0%, var(--bg) 55%);
+    color:var(--fg);
+    font-family:"Inter","Segoe UI",system-ui,-apple-system,"Noto Sans Thai",sans-serif;
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;
+  }
+
+  header{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:12px 18px;
+    border-bottom:1px solid var(--border);
+    background:rgba(20,25,36,.75);
+    backdrop-filter:blur(10px);
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.3px;}
+  .brand .dot{
+    width:12px;height:12px;border-radius:4px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    box-shadow:0 0 14px rgba(79,140,255,.6);
+  }
+  .brand small{display:block;font-weight:400;font-size:11px;color:var(--muted);letter-spacing:0;}
+
+  .spacer{flex:1;}
+
+  select,button{
+    font-family:inherit;font-size:13px;border-radius:9px;
+    border:1px solid var(--border);background:var(--panel-2);color:var(--fg);
+    padding:8px 12px;cursor:pointer;transition:.15s;
+  }
+  select:hover,button:hover{border-color:#33405a;background:#212a3d;}
+  button.primary{
+    background:linear-gradient(135deg,#3b7bff,#2f6ae0);
+    border-color:transparent;font-weight:600;
+    box-shadow:0 6px 18px -6px rgba(79,140,255,.9);
+  }
+  button.primary:hover{filter:brightness(1.1);}
+  button.primary:disabled{opacity:.55;cursor:not-allowed;filter:none;}
+  button.ghost{background:transparent;}
+  button.success{
+    background:linear-gradient(135deg,#22c98a,#12a874);
+    border-color:transparent;font-weight:600;
+    box-shadow:0 6px 18px -6px rgba(61,220,151,.8);
+  }
+
+  main{
+    flex:1;display:grid;grid-template-columns:1.25fr 1fr;
+    gap:14px;padding:14px;min-height:0;
+  }
+  @media (max-width:900px){
+    main{grid-template-columns:1fr;grid-template-rows:1.2fr 1fr;}
+  }
+
+  .panel{
+    display:flex;flex-direction:column;min-height:0;
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:14px;overflow:hidden;
+    box-shadow:0 18px 40px -30px #000;
+  }
+  .panel-head{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 14px;border-bottom:1px solid var(--border);
+    background:var(--panel-2);font-size:12px;color:var(--muted);
+    letter-spacing:.4px;text-transform:uppercase;font-weight:600;
+  }
+  .panel-head .pill{
+    font-size:10px;padding:3px 8px;border-radius:20px;
+    background:#0f1626;border:1px solid var(--border);color:var(--muted);
+    text-transform:none;letter-spacing:0;
+  }
+  .panel-head .grow{flex:1;}
+
+  textarea{
+    flex:1;width:100%;resize:none;border:0;outline:0;
+    background:#0e131e;color:#dbe4f5;
+    font-family:var(--mono);font-size:13.5px;line-height:1.65;
+    padding:16px 18px;tab-size:4;
+  }
+  textarea::selection{background:#2b4a86;}
+
+  #output{
+    flex:1;overflow:auto;padding:12px 14px;
+    font-family:var(--mono);font-size:12.5px;line-height:1.6;
+  }
+  .log{padding:3px 0;border-bottom:1px dashed rgba(255,255,255,.04);white-space:pre-wrap;word-break:break-word;}
+  .log.ok{color:var(--accent-2);}
+  .log.err{color:var(--danger);}
+  .log.warn{color:var(--warn);}
+  .log.dim{color:var(--muted);}
+  .log.info{color:#7fb0ff;}
+
+  .dlbar{
+    padding:12px 14px;border-top:1px solid var(--border);
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    background:var(--panel-2);
+  }
+  .dlbar .file{
+    font-size:12px;color:var(--muted);font-family:var(--mono);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
+  }
+  .hidden{display:none !important;}
+
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#28324a;border-radius:20px;border:2px solid var(--panel);}
+  ::-webkit-scrollbar-thumb:hover{background:#364363;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      Code → PPTX
+      <small>เขียนโค้ด แล้วดาวน์โหลดไฟล์ PowerPoint ได้เลย</small>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <select id="lang" title="เลือกภาษา">
+    <option value="js">JavaScript (PptxGenJS)</option>
+    <option value="py">Python (python-pptx style)</option>
+  </select>
+
+  <button class="ghost" id="sampleJs">ตัวอย่าง JS</button>
+  <button class="ghost" id="samplePy">ตัวอย่าง Python</button>
+  <button class="ghost" id="clearLog">ล้าง Console</button>
+  <button class="primary" id="run">▶ Run (Ctrl+Enter)</button>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="panel-head">
+      <span>Editor</span>
+      <span class="pill" id="langPill">JavaScript</span>
+      <div class="grow"></div>
+      <span class="pill" id="hint">Tab = เยื้อง 4 ช่อง</span>
+    </div>
+    <textarea id="editor" spellcheck="false"></textarea>
+  </section>
+
+  <aside class="panel">
+    <div class="panel-head">
+      <span>Console / Output</span>
+      <div class="grow"></div>
+      <span class="pill" id="status">พร้อมทำงาน</span>
+    </div>
+    <div id="output"></div>
+    <div class="dlbar hidden" id="dlbar">
+      <button class="success" id="dlBtn">⬇ ดาวน์โหลด PPTX</button>
+      <span class="file" id="fileName"></span>
+    </div>
+  </aside>
+</main>
+
+<script>
+/* ============================================================
+   1) ระบบ Console / สถานะ
+   ============================================================ */
+const out     = document.getElementById('output');
+const statusEl= document.getElementById('status');
+const dlbar   = document.getElementById('dlbar');
+const dlBtn   = document.getElementById('dlBtn');
+const fileNameEl = document.getElementById('fileName');
+const editor  = document.getElementById('editor');
+const langSel = document.getElementById('lang');
+const runBtn  = document.getElementById('run');
+const langPill= document.getElementById('langPill');
+
+function log(msg, cls = '') {
+  const d = document.createElement('div');
+  d.className = 'log ' + cls;
+  d.textContent = msg;
+  out.appendChild(d);
+  out.scrollTop = out.scrollHeight;
+}
+function clearLog(){ out.innerHTML = ''; }
+function setStatus(t, color){
+  statusEl.textContent = t;
+  statusEl.style.color = color || '';
+}
+
+/* ============================================================
+   2) ตัวช่วยดาวน์โหลด
+   ============================================================ */
+let lastBlob = null, lastName = 'presentation.pptx';
+
+function offerDownload(blob, filename) {
+  lastBlob = blob;
+  lastName = filename || 'presentation.pptx';
+  fileNameEl.textContent = lastName + '  •  ' + (blob.size / 1024).toFixed(1) + ' KB';
+  dlbar.classList.remove('hidden');
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'presentation.pptx';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+dlBtn.addEventListener('click', () => {
+  if (lastBlob) triggerDownload(lastBlob, lastName);
+});
+
+/* ============================================================
+   3) โหมด JavaScript — ใช้ PptxGenJS โดยตรง
+   ============================================================ */
+async function runJS(code) {
+  clearLog();
+  dlbar.classList.add('hidden');
+  log('▶ เริ่มรัน JavaScript...', 'info');
+
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_16x9';
+
+  let saved = false;
+
+  const sandboxConsole = {
+    log:  (...a) => log(a.map(fmt).join(' ')),
+    info: (...a) => log(a.map(fmt).join(' '), 'info'),
+    warn: (...a) => log(a.map(fmt).join(' '), 'warn'),
+    error:(...a) => log(a.map(fmt).join(' '), 'err'),
+  };
+
+  async function save(filename = 'presentation.pptx') {
+    saved = true;
+    const blob = await pptx.write({ outputType: 'blob' });
+    offerDownload(blob, filename);
+    log('✅ สร้างไฟล์สำเร็จ: ' + filename, 'ok');
+    return blob;
+  }
+
+  const fn = new Function(
+    'pptx', 'PptxGenJS', 'console', 'save',
+    'return (async () => {\n' + code + '\n})();'
+  );
+
+  await fn(pptx, PptxGenJS, sandboxConsole, save);
+
+  if (!saved) {
+    const slides = pptx._slides || pptx.slides || [];
+    if (slides.length > 0) {
+      await save('presentation.pptx');
+    } else {
+      log('ℹ️ ไม่มีสไลด์ถูกสร้าง — ลองเรียก pptx.addSlide()', 'warn');
+    }
+  }
+}
+
+function fmt(v) {
+  if (typeof v === 'string') return v;
+  try { return JSON.stringify(v); } catch (e) { return String(v); }
+}
+
+/* ============================================================
+   4) โหมด Python — Pyodide + python-pptx shim
+   ============================================================ */
+
+/* ---- 4.1 ชิมโมดูล pptx (เขียนคล้าย python-pptx) ---- */
+const PY_SHIM = `
+import json as _json
+import sys as _sys
+import types as _types
+
+try:
+    from js import __receivePptxData as _receive
+except Exception:
+    _receive = None
+
+_EMU_IN = 914400
+_EMU_PT = 12700
+
+def Inches(v):
+    return int(round(float(v) * _EMU_IN))
+
+def Pt(v):
+    return int(round(float(v) * _EMU_PT))
+
+def Emu(v):
+    return int(v)
+
+class RGBColor(int):
+    def __new__(cls, r=0, g=None, b=None):
+        if g is None and b is None:
+            return super().__new__(cls, int(r))
+        return super().__new__(cls, (int(r) << 16) + (int(g) << 8) + int(b))
+    def __str__(self):
+        return "%06X" % (int(self) & 0xFFFFFF)
+    def __repr__(self):
+        return "RGBColor(0x%06X)" % (int(self) & 0xFFFFFF)
+
+def _hex(c):
+    try:
+        return str(RGBColor(int(c)))
+    except Exception:
+        return str(c)
+
+class _Font:
+    def __init__(self, r): self._r = r
+    @property
+    def size(self): return self._r.get("size")
+    @size.setter
+    def size(self, v): self._r["size"] = round(float(v) / _EMU_PT, 2)
+    @property
+    def bold(self): return self._r.get("bold")
+    @bold.setter
+    def bold(self, v): self._r["bold"] = bool(v)
+    @property
+    def italic(self): return self._r.get("italic")
+    @italic.setter
+    def italic(self, v): self._r["italic"] = bool(v)
+    @property
+    def color(self): return _Color(self._r)
+
+class _Color:
+    def __init__(self, r): self._r = r
+    @property
+    def rgb(self): return self._r.get("color")
+    @rgb.setter
+    def rgb(self, v): self._r["color"] = _hex(v)
+
+class _Run:
+    def __init__(self, d): self._d = d
+    @property
+    def text(self): return self._d.get("text", "")
+    @text.setter
+    def text(self, v): self._d["text"] = str(v)
+    @property
+    def font(self): return _Font(self._d)
+
+class _Paragraph:
+    def __init__(self, d): self._d = d
+    @property
+    def text(self): return self._d.get("text", "")
+    @text.setter
+    def text(self, v): self._d["text"] = str(v)
+    @property
+    def level(self): return self._d.get("level", 0)
+    @level.setter
+    def level(self, v): self._d["level"] = int(v)
+    @property
+    def runs(self): return [_Run(r) for r in self._d.setdefault("runs", [])]
+    def add_run(self):
+        r = {"text": ""}
+        self._d.setdefault("runs", []).append(r)
+        return _Run(r)
+
+class _TextFrame:
+    def __init__(self, s): self._s = s
+    @property
+    def text(self):
+        return "\\n".join(p.get("text", "") for p in self._s.get("paragraphs", []))
+    @text.setter
+    def text(self, v):
+        self._s["paragraphs"] = [{"text": t, "level": 0, "runs": []} for t in str(v).split("\\n")]
+    @property
+    def paragraphs(self):
+        if not self._s.get("paragraphs"):
+            self._s["paragraphs"] = [{"text": "", "level": 0, "runs": []}]
+        return [_Paragraph(p) for p in self._s["paragraphs"]]
+    def add_paragraph(self):
+        p = {"text": "", "level": 0, "runs": []}
+        self._s.setdefault("paragraphs", []).append(p)
+        return _Paragraph(p)
+    def clear(self):
+        self._s["paragraphs"] = []
+
+class _Shape:
+    def __init__(self, d): self._d = d
+    @property
+    def text_frame(self): return _TextFrame(self._d)
+    @property
+    def text(self):
+        if self._d.get("paragraphs"):
+            return "\\n".join(p.get("text", "") for p in self._d["paragraphs"])
+        return self._d.get("text", "")
+    @text.setter
+    def text(self, v):
+        self._d["text"] = str(v)
+        self._d["paragraphs"] = [{"text": t, "level": 0, "runs": []} for t in str(v).split("\\n")]
+    @property
+    def has_text_frame(self): return True
+    @property
+    def name(self): return self._d.get("name", "")
+    @property
+    def left(self): return self._d.get("left", 0)
+    @left.setter
+    def left(self, v): self._d["left"] = int(v)
+    @property
+    def top(self): return self._d.get("top", 0)
+    @top.setter
+    def top(self, v): self._d["top"] = int(v)
+    @property
+    def width(self): return self._d.get("width", 0)
+    @width.setter
+    def width(self, v): self._d["width"] = int(v)
+    @property
+    def height(self): return self._d.get("height", 0)
+    @height.setter
+    def height(self, v): self._d["height"] = int(v)
+
+class _Shapes:
+    def __init__(self, slide): self._s = slide
+    def add_textbox(self, left, top, width, height):
+        d = {"type": "textbox", "name": "TextBox",
+             "left": int(left), "top": int(top),
+             "width": int(width), "height": int(height),
+             "paragraphs": []}
+        self._s["shapes"].append(d)
+        return _Shape(d)
+    @property
+    def title(self):
+        for s in self._s["shapes"]:
+            if s.get("type") == "title":
+                return _Shape(s)
+        return None
+    @property
+    def placeholders(self):
+        return [_Shape(s) for s in self._s["shapes"] if s.get("type") in ("title", "body")]
+
+_LAYOUT_DEFS = {
+    0: [("title", 0.8, 2.20, 11.7, 1.5), ("body", 0.8, 3.90, 11.7, 1.0)],
+    1: [("title", 0.6, 0.40, 12.1, 1.0), ("body", 0.6, 1.60, 12.1, 5.4)],
+    2: [("title", 0.6, 0.40, 12.1, 1.0), ("body", 0.6, 1.60, 12.1, 5.4)],
+    3: [("title", 0.6, 0.40, 12.1, 1.0), ("body", 0.6, 1.60, 12.1, 5.4)],
+    4: [("title", 0.6, 0.40, 12.1, 1.0), ("body", 0.6, 1.60, 12.1, 5.4)],
+    5: [("title", 0.6, 0.40, 12.1, 1.0)],
+    6: [],
+}
+
+class _Layout:
+    def __init__(self, i):
+        self.index = i
+        self.name = "Layout " + str(i)
+
+class _Slide:
+    def __init__(self, layout_index):
+        self._d = {"layout": layout_index, "shapes": []}
+        for kind, l, t, w, h in _LAYOUT_DEFS.get(layout_index, []):
+            self._d["shapes"].append({
+                "type": kind,
+                "name": ("Title" if kind == "title" else "Content Placeholder"),
+                "left": Inches(l), "top": Inches(t),
+                "width": Inches(w), "height": Inches(h),
+                "paragraphs": []
+            })
+    @property
+    def shapes(self): return _Shapes(self._d)
+    @property
+    def placeholders(self): return _Shapes(self._d).placeholders
+
+class _Slides:
+    def __init__(self, prs): self._p = prs
+    def add_slide(self, layout=None):
+        idx = getattr(layout, "index", 6) if layout is not None else 6
+        s = _Slide(idx)
+        self._p._data["slides"].append(s._d)
+        return s
+    def __len__(self): return len(self._p._data["slides"])
+
+class Presentation:
+    def __init__(self, path=None):
+        self._data = {"width": 13.333, "height": 7.5, "slides": []}
+        self.slide_layouts = [_Layout(i) for i in range(7)]
+        self.slides = _Slides(self)
+    @property
+    def slide_width(self): return int(self._data["width"] * _EMU_IN)
+    @slide_width.setter
+    def slide_width(self, v): self._data["width"] = round(float(v) / _EMU_IN, 4)
+    @property
+    def slide_height(self): return int(self._data["height"] * _EMU_IN)
+    @slide_height.setter
+    def slide_height(self, v): self._data["height"] = round(float(v) / _EMU_IN, 4)
+    def save(self, path="presentation.pptx"):
+        payload = _json.dumps(self._data)
+        if _receive is not None:
+            _receive(payload, str(path))
+
+# --- ลงทะเบียนเป็นโมดูล pptx / pptx.util / pptx.dml.color ---
+_pptx = _types.ModuleType("pptx")
+_pptx.Presentation = Presentation
+
+_util = _types.ModuleType("pptx.util")
+_util.Inches = Inches
+_util.Pt = Pt
+_util.Emu = Emu
+
+_dml = _types.ModuleType("pptx.dml")
+_color = _types.ModuleType("pptx.dml.color")
+_color.RGBColor = RGBColor
+
+_pptx.util = _util
+_pptx.dml = _dml
+_dml.color = _color
+
+_sys.modules["pptx"] = _pptx
+_sys.modules["pptx.util"] = _util
+_sys.modules["pptx.dml"] = _dml
+_sys.modules["pptx.dml.color"] = _color
+
+del _json, _sys, _types
+`;
+
+/* ---- 4.2 รับข้อมูลจาก Python ---- */
+let pendingPptx = null;
+globalThis.__receivePptxData = (jsonStr, filename) => {
+  pendingPptx = { data: JSON.parse(jsonStr), filename: filename || 'presentation.pptx' };
+};
+
+/* ---- 4.3 แปลง JSON -> PptxGenJS ---- */
+function buildPptxFromData(data) {
+  const pptx = new PptxGenJS();
+  const W = data.width  || 13.333;
+  const H = data.height || 7.5;
+  pptx.defineLayout({ name: 'CUSTOM_LAYOUT', width: W, height: H });
+  pptx.layout = 'CUSTOM_LAYOUT';
+
+  const slides = data.slides || [];
+  slides.forEach(sd => {
+    const slide = pptx.addSlide();
+    (sd.shapes || []).forEach(sh => {
+      const isTitle = sh.type === 'title';
+      const isBody  = sh.type === 'body';
+
+      const base = {
+        x: (sh.left   || 0) / 914400,
+        y: (sh.top    || 0) / 914400,
+        w: (sh.width  || 0) / 914400,
+        h: (sh.height || 0) / 914400,
+        valign: isTitle ? 'middle' : 'top',
+      };
+      if (isTitle) base.align = 'center';
+
+      const items = [];
+      const paras = sh.paragraphs || [];
+
+      if (!paras.length) {
+        if (sh.text) items.push({ text: sh.text, options: { breakLine: true } });
+      } else {
+        paras.forEach(p => {
+          const runs = (p.runs && p.runs.length) ? p.runs : [{ text: p.text || '' }];
+          runs.forEach((r, i) => {
+            const o = {};
+            if (isTitle)      { o.fontSize = 34; o.bold = true;  o.color = '1E293B'; }
+            else if (isBody)  { o.fontSize = 18; o.color = '334155'; }
+            else              { o.fontSize = 18; o.color = '334155'; }
+
+            if (p.level) o.indentLevel = p.level;
+            if (isBody && i === 0) o.bullet = true;
+            if (r.size)  o.fontSize = r.size;
+            if (r.bold !== undefined && r.bold !== null) o.bold = r.bold;
+            if (r.italic) o.italic = true;
+            if (r.color)  o.color = r.color;
+
+            o.breakLine = (i === runs.length - 1);
+            items.push({ text: r.text || '', options: o });
+          });
+        });
+      }
+
+      if (!items.length) return;
+      slide.addText(items, base);
+    });
+  });
+
+  return pptx;
+}
+
+/* ---- 4.4 โหลด Pyodide ---- */
+let pyodide = null;
+
+async function getPyodide() {
+  if (pyodide) return pyodide;
+
+  setStatus('กำลังโหลด Python...', '#ffcf5c');
+  log('⏳ กำลังโหลด Pyodide (ครั้งแรกอาจใช้เวลาสักครู่)...', 'info');
+
+  pyodide = await loadPyodide({
+    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/'
+  });
+
+  pyodide.setStdout({ batched: (s) => log(s) });
+  pyodide.setStderr({ batched: (s) => log(s, 'err') });
+
+  await pyodide.runPythonAsync(PY_SHIM);
+  log('✅ โหลด Python + pptx shim สำเร็จ', 'ok');
+  return pyodide;
+}
+
+/* ---- 4.5 รัน Python ---- */
+async function runPython(code) {
+  clearLog();
+  dlbar.classList.add('hidden');
+  log('▶ เริ่มรัน Python...', 'info');
+
+  const py = await getPyodide();
+  pendingPptx = null;
+
+  await py.runPythonAsync(code);
+
+  if (pendingPptx) {
+    const { data, filename } = pendingPptx;
+    const pptx = buildPptxFromData(data);
+    const blob = await pptx.write({ outputType: 'blob' });
+    offerDownload(blob, filename);
+    log('✅ สร้างไฟล์สำเร็จ: ' + filename + '  (' + data.slides.length + ' สไลด์)', 'ok');
+  } else {
+    log('ℹ️ ไม่พบการเรียก prs.save() — ไม่มีไฟล์ถูกสร้าง', 'warn');
+  }
+}
+
+/* ============================================================
+   5) ตัวอย่างโค้ด
+   ============================================================ */
+const SAMPLES = {
+  js: `// === สร้างสไลด์ด้วย PptxGenJS ===
+
+// สไลด์ที่ 1 : ปก
+const s1 = pptx.addSlide();
+s1.background = { color: "0F172A" };
+s1.addText("Hello from JavaScript 👋", {
+  x: 0.6, y: 2.3, w: 12.1, h: 1.3,
+  fontSize: 40, bold: true, color: "FFFFFF", align: "center"
+});
+s1.addText("สร้างไฟล์ PPTX จากโค้ดในเบราว์เซอร์", {
+  x: 0.6, y: 3.7, w: 12.1, h: 0.8,
+  fontSize: 20, color: "7DD3FC", align: "center"
+});
+
+// สไลด์ที่ 2 : รายการ
+const s2 = pptx.addSlide();
+s2.addText("สิ่งที่ทำได้", {
+  x: 0.7, y: 0.5, w: 12, h: 0.9,
+  fontSize: 32, bold: true, color: "1E293B"
+});
+s2.addText([
+  { text: "ใส่ข้อความจัดรูปแบบได้", options: { bullet: true } },
+  { text: "ใส่รูปภาพ ตาราง และกราฟ", options: { bullet: true } },
+  { text: "กำหนดสีพื้นหลังและธีม",   options: { bullet: true } },
+], { x: 0.9, y: 1.7, w: 11, h: 3.5, fontSize: 20, color: "334155" });
+
+console.log("สร้างสไลด์เสร็จแล้ว");
+
+// บันทึกไฟล์ (ถ้าไม่เรียก บอทจะบันทึกให้อัตโนมัติ)
+await save("my-deck.pptx");
+`,
+
+  py: `# === สร้างสไลด์ด้วยสไตล์ python-pptx ===
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+
+prs = Presentation()
+
+# ---------- สไลด์ที่ 1 : ปก ----------
+s1 = prs.slides.add_slide(prs.slide_layouts[0])
+s1.shapes.title.text = "สวัสดีจาก Python"
+s1.placeholders[1].text = "สร้าง PPTX ในเบราว์เซอร์ด้วย Pyodide"
+
+# ---------- สไลด์ที่ 2 : หัวข้อ + เนื้อหา ----------
+s2 = prs.slides.add_slide(prs.slide_layouts[1])
+s2.shapes.title.text = "ความสามารถ"
+
+tf = s2.placeholders[1].text_frame
+tf.text = "เขียนโค้ดแบบ python-pptx"
+p = tf.add_paragraph()
+p.text = "รองรับหลายระดับ"
+p.level = 1
+p = tf.add_paragraph()
+p.text = "กำหนดสีและขนาดตัวอักษรได้"
+p.level = 1
+
+# ---------- สไลด์ที่ 3 : กล่องข้อความอิสระ ----------
+s3 = prs.slides.add_slide(prs.slide_layouts[6])
+box = s3.shapes.add_textbox(Inches(1), Inches(1.5), Inches(11), Inches(3))
+frame = box.text_frame
+frame.text = "กล่องข้อความอิสระ"
+para = frame.add_paragraph()
+run = para.add_run()
+run.text = "ข้อความสีแดง ตัวหนา"
+run.font.size = Pt(28)
+run.font.bold = True
+run.font.color.rgb = RGBColor(0xE1, 0x1D, 0x48)
+
+print("สร้างสไลด์ทั้งหมด", len(prs.slides), "สไลด์")
+
+# บันทึกไฟล์
+prs.save("python-deck.pptx")
+`
+};
+
+/* ============================================================
+   6) โหลดตัวอย่าง / สลับภาษา
+   ============================================================ */
+function loadSample(lang) {
+  editor.value = SAMPLES[lang];
+  langSel.value = lang;
+  updateLangPill();
+}
+function updateLangPill() {
+  langPill.textContent = langSel.value === 'js' ? 'JavaScript' : 'Python';
+}
+
+langSel.addEventListener('change', updateLangPill);
+document.getElementById('sampleJs').addEventListener('click', () => loadSample('js'));
+document.getElementById('samplePy').addEventListener('click', () => loadSample('py'));
+document.getElementById('clearLog').addEventListener('click', () => { clearLog(); dlbar.classList.add('hidden'); });
+
+/* ============================================================
+   7) ตัวรันหลัก
+   ============================================================ */
+async function run() {
+  const code = editor.value;
+  const lang = langSel.value;
+
+  if (!code.trim()) { log('⚠️ ยังไม่มีโค้ด', 'warn'); return; }
+
+  runBtn.disabled = true;
+  runBtn.textContent = '⏳ กำลังทำงาน...';
+  setStatus('กำลังทำงาน...', '#ffcf5c');
+
+  const t0 = performance.now();
+
+  try {
+    if (lang === 'js') {
+      await runJS(code);
+    } else {
+      await runPython(code);
+    }
+    const dt = ((performance.now() - t0) / 1000).toFixed(2);
+    setStatus('เสร็จสิ้น (' + dt + 's)', '#3ddc97');
+  } catch (err) {
+    console.error(err);
+    log('❌ เกิดข้อผิดพลาด: ' + (err && err.message ? err.message : String(err)), 'err');
+    if (err && err.stack) log(String(err.stack).split('\n').slice(0,4).join('\n'), 'dim');
+    setStatus('เกิดข้อผิดพลาด', '#ff6b6b');
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = '▶ Run (Ctrl+Enter)';
+  }
+}
+
+runBtn.addEventListener('click', run);
+
+/* Ctrl/Cmd + Enter = Run, Tab = เยื้อง */
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart, en = editor.selectionEnd;
+    editor.value = editor.value.slice(0, s) + '    ' + editor.value.slice(en);
+    editor.selectionStart = editor.selectionEnd = s + 4;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    run();
+  }
+});
+
+/* ============================================================
+   8) เริ่มต้น
+   ============================================================ */
+loadSample('js');
+log('ยินดีต้อนรับ! เลือกภาษาด้านบน แล้วกด Run ได้เลย', 'dim');
+log('• JavaScript → ใช้ PptxGenJS สร้างสไลด์โดยตรง', 'dim');
+log('• Python → ใช้ Pyodide + ชิมโมดูล pptx (สไตล์ python-pptx)', 'dim');
+</script>
+</body>
+</html>
