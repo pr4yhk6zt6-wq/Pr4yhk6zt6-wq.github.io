@@ -4,266 +4,145 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PY → PPTX</title>
+<script>
+window.addEventListener('error', function(e){
+  try{
+    var b = document.createElement('div');
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;' +
+      'background:#D8432E;color:#fff;padding:10px 12px;font:12px/1.5 monospace;' +
+      'white-space:pre-wrap;word-break:break-word;';
+    b.textContent = 'JS ERROR: ' + (e.message || e.error) +
+      (e.filename ? '\n@ ' + e.filename + ':' + e.lineno : '');
+    (document.body || document.documentElement).appendChild(b);
+  }catch(_){}
+});
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     box-sizing: border-box;
-    --bg:#F5F6FA;
-    --bg-elev:#FFFFFF;
-    --bg-sunken:#ECEEF4;
-    --text:#1A1D29;
-    --text-muted:#5C6178;
-    --accent:#C97F1E;
-    --accent-ink:#FFFFFF;
-    --accent-2:#2E9C82;
-    --danger:#D8432E;
-    --border:rgba(20,22,32,0.10);
-    --console-bg:#14161F;
-    --console-text:#D6D9E6;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --bg:#F5F6FA; --bg-elev:#FFFFFF; --bg-sunken:#ECEEF4;
+    --text:#1A1D29; --text-muted:#5C6178;
+    --accent:#C97F1E; --accent-ink:#FFFFFF; --accent-2:#2E9C82;
+    --danger:#D8432E; --border:rgba(20,22,32,0.10);
+    --console-bg:#14161F; --console-text:#D6D9E6;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
-      --bg:#12141B;
-      --bg-elev:#1B1E29;
-      --bg-sunken:#181A24;
-      --text:#EDEFF5;
-      --text-muted:#9AA0B4;
-      --accent:#E8A33D;
-      --accent-ink:#1A1204;
-      --accent-2:#6FE3C4;
-      --danger:#F0654F;
-      --border:rgba(255,255,255,0.09);
-      --console-bg:#0C0D13;
-      --console-text:#C9CEDC;
+      --bg:#12141B; --bg-elev:#1B1E29; --bg-sunken:#181A24;
+      --text:#EDEFF5; --text-muted:#9AA0B4;
+      --accent:#E8A33D; --accent-ink:#1A1204; --accent-2:#6FE3C4;
+      --danger:#F0654F; --border:rgba(255,255,255,0.09);
+      --console-bg:#0C0D13; --console-text:#C9CEDC;
     }
   }
   :root[data-theme="dark"]{
-    --bg:#12141B;
-    --bg-elev:#1B1E29;
-    --bg-sunken:#181A24;
-    --text:#EDEFF5;
-    --text-muted:#9AA0B4;
-    --accent:#E8A33D;
-    --accent-ink:#1A1204;
-    --accent-2:#6FE3C4;
-    --danger:#F0654F;
-    --border:rgba(255,255,255,0.09);
-    --console-bg:#0C0D13;
-    --console-text:#C9CEDC;
+    --bg:#12141B; --bg-elev:#1B1E29; --bg-sunken:#181A24;
+    --text:#EDEFF5; --text-muted:#9AA0B4;
+    --accent:#E8A33D; --accent-ink:#1A1204; --accent-2:#6FE3C4;
+    --danger:#F0654F; --border:rgba(255,255,255,0.09);
+    --console-bg:#0C0D13; --console-text:#C9CEDC;
   }
   html,body{ height:100%; }
   * { box-sizing:border-box; }
-  html{ scroll-padding-top: env(safe-area-inset-top, 0px); }
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
+  body{ margin:0; background:var(--bg); color:var(--text);
     font-family:'Inter',system-ui,-apple-system,sans-serif;
-    -webkit-font-smoothing:antialiased;
-    min-height:100%;
-  }
-  .wrap{
-    max-width:640px;
-    margin:0 auto;
-    padding:28px 18px calc(40px + env(safe-area-inset-bottom,0px));
-  }
-
-  /* header */
-  .top{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    margin-bottom:22px;
-  }
+    -webkit-font-smoothing:antialiased; min-height:100%; }
+  .wrap{ max-width:640px; margin:0 auto;
+    padding:28px 18px calc(40px + env(safe-area-inset-bottom,0px)); }
+  .top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
   .brand{ display:flex; align-items:center; gap:10px; }
-  .brand-mark{
-    width:34px; height:34px; border-radius:9px;
+  .brand-mark{ width:34px; height:34px; border-radius:9px;
     background:linear-gradient(135deg, var(--accent), var(--accent-2));
-    display:flex; align-items:center; justify-content:center;
-    font-size:17px; flex:none;
-  }
+    display:flex; align-items:center; justify-content:center; font-size:17px; flex:none; }
   .brand-text{ font-weight:800; font-size:16px; letter-spacing:-0.01em; }
   .brand-sub{ font-size:11.5px; color:var(--text-muted); margin-top:1px; }
-  .theme-btn{
-    width:38px; height:38px; border-radius:10px;
+  .js-ok{ display:inline-block; font-size:10px; font-weight:700;
+    color:#fff; background:var(--accent-2); padding:1px 6px;
+    border-radius:6px; margin-left:6px; vertical-align:middle; }
+  .theme-btn{ width:38px; height:38px; border-radius:10px;
     border:1px solid var(--border); background:var(--bg-elev);
-    color:var(--text); font-size:16px; cursor:pointer;
-  }
-
-  h1{
-    font-size:26px;
-    line-height:1.25;
-    font-weight:800;
-    letter-spacing:-0.015em;
-    margin:6px 0 10px;
-  }
+    color:var(--text); font-size:16px; cursor:pointer; }
+  h1{ font-size:26px; line-height:1.25; font-weight:800;
+    letter-spacing:-0.015em; margin:6px 0 10px; }
   h1 span{ color:var(--accent); }
-  .lede{
-    color:var(--text-muted);
-    font-size:14.5px;
-    line-height:1.6;
-    margin:0 0 26px;
-  }
-
-  .card{
-    background:var(--bg-elev);
-    border:1px solid var(--border);
-    border-radius:16px;
-    padding:16px;
-    margin-bottom:14px;
-  }
-  .card-label{
-    display:flex; align-items:center; justify-content:space-between;
-    gap:10px;
-    margin-bottom:10px;
-    flex-wrap:wrap;
-  }
-  .card-label > span{
-    font-size:12.5px; font-weight:600; color:var(--text-muted);
-  }
-  .label-actions{
-    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
-  }
-  .mini-btn{
-    font-size:11.5px; font-weight:600;
-    color:var(--text-muted);
-    background:var(--bg-sunken);
-    border:1px solid var(--border);
-    border-radius:8px;
-    padding:5px 9px;
-    cursor:pointer;
-    font-family:inherit;
-    transition:color .12s ease, border-color .12s ease, opacity .12s ease, background .12s ease;
-    white-space:nowrap;
-    line-height:1.2;
-  }
+  .lede{ color:var(--text-muted); font-size:14.5px; line-height:1.6; margin:0 0 26px; }
+  .card{ background:var(--bg-elev); border:1px solid var(--border);
+    border-radius:16px; padding:16px; margin-bottom:14px; }
+  .card-label{ display:flex; align-items:center; justify-content:space-between;
+    gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .card-label > span{ font-size:12.5px; font-weight:600; color:var(--text-muted); }
+  .label-actions{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .mini-btn{ font-size:11.5px; font-weight:600; color:var(--text-muted);
+    background:var(--bg-sunken); border:1px solid var(--border);
+    border-radius:8px; padding:5px 9px; cursor:pointer; font-family:inherit;
+    white-space:nowrap; line-height:1.2; }
   .mini-btn:active{ transform:scale(0.97); }
   .mini-btn:disabled{ opacity:0.5; cursor:not-allowed; }
   .mini-btn.accent{ color:var(--accent-2); }
   .mini-btn.danger{ color:var(--danger); }
-  .mini-btn.flash-ok{
-    color:var(--accent-2);
-    border-color:var(--accent-2);
-    background:transparent;
-  }
-  .mini-btn.flash-err{
-    color:var(--danger);
-    border-color:var(--danger);
-    background:transparent;
-  }
-
-  textarea{
-    width:100%;
-    min-height:190px;
-    resize:vertical;
-    background:var(--bg-sunken);
-    color:var(--text);
-    border:1px solid var(--border);
-    border-radius:11px;
-    padding:13px 14px;
-    font-family:'JetBrains Mono',ui-monospace,monospace;
-    font-size:12.5px;
-    line-height:1.65;
-    outline:none;
-  }
+  .mini-btn.flash-ok{ color:var(--accent-2); border-color:var(--accent-2); background:transparent; }
+  .mini-btn.flash-err{ color:var(--danger); border-color:var(--danger); background:transparent; }
+  textarea{ width:100%; min-height:190px; resize:vertical;
+    background:var(--bg-sunken); color:var(--text);
+    border:1px solid var(--border); border-radius:11px;
+    padding:13px 14px; font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:12.5px; line-height:1.65; outline:none; }
   textarea:focus{ border-color:var(--accent); }
   textarea::placeholder{ color:var(--text-muted); opacity:0.85; }
-
-  .run-row{
-    display:flex; gap:10px; margin: 4px 0 18px;
-  }
-  button.primary{
-    flex:1;
-    border:none;
-    border-radius:13px;
-    background:var(--accent);
-    color:var(--accent-ink);
-    font-family:inherit;
-    font-weight:700;
-    font-size:15px;
-    padding:15px 18px;
-    cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    transition:transform .12s ease, opacity .12s ease;
-  }
+  .run-row{ display:flex; gap:10px; margin: 4px 0 18px; }
+  button.primary{ flex:1; border:none; border-radius:13px;
+    background:var(--accent); color:var(--accent-ink);
+    font-family:inherit; font-weight:700; font-size:15px;
+    padding:15px 18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px; }
   button.primary:active{ transform:scale(0.98); }
   button.primary:disabled{ opacity:0.55; cursor:not-allowed; }
-  .spinner{
-    width:15px; height:15px; border-radius:50%;
+  .spinner{ width:15px; height:15px; border-radius:50%;
     border:2px solid rgba(255,255,255,0.4);
     border-top-color: var(--accent-ink);
-    animation: spin .8s linear infinite;
-    display:none;
-  }
+    animation: spin .8s linear infinite; display:none; }
   .spinner.on{ display:inline-block; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
-
-  .status-pill{
-    display:inline-flex; align-items:center; gap:6px;
+  .status-pill{ display:inline-flex; align-items:center; gap:6px;
     font-size:11.5px; font-weight:600; color:var(--text-muted);
     background:var(--bg-sunken); border:1px solid var(--border);
-    padding:5px 10px 5px 8px; border-radius:99px; margin-bottom:16px;
-  }
+    padding:5px 10px 5px 8px; border-radius:99px; margin-bottom:16px; }
   .dot{ width:6px; height:6px; border-radius:50%; background:var(--text-muted); flex:none; }
   .dot.ready{ background:var(--accent-2); }
   .dot.busy{ background:var(--accent); animation: pulse 1s ease-in-out infinite; }
   .dot.err{ background:var(--danger); }
   @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
-
-  .console{
-    background:var(--console-bg);
-    color:var(--console-text);
-    border-radius:13px;
-    padding:14px 14px;
+  .console{ background:var(--console-bg); color:var(--console-text);
+    border-radius:13px; padding:14px 14px;
     font-family:'JetBrains Mono',ui-monospace,monospace;
-    font-size:12px;
-    line-height:1.7;
-    max-height:230px;
-    overflow-y:auto;
-    overflow-x:auto;
-    white-space:pre-wrap;
-    word-break:break-word;
-    display:none;
-  }
+    font-size:12px; line-height:1.7; max-height:230px;
+    overflow-y:auto; overflow-x:auto; white-space:pre-wrap;
+    word-break:break-word; display:none; }
   .console.on{ display:block; }
   .console .ln-err{ color:#FF8A76; }
   .console .ln-ok{ color:#8CE3C3; }
   .console .ln-muted{ color:#7B8098; }
-
   .results{ margin-top:14px; display:none; flex-direction:column; gap:10px; }
   .results.on{ display:flex; }
-  .result-item{
-    display:flex; align-items:center; gap:12px;
-    background:var(--bg-sunken);
-    border:1px solid var(--border);
-    border-radius:13px;
-    padding:12px 13px;
-  }
-  .result-ico{
-    width:38px; height:38px; border-radius:10px; flex:none;
+  .result-item{ display:flex; align-items:center; gap:12px;
+    background:var(--bg-sunken); border:1px solid var(--border);
+    border-radius:13px; padding:12px 13px; }
+  .result-ico{ width:38px; height:38px; border-radius:10px; flex:none;
     background:linear-gradient(135deg, var(--accent), var(--accent-2));
-    display:flex; align-items:center; justify-content:center; font-size:17px;
-  }
+    display:flex; align-items:center; justify-content:center; font-size:17px; }
   .result-meta{ flex:1; min-width:0; }
-  .result-name{ font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .result-name{ font-weight:600; font-size:13.5px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .result-size{ font-size:11.5px; color:var(--text-muted); margin-top:1px; }
-  .dl-btn{
-    flex:none;
-    background:var(--accent);
-    color:var(--accent-ink);
-    border:none; border-radius:9px;
-    font-family:inherit; font-weight:700; font-size:12.5px;
-    padding:9px 13px; cursor:pointer; text-decoration:none;
-  }
-
-  .hint{
-    font-size:12px; color:var(--text-muted); line-height:1.6;
-    margin-top:22px; padding-top:16px; border-top:1px solid var(--border);
-  }
+  .dl-btn{ flex:none; background:var(--accent); color:var(--accent-ink);
+    border:none; border-radius:9px; font-family:inherit;
+    font-weight:700; font-size:12.5px; padding:9px 13px;
+    cursor:pointer; text-decoration:none; }
+  .hint{ font-size:12px; color:var(--text-muted); line-height:1.6;
+    margin-top:22px; padding-top:16px; border-top:1px solid var(--border); }
   .hint b{ color:var(--text); }
 </style>
 </head>
@@ -274,11 +153,11 @@
     <div class="brand">
       <div class="brand-mark">🐍</div>
       <div>
-        <div class="brand-text">PY → PPTX</div>
+        <div class="brand-text">PY → PPTX<span class="js-ok" id="jsOk" style="display:none">JS OK</span></div>
         <div class="brand-sub">รันโค้ดในเครื่อง ไม่ส่งขึ้นเซิร์ฟเวอร์</div>
       </div>
     </div>
-    <button class="theme-btn" id="themeBtn" aria-label="สลับธีม">🌓</button>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="สลับธีม">🌓</button>
   </div>
 
   <h1>วางโค้ด <span>python-pptx</span><br>รับไฟล์สไลด์กลับมาเลย</h1>
@@ -308,7 +187,7 @@ prs.save('output.pptx')"></textarea>
   </div>
 
   <div class="run-row">
-    <button class="primary" id="runBtn">
+    <button class="primary" id="runBtn" type="button">
       <span class="spinner" id="spinner"></span>
       <span id="runLabel">▶︎ รันโค้ด &amp; สร้าง .pptx</span>
     </button>
@@ -328,74 +207,50 @@ prs.save('output.pptx')"></textarea>
 (function(){
   "use strict";
 
-  /* ============================================================
-     UI refs
-     ============================================================ */
-  const themeBtn   = document.getElementById('themeBtn');
-  const root       = document.documentElement;
-  const runBtn     = document.getElementById('runBtn');
-  const runLabel   = document.getElementById('runLabel');
-  const spinner    = document.getElementById('spinner');
-  const statusDot  = document.getElementById('statusDot');
-  const statusText = document.getElementById('statusText');
-  const consoleBox = document.getElementById('consoleBox');
-  const resultsBox = document.getElementById('results');
-  const codeInput  = document.getElementById('codeInput');
-  const sampleBtn  = document.getElementById('sampleBtn');
-  const pasteBtn   = document.getElementById('pasteBtn');
-  const clearBtn   = document.getElementById('clearBtn');
+  /* ---------- บอกว่าสคริปต์รันแล้ว ---------- */
+  var jsOk = document.getElementById('jsOk');
+  if (jsOk) jsOk.style.display = 'inline-block';
+  console.log('[py2pptx] script running');
 
-  /* ============================================================
-     Theme
-     ============================================================ */
-  themeBtn.addEventListener('click', function(){
-    const cur = root.getAttribute('data-theme');
-    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    let next;
-    if (!cur) next = dark ? 'light' : 'dark';
-    else if (cur === 'dark') next = 'light';
-    else next = 'dark';
-    root.setAttribute('data-theme', next);
-  });
+  /* ---------- refs ---------- */
+  var themeBtn   = document.getElementById('themeBtn');
+  var root       = document.documentElement;
+  var runBtn     = document.getElementById('runBtn');
+  var runLabel   = document.getElementById('runLabel');
+  var spinner    = document.getElementById('spinner');
+  var statusDot  = document.getElementById('statusDot');
+  var statusText = document.getElementById('statusText');
+  var consoleBox = document.getElementById('consoleBox');
+  var resultsBox = document.getElementById('results');
+  var codeInput  = document.getElementById('codeInput');
+  var sampleBtn  = document.getElementById('sampleBtn');
+  var pasteBtn   = document.getElementById('pasteBtn');
+  var clearBtn   = document.getElementById('clearBtn');
 
-  /* ============================================================
-     Console / status helpers
-     ============================================================ */
+  /* ---------- helpers ---------- */
   function setStatus(kind, text){
     statusDot.className = 'dot' + (kind ? ' ' + kind : '');
     statusText.textContent = text;
   }
-
   function logLine(text, cls){
     consoleBox.classList.add('on');
-    const line = document.createElement('div');
+    var line = document.createElement('div');
     if (cls) line.className = cls;
     line.textContent = text;
     consoleBox.appendChild(line);
     consoleBox.scrollTop = consoleBox.scrollHeight;
   }
-
-  function clearConsole(){
-    consoleBox.innerHTML = '';
-    consoleBox.classList.remove('on');
+  function clearConsole(){ consoleBox.innerHTML = ''; consoleBox.classList.remove('on'); }
+  function clearResults(){ resultsBox.innerHTML = ''; resultsBox.classList.remove('on'); }
+  function humanSize(b){
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(2) + ' MB';
   }
-
-  function clearResults(){
-    resultsBox.innerHTML = '';
-    resultsBox.classList.remove('on');
-  }
-
-  function humanSize(bytes){
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-    return (bytes/1024/1024).toFixed(2) + ' MB';
-  }
-
   function flashBtn(btn, cls, txt){
-    if (!btn.dataset.origText){
-      btn.dataset.origText = btn.textContent;
-    }
-    const orig = btn.dataset.origText;
+    if (!btn) return;
+    if (!btn.dataset.origText) btn.dataset.origText = btn.textContent;
+    var orig = btn.dataset.origText;
     btn.classList.add(cls);
     btn.textContent = txt;
     clearTimeout(btn._flashT);
@@ -405,325 +260,251 @@ prs.save('output.pptx')"></textarea>
     }, 1200);
   }
 
-  /* ============================================================
-     ผลลัพธ์ไฟล์
-     ============================================================ */
-  const MIME = {
+  /* ---------- theme ---------- */
+  if (themeBtn){
+    themeBtn.addEventListener('click', function(){
+      var cur = root.getAttribute('data-theme');
+      var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var next;
+      if (!cur) next = dark ? 'light' : 'dark';
+      else if (cur === 'dark') next = 'light';
+      else next = 'dark';
+      root.setAttribute('data-theme', next);
+      console.log('[py2pptx] theme →', next);
+    });
+  }
+
+  /* ---------- results ---------- */
+  var MIME = {
     'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'pdf':  'application/pdf',
-    'png':  'image/png',
-    'jpg':  'image/jpeg',
-    'jpeg': 'image/jpeg'
+    'png':  'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg'
   };
-  const ICON = {
-    'pptx':'📽️', 'docx':'📄', 'xlsx':'📊', 'pdf':'📕',
-    'png':'🖼️', 'jpg':'🖼️', 'jpeg':'🖼️'
-  };
+  var ICON = { 'pptx':'📽️','docx':'📄','xlsx':'📊','pdf':'📕','png':'🖼️','jpg':'🖼️','jpeg':'🖼️' };
 
   function addResult(name, bytes){
     resultsBox.classList.add('on');
-    const ext  = (name.split('.').pop() || '').toLowerCase();
-    const mime = MIME[ext] || 'application/octet-stream';
-    const blob = new Blob([bytes], { type: mime });
-    const url  = URL.createObjectURL(blob);
-
-    const item = document.createElement('div');
-    item.className = 'result-item';
-
-    const ico = document.createElement('div');
-    ico.className = 'result-ico';
+    var ext  = (name.split('.').pop() || '').toLowerCase();
+    var mime = MIME[ext] || 'application/octet-stream';
+    var blob = new Blob([bytes], { type: mime });
+    var url  = URL.createObjectURL(blob);
+    var item = document.createElement('div'); item.className = 'result-item';
+    var ico  = document.createElement('div'); ico.className = 'result-ico';
     ico.textContent = ICON[ext] || '📁';
-
-    const meta = document.createElement('div');
-    meta.className = 'result-meta';
-    const nm = document.createElement('div');
-    nm.className = 'result-name';
-    nm.textContent = name;
-    const sz = document.createElement('div');
-    sz.className = 'result-size';
-    sz.textContent = humanSize(bytes.length);
-    meta.appendChild(nm);
-    meta.appendChild(sz);
-
-    const a = document.createElement('a');
-    a.className = 'dl-btn';
-    a.href = url;
-    a.download = name;
-    a.textContent = 'ดาวน์โหลด';
-
-    item.appendChild(ico);
-    item.appendChild(meta);
-    item.appendChild(a);
+    var meta = document.createElement('div'); meta.className = 'result-meta';
+    var nm = document.createElement('div'); nm.className = 'result-name'; nm.textContent = name;
+    var sz = document.createElement('div'); sz.className = 'result-size'; sz.textContent = humanSize(bytes.length);
+    meta.appendChild(nm); meta.appendChild(sz);
+    var a = document.createElement('a'); a.className = 'dl-btn';
+    a.href = url; a.download = name; a.textContent = 'ดาวน์โหลด';
+    item.appendChild(ico); item.appendChild(meta); item.appendChild(a);
     resultsBox.appendChild(item);
   }
 
-  /* ============================================================
-     Pyodide loader — ลองหลาย CDN และส่ง indexURL ให้ถูกต้อง
-     ============================================================ */
-  const PYODIDE_VERSION = '0.27.0';
-  const PYODIDE_BASES = [
+  /* ---------- Pyodide loader ---------- */
+  var PYODIDE_VERSION = '0.27.0';
+  var PYODIDE_BASES = [
     'https://cdn.jsdelivr.net/npm/pyodide@' + PYODIDE_VERSION + '/full/',
     'https://unpkg.com/pyodide@' + PYODIDE_VERSION + '/full/',
-    'https.as://cdn.jsdelivr.net/pyodyncide/v' + PYODIDE_VERSION + '/ =full/ true'
+    'https://cdn.jsdelivr.net/pyodide/v' + PYODIDE_VERSION + '/full/'
   ];
+  var pyodideIndexURL = null;
 
-  function loadScript;
-(url, timeoutMs){
-         timeoutMs = timeoutMs || 25000;
+  function loadScript(url, timeoutMs){
+    timeoutMs = timeoutMs || 25000;
     return new Promise(function(resolve, reject){
-      const el = document.createElement('script');
-      el.src = url;
-      el let done = false;
-      const timer = setTimeout(function(){
-        if (done) return;
-        done = true;
-        el.remove();
+      var el = document.createElement('script');
+      el.src = url; el.async = true;
+      var done = false;
+      var timer = setTimeout(function(){
+        if (done) return; done = true; el.remove();
         reject(new Error('หมดเวลาโหลด: ' + url));
       }, timeoutMs);
-      el.onload = function(){
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        resolve();
-      };
-      el.onerror = function(){
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        el.remove();
-        reject(new Error('โหลดไม่สำเร็จ: ' + url));
-      };
+      el.onload = function(){ if (done) return; done = true; clearTimeout(timer); resolve(); };
+      el.onerror = function(){ if (done) return; done = true; clearTimeout(timer); el.remove();
+        reject(new Error('โหลดไม่สำเร็จ: ' + url)); };
       document.head.appendChild(el);
     });
   }
 
-  let pyodideIndexURL = null;
-
-  async function resolveLoadPyodide(){
-    if (typeof window.loadPyodide === 'function') return window.loadPyodide;
-    const errors = [];
-    for (let i = 0; i < PYODIDE_BASES.length; i++){
-      const base = PYODIDE_BASES[i];
-      try{
-        logLine('กำลังโหลด Pyodide จาก ' + base, 'ln-muted');
-        await loadScript(base + 'pyodide.js');
+  function resolveLoadPyodide(){
+    if (typeof window.loadPyodide === 'function') return Promise.resolve(window.loadPyodide);
+    var errors = [];
+    var i = 0;
+    function next(){
+      if (i >= PYODIDE_BASES.length){
+        return Promise.reject(new Error('โหลด Pyodide ไม่สำเร็จ ทุก CDN:\n' + errors.join('\n')));
+      }
+      var base = PYODIDE_BASES[i++];
+      logLine('กำลังโหลด Pyodide จาก ' + base, 'ln-muted');
+      return loadScript(base + 'pyodide.js').then(function(){
         if (typeof window.loadPyodide === 'function'){
           pyodideIndexURL = base;
           return window.loadPyodide;
         }
         errors.push(base + ' → โหลดสคริปต์ได้แต่ไม่พบ loadPyodide');
-      }catch(e){
+        return next();
+      }, function(e){
         errors.push(base + ' → ' + (e && e.message ? e.message : e));
-      }
+        return next();
+      });
     }
-    throw new Error('โหลด Pyodide ไม่สำเร็จ ทุก CDN:\n' + errors.join('\n'));
+    return next();
   }
 
-  /* ============================================================
-     Python runtime state
-     ============================================================ */
-  let pyodideReady = false;
-  let pyodide = null;
-  let busy = false;
+  /* ---------- runtime ---------- */
+  var pyodideReady = false;
+  var pyodide = null;
+  var busy = false;
 
-  const ALIAS = {
-    'pptx': 'python-pptx',
-    'docx': 'python-docx',
-    'PIL': 'Pillow',
-    'bs4': 'beautifulsoup4',
-    'yaml': 'pyyaml',
-    'dateutil': 'python-dateutil',
-    'requests': null,
-    'cv2': null,
-    'sklearn': null,
-    'selenium': null
+  var ALIAS = {
+    'pptx':'python-pptx','docx':'python-docx','PIL':'Pillow',
+    'bs4':'beautifulsoup4','yaml':'pyyaml','dateutil':'python-dateutil',
+    'requests':null,'cv2':null,'sklearn':null,'selenium':null
   };
 
-  async function ensurePyodide(){
-    if (pyodideReady) return;
+  function ensurePyodide(){
+    if (pyodideReady) return Promise.resolve();
     setStatus('busy', 'กำลังโหลด Python runtime…');
-
-    const loadPyodideFn = await resolveLoadPyodide();
-    pyodide = await loadPyodideFn(
-      pyodideIndexURL ? { indexURL: pyodideIndexURL } : undefined
-    );
-
-    pyodide.setStdout({ batched: function(s){ if (s) logLine(s); } });
-    pyodide.setStderr({ batched: function(s){ if (s) logLine(s, 'ln-err'); } });
-
-    setStatus('busy', 'กำลังติดตั้ง python-pptx…');
-    logLine('กำลังติดตั้งไลบรารี python-pptx, lxml, Pillow…', 'ln-muted');
-    await pyodide.loadPackage('micropip');
-    const micropip = pyodide.pyimport('micropip');
-    await micropip.install('python-pptx');
-
-    pyodide.runPython(
-      'import os\n' +
-      'os.makedirs("/work", exist_ok=True)\n'
-    );
-
-    pyodideReady = true;
-    setStatus('ready', 'Python runtime พร้อมใช้งาน');
-    logLine('พร้อมแล้ว ✓', 'ln-ok');
+    return resolveLoadPyodide().then(function(loadPyodideFn){
+      return loadPyodideFn(pyodideIndexURL ? { indexURL: pyodideIndexURL } : undefined);
+    }).then(function(p){
+      pyodide = p;
+      pyodide.setStdout({ batched: function(s){ if (s) logLine(s); } });
+      pyodide.setStderr({ batched: function(s){ if (s) logLine(s, 'ln-err'); } });
+      setStatus('busy', 'กำลังติดตั้ง python-pptx…');
+      logLine('กำลังติดตั้งไลบรารี python-pptx, lxml, Pillow…', 'ln-muted');
+      return pyodide.loadPackage('micropip').then(function(){
+        var micropip = pyodide.pyimport('micropip');
+        return micropip.install('python-pptx');
+      }).then(function(){
+        pyodide.runPython('import os\nos.makedirs("/work", exist_ok=True)\n');
+        pyodideReady = true;
+        setStatus('ready', 'Python runtime พร้อมใช้งาน');
+        logLine('พร้อมแล้ว ✓', 'ln-ok');
+      });
+    });
   }
 
-  async function installMissing(moduleName){
-    let pkg = moduleName;
-    if (Object.prototype.hasOwnProperty.call(ALIAS, moduleName)) {
-      pkg = ALIAS[moduleName];
-    }
-    if (pkg === null) return false;
-    try{
-      logLine('พยายามติดตั้งไลบรารีเพิ่ม: ' + pkg + ' …', 'ln-muted');
-      const micropip = pyodide.pyimport('micropip');
-      await micropip.install(pkg);
+  function installMissing(moduleName){
+    var pkg = moduleName;
+    if (Object.prototype.hasOwnProperty.call(ALIAS, moduleName)) pkg = ALIAS[moduleName];
+    if (pkg === null) return Promise.resolve(false);
+    logLine('พยายามติดตั้งไลบรารีเพิ่ม: ' + pkg + ' …', 'ln-muted');
+    var micropip = pyodide.pyimport('micropip');
+    return micropip.install(pkg).then(function(){
       logLine('ติดตั้ง ' + pkg + ' สำเร็จ ✓', 'ln-ok');
       return true;
-    }catch(e){
+    }, function(){
       logLine('ติดตั้ง ' + pkg + ' ไม่สำเร็จ', 'ln-err');
       return false;
-    }
+    });
   }
 
   function resetWorkDir(){
     pyodide.runPython(
       'import os, shutil\n' +
-      'if os.path.exists("/work"):\n' +
-      '    shutil.rmtree("/work")\n' +
+      'if os.path.exists("/work"):\n    shutil.rmtree("/work")\n' +
       'os.makedirs("/work", exist_ok=True)\n' +
       'os.chdir("/work")\n'
     );
   }
-
   function listWorkFiles(){
-    const res = pyodide.runPython(
-      'import os\n' +
-      'sorted(os.listdir("/work"))\n'
-    );
-    const arr = res.toJs();
-    res.destroy();
-    return arr;
+    var res = pyodide.runPython('import os\nsorted(os.listdir("/work"))\n');
+    var arr = res.toJs(); res.destroy(); return arr;
   }
 
-  async function runUserCode(code){
+  function runUserCode(code){
     resetWorkDir();
-    const before = new Set(listWorkFiles());
-
-    let attempts = 0;
-    while (attempts < 5) {
+    var before = new Set(listWorkFiles());
+    var attempts = 0;
+    function attempt(){
       attempts++;
-      try {
-        await pyodide.runPythonAsync(code);
-        break;
-      } catch (err) {
-        const msg = String(err && err.message ? err.message : err);
-        const m = msg.match(/ModuleNotFoundError: No module named '([^']+)'/);
-        if (m) {
-          const modName = m[1].split('.')[0];
-          const ok = await installMissing(modName);
-          if (ok) { continue; }
+      return pyodide.runPythonAsync(code).then(function(){
+        return true;
+      }, function(err){
+        var msg = String(err && err.message ? err.message : err);
+        var m = msg.match(/ModuleNotFoundError: No module named '([^']+)'/);
+        if (m && attempts < 5){
+          return installMissing(m[1].split('.')[0]).then(function(ok){
+            if (ok) return attempt();
+            throw err;
+          });
         }
         throw err;
-      }
+      });
     }
-
-    const after = listWorkFiles();
-    return after.filter(function(f){ return !before.has(f); });
+    return attempt().then(function(){
+      var after = listWorkFiles();
+      return after.filter(function(f){ return !before.has(f); });
+    });
   }
 
-  /* ============================================================
-     ปุ่มในกล่องโค้ด
-     ============================================================ */
-  const SAMPLE = `from pptx import Presentation
-from pptx.util import Inches, Pt
+  /* ---------- sample / clear / paste ---------- */
+  var SAMPLE = [
+    'from pptx import Presentation',
+    '',
+    'prs = Presentation()',
+    'slide = prs.slides.add_slide(prs.slide_layouts[0])',
+    'slide.shapes.title.text = "รายงานประจำไตรมาส"',
+    'slide.placeholders[1].text = "จัดทำโดยทีมของคุณ"',
+    '',
+    'slide2 = prs.slides.add_slide(prs.slide_layouts[1])',
+    'slide2.shapes.title.text = "หัวข้อสำคัญ"',
+    'body = slide2.placeholders[1].text_frame',
+    'body.text = "ยอดขายเติบโต 12%"',
+    'p = body.add_paragraph(); p.text = "ลูกค้าใหม่เพิ่มขึ้น 340 ราย"',
+    'p = body.add_paragraph(); p.text = "ความพึงพอใจ 4.6/5"',
+    '',
+    'prs.save("output.pptx")',
+    'print("สร้างสไลด์เสร็จแล้ว")',
+    ''
+  ].join('\n');
 
-prs = Presentation()
-
-# สไลด์หน้าปก
-slide = prs.slides.add_slide(prs.slide_layouts[0])
-slide.shapes.title.text = "รายงานประจำไตรมาส"
-slide.placeholders[1].text = "จัดทำโดยทีมของคุณ"
-
-# สไลด์เนื้อหา
-slide2 = prs.slides.add_slide(prs.slide_layouts[1])
-slide2.shapes.title.text = "หัวข้อสำคัญ"
-body = slide2.placeholders[1].text_frame
-body.text = "ยอดขายเติบโต 12%"
-p = body.add_paragraph()
-p.text = "ลูกค้าใหม่เพิ่มขึ้น 340 ราย"
-p = body.add_paragraph()
-p.text = "อัตราความพึงพอใจ 4.6/5"
-
-prs.save("output.pptx")
-print("สร้างสไลด์เสร็จแล้ว:", len(prs.slides._sldIdLst), "หน้า")
-`;
-
-  sampleBtn.addEventListener('click', function(){
+  if (sampleBtn) sampleBtn.addEventListener('click', function(){
     codeInput.value = SAMPLE;
     codeInput.focus();
   });
 
-  clearBtn.addEventListener('click', function(){
-    if (!codeInput.value){
-      codeInput.focus();
-      return;
-    }
-    if (!confirm('ลบโค้ดในกล่องทั้งหมด?')) return;
+  if (clearBtn) clearBtn.addEventListener('click', function(){
+    if (!codeInput.value){ codeInput.focus(); return; }
+    if (!window.confirm('ลบโค้ดในกล่องทั้งหมด?')) return;
     codeInput.value = '';
     codeInput.focus();
     flashBtn(clearBtn, 'flash-ok', 'เคลียร์แล้ว ✓');
   });
 
-  pasteBtn.addEventListener('click', async function(){
+  if (pasteBtn) pasteBtn.addEventListener('click', function(){
     pasteBtn.disabled = true;
-    try{
-      let text = '';
-
-      // วิธีหลัก: Async Clipboard API (ต้องเป็น https/localhost)
-      if (navigator.clipboard && navigator.clipboard.readText){
-        try{
-          text = await navigator.clipboard.readText();
-        }catch(e){
-          text = '';
-        }
-      }
-
-      // วิธีสำรอง
-      if (!text){
-        try{
-          codeInput.focus();
-          const ok = document.execCommand && document.execCommand('paste');
-          if (ok) text = codeInput.value;
-        }catch(e){ /* ignore */ }
-      }
-
+    function done(text){
+      pasteBtn.disabled = false;
       if (!text){
         flashBtn(pasteBtn, 'flash-err', 'วางไม่ได้');
-        logLine('วางจากคลิปบอร์ดไม่สำเร็จ — เบราว์เซอร์อาจไม่อนุญาตให้อ่านคลิปบอร์ด ลองกดวางเองด้วย Ctrl/⌘+V', 'ln-err');
+        logLine('วางจากคลิปบอร์ดไม่สำเร็จ — ลองกดวางเองด้วย Ctrl/⌘+V', 'ln-err');
         return;
       }
-
       codeInput.value = text;
       codeInput.focus();
       codeInput.setSelectionRange(text.length, text.length);
       flashBtn(pasteBtn, 'flash-ok', 'วางแล้ว ✓');
-    } finally {
-      pasteBtn.disabled = false;
+    }
+    if (navigator.clipboard && navigator.clipboard.readText){
+      navigator.clipboard.readText().then(done, function(){
+        // ถ้าอ่านคลิปบอร์ดไม่ได้ ให้ผู้ใช้กดเอง
+        done('');
+      });
+    } else {
+      done('');
     }
   });
 
-  /* ============================================================
-     ปุ่มรันโค้ด
-     ============================================================ */
-  runBtn.addEventListener('click', async function(){
+  /* ---------- run ---------- */
+  if (runBtn) runBtn.addEventListener('click', function(){
     if (busy) return;
-    const code = codeInput.value.trim();
-    if (!code) {
-      codeInput.focus();
-      return;
-    }
+    var code = codeInput.value.trim();
+    if (!code){ codeInput.focus(); return; }
 
     busy = true;
     runBtn.disabled = true;
@@ -731,44 +512,39 @@ print("สร้างสไลด์เสร็จแล้ว:", len(prs.slid
     clearConsole();
     clearResults();
 
-    try {
-      await ensurePyodide();
-
+    ensurePyodide().then(function(){
       runLabel.textContent = 'กำลังรันโค้ด…';
       setStatus('busy', 'กำลังรันโค้ดของคุณ…');
       logLine('— เริ่มรันโค้ด —', 'ln-muted');
-
-      const created = await runUserCode(code);
-
-      if (created.length === 0) {
-        logLine('รันเสร็จแล้ว แต่ไม่พบไฟล์ใหม่ที่ถูกสร้างขึ้น (ตรวจสอบว่าโค้ดมีการ .save(...) ไฟล์หรือไม่)', 'ln-err');
-        setStatus('err', 'รันเสร็จ แต่ไม่พบไฟล์ผลลัพธ์');
+      return runUserCode(code);
+    }).then(function(created){
+      if (created.length === 0){
+        logLine('รันเสร็จแล้ว แต่ไม่พบไฟล์ใหม่ที่ถูกสร้างขึ้น', 'ln-err');
+        setStatus('err', 'รันเสร็จ แต่ไม่พบไฟล์');
       } else {
-        for (let i = 0; i < created.length; i++){
-          const fname = created[i];
-          const bytes = pyodide.FS.readFile('/work/' + fname);
+        created.forEach(function(fname){
+          var bytes = pyodide.FS.readFile('/work/' + fname);
           addResult(fname, bytes);
-        }
+        });
         logLine('เสร็จสิ้น — พบไฟล์ใหม่ ' + created.length + ' ไฟล์ ✓', 'ln-ok');
-        setStatus('ready', 'สร้างไฟล์สำเร็จ พร้อมดาวน์โหลด');
+        setStatus('ready', 'สร้างไฟล์สำเร็จ');
       }
-    } catch (err) {
+    }).catch(function(err){
       console.error(err);
-      const msg = String(err && err.message ? err.message : err);
-      if (/โหลด Pyodide ไม่สำเร็จ/.test(msg)) {
-        logLine('โหลด Python runtime ไม่ได้ — มักเกิดจากเน็ตหลุด หรือตัวบล็อกโฆษณาบล็อก cdn.jsdelivr.net', 'ln-err');
-        logLine('ลองปิด Content Blocker แล้วรีเฟรช หรือเปลี่ยนไปใช้ Wi-Fi/เครือข่ายอื่น', 'ln-err');
+      var msg = String(err && err.message ? err.message : err);
+      if (/โหลด Pyodide ไม่สำเร็จ/.test(msg)){
+        logLine('โหลด Python runtime ไม่ได้ — เน็ตหลุด หรือตัวบล็อกโฆษณาบล็อก CDN', 'ln-err');
         setStatus('err', 'โหลด Python runtime ไม่สำเร็จ');
       } else {
         logLine(msg, 'ln-err');
-        setStatus('err', 'เกิดข้อผิดพลาดระหว่างรันโค้ด');
+        setStatus('err', 'เกิดข้อผิดพลาด');
       }
-    } finally {
+    }).then(function(){
       busy = false;
       runBtn.disabled = false;
       spinner.classList.remove('on');
       runLabel.textContent = '▶︎ รันโค้ด & สร้าง .pptx';
-    }
+    });
   });
 
 })();
