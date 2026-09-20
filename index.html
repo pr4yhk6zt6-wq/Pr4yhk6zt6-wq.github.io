@@ -273,7 +273,6 @@ prs.save('output.pptx')"></textarea>
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/pyodide@0.27.0/full/pyodide.js"></script>
 <script>
 (function(){
   "use strict";
@@ -394,11 +393,62 @@ prs.save('output.pptx')"></textarea>
     'selenium': null
   };
 
+  const PYODIDE_VERSION = '0.27.0';
+  const PYODIDE_CDNS = [
+    'https://cdn.jsdelivr.net/npm/pyodide@' + PYODIDE_VERSION + '/full/',
+    'https://unpkg.com/pyodide@' + PYODIDE_VERSION + '/full/',
+    'https://cdn.jsdelivr.net/npm/pyodide@0.26.4/full/'
+  ];
+
+  let pyodideBaseURL = null;
+  let pyodideScriptPromise = null;
+
+  function loadScript(url){
+    return new Promise(function(resolve, reject){
+      const s = document.createElement('script');
+      s.src = url;
+      s.async = true;
+      s.onload = function(){ resolve(); };
+      s.onerror = function(){ reject(new Error('โหลดไม่สำเร็จ: ' + url)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function ensurePyodideScript(){
+    if (pyodideScriptPromise) return pyodideScriptPromise;
+    pyodideScriptPromise = (async function(){
+      for (let i = 0; i < PYODIDE_CDNS.length; i++){
+        const base = PYODIDE_CDNS[i];
+        try{
+          logLine('กำลังโหลด Pyodide จาก: ' + base, 'ln-muted');
+          await loadScript(base + 'pyodide.js');
+          if (typeof loadPyodide === 'function'){
+            pyodideBaseURL = base;
+            logLine('โหลด Pyodide สำเร็จ ✓', 'ln-ok');
+            return;
+          }
+        }catch(e){
+          logLine('CDN นี้ใช้ไม่ได้: ' + base, 'ln-err');
+        }
+      }
+      pyodideScriptPromise = null;
+      throw new Error('ไม่สามารถโหลด Pyodide ได้ กรุณาตรวจสอบอินเทอร์เน็ตหรือปิด Ad-block แล้วลองใหม่');
+    })();
+    return pyodideScriptPromise;
+  }
+
   async function ensurePyodide(){
     if (pyodideReady) return;
     setStatus('busy', 'กำลังเตรียมระบบ…');
     logLine('กำลังเตรียมระบบ…', 'ln-muted');
-    pyodide = await loadPyodide();
+
+    await ensurePyodideScript();
+
+    if (typeof loadPyodide !== 'function'){
+      throw new Error('โหลด Pyodide ไม่สำเร็จ (ไม่พบ loadPyodide)');
+    }
+
+    pyodide = await loadPyodide({ indexURL: pyodideBaseURL });
 
     pyodide.setStdout({ batched: (s) => { if (s) logLine(s); } });
     pyodide.setStderr({ batched: (s) => { if (s) logLine(s, 'ln-err'); } });
@@ -535,4 +585,3 @@ sorted(os.listdir('/work'))
 </script>
 </body>
 </html>
-
