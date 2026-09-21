@@ -1035,9 +1035,11 @@ async function streamChat(chat, msg, onDelta, signal, extraUserText) {
   if (extraUserText) history.push({ role: 'user', content: extraUserText });
   const eff = EFFORT[settings.effort] || EFFORT.high;
   const sys = [settings.system.trim(), eff.hint, settings.fileHint ? FILE_HINT : ''].filter(Boolean).join('\n\n');
+  // API ต้องการ thinking เป็น struct ThinkingOptions ไม่ใช่ boolean ตรงๆ (เจอ HTTP 422 ตอนส่ง true/false ดิบๆ)
   const body = {
     model, messages: (sys ? [{ role: 'system', content: sys }] : []).concat(history),
-    stream: true, stream_options: { include_usage: true }, max_tokens: eff.maxTokens, thinking: !!settings.thinking
+    stream: true, stream_options: { include_usage: true }, max_tokens: eff.maxTokens,
+    thinking: { type: settings.thinking ? 'enabled' : 'disabled' }
   };
   if (settings.thinking) body.reasoning_effort = eff.reasoning_effort;
   if (!settings.thinking) body.temperature = Number(settings.temperature);
