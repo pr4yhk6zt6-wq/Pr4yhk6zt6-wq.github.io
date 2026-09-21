@@ -8,36 +8,41 @@
 <meta name="theme-color" content="#171717" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234d6bfe'/%3E%3Cpath d='M9 11h14v9H15l-4 3v-3H9z' fill='%23fff'/%3E%3C/svg%3E">
 
+<!-- ฟอนต์และไลบรารีจาก CDN (ไม่มี key หรือข้อมูลลับในไฟล์นี้) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" integrity="sha384-w3K1r6fMzyK1rDkmv+I3JmNGkJTkjQmb7iF9hM+gDDeL3JJhb6nDfk6Yt/Ax7GK+" crossorigin="anonymous">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" integrity="sha384-5TcZemv2l/9On385z///+d7MSYlvIEw9FuZTIdZ14vJLqWphw7e7ZPuOiCHJcFCP" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 
 <style>
+/* ===== ธีมสีแบบ Open WebUI: โทนเทากลาง สว่าง / มืด / ตามระบบ ===== */
 :root{
   --bg:#ffffff; --side:#f9f9f9; --side-hover:#ececec; --side-line:#ececec;
   --ink:#1f1f1f; --mute:#676767; --faint:#9b9b9b; --line:#e3e3e3;
   --bubble:#f4f4f4; --hover:#f0f0f0; --input:#f4f4f4;
   --accent:#2563eb; --danger:#d64545; --code:#0d0d0d;
-  --font:"Inter","IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",spxans-serif;
-  --mono:"IBM P lex Mono",ui-monospace,Menlo,Consolas12,monospace;
-  color-scheme:lightpx;
+  --font:"Inter","IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
 }
-@media (prefers-color-scheme:;dark){
-  :root:not([data-themecursor="light"]){
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
     --bg:#171717; --side:#0d0d0d; --side-hover:#171717; --side-line:transparent;
     --ink:#ececec; --mute:#b4b4b4; --faint:#7d7d7d; --line:#2a2a2a;
     --bubble:#262626; --hover:#262626; --input:#262626;
-    --accent:#6ea8fe; --danger:#ff7676; color-scheme:dark;
+    --accent:#6ea8fe; --danger:#ff7676;
+    color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --bg:#171717; --side:#0d0d0d; --side-hover:#171717; --side-line:transparent;
   --ink:#ececec; --mute:#b4b4b4; --faint:#7d7d7d; --line:#2a2a2a;
   --bubble:#262626; --hover:#262626; --input:#262626;
-  --accent:#6ea8fe; --danger:#ff7676; color-scheme:dark;
+  --accent:#6ea8fe; --danger:#ff7676;
+  color-scheme:dark;
 }
+
+/* ===== โครงหน้า ===== */
 *{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 html,body{height:100%;margin:0}
 body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:16px;line-height:1.7;-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
@@ -83,19 +88,12 @@ button,input,select,textarea{font:inherit;color:inherit}
 .icon svg{width:22px;height:22px}
 
 /* ส่วนหลัก */
-#main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+#main{flex:1;min-width:0;display:flex;flex-direction:column}
 header{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 4px;min-height:52px}
 #menuBtn{display:none}
-#ctitle{color:var(--faint);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
-#balance{color:var(--faint);font-size:.78rem;white-space:nowrap;padding:4px 8px;border-radius:8px;cursor:default}
-#balance[data-low="1"]{color:var(--danger)}
-#msgs{flex:1;overflow-y:auto;overscroll-behavior:contain;position:relative}
+#ctitle{color:var(--faint);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+#msgs{flex:1;overflow-y:auto;overscroll-behavior:contain}
 #msgsInner{max-width:800px;margin:0 auto;padding:12px 16px 8px}
-
-/* ปุ่มเลื่อนลงล่าง */
-#scrollDown{position:absolute;bottom:16px;left:50%;transform:translateX(-50%) translateY(80px);width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--ink);display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);opacity:0;transition:opacity .2s,transform .2s;z-index:5;pointer-events:none}
-#scrollDown.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
-#scrollDown svg{width:18px;height:18px}
 
 /* ข้อความ */
 .msg{margin:0 0 26px}
@@ -125,9 +123,6 @@ header{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-
 .md:empty::after{content:"▍";color:var(--faint);animation:blink 1s steps(2) infinite}
 @keyframes blink{50%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.md:empty::after{animation:none}}
-.katex{font-size:1.05em}
-.katex-display{margin:.8em 0;overflow-x:auto;overflow-y:hidden}
-.katex-display>.katex{white-space:normal}
 
 /* บล็อกโค้ด */
 .codewrap{margin:.8em 0;border-radius:16px;overflow:hidden;background:var(--code)}
@@ -138,18 +133,17 @@ header{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-
 .codewrap pre{margin:0;overflow-x:auto}
 .codewrap pre code,.codewrap pre code.hljs{display:block;padding:12px 16px;background:none;color:#e6edf3;font-family:var(--mono);font-size:13px;line-height:1.55}
 
-/* ส่วนความคิด */
+/* ส่วนความคิด (deepseek-reasoner) */
 .think{margin:0 0 8px;color:var(--mute);font-size:.92em;border-left:2px solid var(--line);padding:2px 0 2px 12px}
 .think summary{cursor:pointer}
 .think-body{white-space:pre-wrap;margin-top:6px;word-break:break-word}
 
-/* ปุ่มใต้ข้อความ */
-.actions{display:flex;gap:2px;margin-top:4px;align-items:center;flex-wrap:wrap}
+/* ปุ่มไอคอนใต้ข้อความ */
+.actions{display:flex;gap:2px;margin-top:4px;align-items:center}
 .actions button{background:none;border:0;color:var(--faint);padding:6px 8px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:.82rem}
 .actions button svg{width:16px;height:16px}
 .actions button:hover{background:var(--hover);color:var(--ink)}
 .actions .zip{color:var(--accent)}
-.usage{color:var(--faint);font-size:.78rem;margin-left:auto;padding:6px 8px;white-space:nowrap}
 .err{color:var(--danger);border:1px solid var(--danger);border-radius:12px;padding:8px 12px;margin-top:8px;font-size:.92em;white-space:pre-wrap}
 .warn{color:var(--mute);background:var(--bubble);border:1px dashed var(--line);border-radius:12px;padding:8px 12px;margin-top:8px;font-size:.85em}
 
@@ -173,11 +167,11 @@ header{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-
 #input::placeholder{color:var(--faint)}
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .toolbar-right{display:flex;align-items:center;gap:4px;min-width:0}
-.round{flex:none;width:34px:;height:34px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--pointer;ink);cursor:pointer;display:grid;place-items:center}
+.round{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;display:grid;place-items:center}
 .round:hover{background:var(--hover)}
 .round svg{width:18px;height:18px}
 .round.active{color:var(--accent);border-color:var(--accent)}
-.pill{flex:none;display:flex;align-items:center;gap:6px;max-width:220px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:7font-size:.85rem;font-weight:500;color:var(--ink)}
+.pill{flex:none;display:flex;align-items:center;gap:6px;max-width:220px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:7px 12px;cursor:pointer;font-size:.85rem;font-weight:500;color:var(--ink)}
 .pill:hover{background:var(--hover)}
 .pill .pv-model{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pill .pv-effort{color:var(--faint);font-weight:400;flex:none}
@@ -187,26 +181,34 @@ header{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-
 .hint{max-width:800px;margin:6px auto 0;text-align:center;color:var(--faint);font-size:.75rem}
 .charcount{color:var(--faint)}
 
-/* ชิปไฟล์แนบ */
+/* ชิปไฟล์ที่แนบ */
 .attach-row{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px}
-.attach-row[hidden]{display:none !important}
+.attach-row[hidden]{display:none}
+.attach-chip.img .ic{padding:0;overflow:hidden}
+.attach-chip.img .ic img{width:100%;height:100%;object-fit:cover}
+#scrollBtn{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:10px;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--ink);display:none;place-items:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+#scrollBtn.show{display:grid}
+#scrollBtn svg{width:18px;height:18px}
+#composer{position:relative}
+.usage{color:var(--faint);font-size:.78rem;margin-top:2px}
+.balance{color:var(--faint);font-size:.8rem}
+.field .balrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .attach-chip{position:relative;flex:none;display:flex;align-items:center;gap:8px;background:var(--bubble);border:1px solid var(--line);border-radius:14px;padding:8px 12px;max-width:220px}
 .attach-chip .ic{width:26px;height:26px;border-radius:8px;background:var(--hover);display:grid;place-items:center;flex:none;color:var(--mute)}
 .attach-chip .ic svg{width:14px;height:14px}
 .attach-chip .nm{font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.attach-chip .thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:none}
 .attach-row:not(.static) .attach-chip{padding-right:30px}
 .attach-chip .rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--bg);border:2px solid var(--input);display:grid;place-items:center;cursor:pointer;padding:0}
 .attach-chip .rm svg{width:10px;height:10px}
-.attach-row.static{overflow:visible;padding:0;justify-content:flex-end;flex-wrap:wrap}
+.attach-row.static{overflow:visible;padding:0;justify-content:flex-end}
 
-/* กล่องเลือกโมเดล/effort */
+/* กล่องเลือกโมเดล/ระดับความพยายาม แบบปุ่มกลุ่ม */
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 .seg button{flex:1 1 auto;border:1px solid var(--line);background:transparent;border-radius:12px;padding:9px 10px;cursor:pointer;font-size:.88rem;white-space:nowrap}
 .seg button:hover{background:var(--hover)}
 .seg button.active{background:var(--ink);color:var(--bg);border-color:transparent}
 
-/* dialog */
+/* หน้าต่างตั้งค่า */
 dialog{border:1px solid var(--line);border-radius:20px;background:var(--bg);color:var(--ink);padding:0;width:min(520px,calc(100% - 24px));max-height:90dvh;overflow:hidden}
 dialog[open]{display:flex;flex-direction:column}
 dialog::backdrop{background:rgba(0,0,0,.5)}
@@ -225,7 +227,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 #toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:14px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90%}
 #toast.show{opacity:1}
 
-/* พรีวิว */
+/* แผงพรีวิว HTML */
 #preview{display:none;flex-direction:column;flex:0 0 46%;min-width:340px;max-width:900px;background:var(--bg);border-left:1px solid var(--line)}
 #app.previewing #preview{display:flex}
 .pv-head{display:flex;align-items:center;gap:6px;padding:calc(6px + env(safe-area-inset-top,0px)) 10px 6px;border-bottom:1px solid var(--line)}
@@ -238,7 +240,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   #pvFull{display:none}
 }
 
-/* มือถือ */
+/* มือถือ: แถบข้างเป็นลิ้นชักเลื่อนออกมา */
 #scrim{display:none}
 @media (max-width:800px){
   #menuBtn{display:grid}
@@ -253,6 +255,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 <body>
 <div id="app">
 
+  <!-- แถบด้านข้าง: แชทใหม่ ค้นหา รายการแชท ตั้งค่า -->
   <aside id="side" aria-label="ประวัติแชท">
     <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v13H10l-4.5 3.5V17H3z"/></svg></span><span>DeepSeek Chat</span></div>
     <div class="side-top">
@@ -281,30 +284,22 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <span id="ctitle"></span>
-      <span id="balance" title="ยอดเงินคงเหลือ"></span>
     </header>
 
     <div id="msgs"><div id="msgsInner"></div></div>
-    <button id="scrollDown" type="button" aria-label="เลื่อนลงล่างสุด">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-    </button>
 
     <div id="composer">
+      <button id="scrollBtn" type="button" aria-label="เลื่อนลงล่าง"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
       <div class="box">
         <div id="attachRow" class="attach-row" hidden></div>
         <textarea id="input" rows="1" placeholder="พิมพ์ข้อความ" aria-label="ข้อความ"></textarea>
         <div class="toolbar">
-          <div style="display:flex;gap:4px">
-            <button id="plusBtn" class="round" type="button" aria-label="แนบไฟล์">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-            </button>
-            <button id="imgBtn" class="round" type="button" aria-label="แนบรูปภาพ">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-            </button>
-          </div>
+          <button id="plusBtn" class="round" type="button" aria-label="แนบไฟล์">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
           <div class="toolbar-right">
             <button id="pillBtn" class="pill" type="button" aria-haspopup="dialog">
-              <span class="pv-model" id="pvModel">DeepSeek Flash</span><span class="pv-effort" id="pvEffort">Medium</span>
+              <span class="pv-model" id="pvModel">DeepSeek Chat</span><span class="pv-effort" id="pvEffort">Medium</span>
             </button>
             <button id="micBtn" class="round" type="button" aria-label="พูดแทนพิมพ์">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 19v3"/></svg>
@@ -314,11 +309,11 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
         </div>
       </div>
       <p class="hint">AI อาจตอบผิดได้ ตรวจสอบข้อมูลสำคัญอีกครั้ง<span id="charCount" class="charcount"></span></p>
-      <input id="attachFile" type="file" accept=".txt,.md,.markdown,.js,.jsx,.ts,.tsx,.py,.json,.csv,.html,.htm,.css,.xml,.yml,.yaml,.java,.c,.cpp,.h,.go,.rs,.php,.rb,.sql,.sh,.toml,.ini" hidden>
-      <input id="imgFile" type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple hidden>
+      <input id="attachFile" type="file" accept=".txt,.md,.markdown,.js,.jsx,.ts,.tsx,.py,.json,.csv,.html,.htm,.css,.xml,.yml,.yaml,.java,.c,.cpp,.h,.go,.rs,.php,.rb,.sql,.sh,.toml,.ini,image/png,image/jpeg,image/webp,image/gif" multiple hidden>
     </div>
   </main>
 
+  <!-- แผงพรีวิว HTML (รันในกล่อง sandbox แยกจากแอป) -->
   <aside id="preview" aria-label="พรีวิว">
     <div class="pv-head">
       <span id="pvName"></span>
@@ -331,6 +326,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   </aside>
 </div>
 
+<!-- หน้าต่างตั้งค่า -->
 <dialog id="dlg" aria-labelledby="dlgTitle">
   <div class="dlg-head" id="dlgTitle">ตั้งค่า</div>
   <div class="dlg-body">
@@ -338,10 +334,14 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <label for="fKey">DeepSeek API key</label>
       <input id="fKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-...">
       <small>เก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น ไม่ถูกส่งไปที่อื่นนอกจาก DeepSeek อย่าใช้บนเครื่องที่คนอื่นใช้ร่วมกัน</small>
+      <div class="balrow" style="margin-top:8px">
+        <span class="balance" id="balanceText">ยอดเงิน: —</span>
+        <button id="balRefresh" class="btn" type="button" style="padding:4px 10px;font-size:.8rem">เช็กยอดเงิน</button>
+      </div>
     </div>
     <div class="field">
       <label for="fCustom">ชื่อโมเดลกำหนดเอง (ไม่บังคับ)</label>
-      <input id="fCustom" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="เว้นว่างเพื่อใช้รายการที่โหลดจาก API">
+      <input id="fCustom" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="เว้นว่างเพื่อใช้ตามที่เลือกด้านบนของหน้าแชท">
     </div>
     <div class="field">
       <label for="fSys">คำสั่งระบบ (System prompt)</label>
@@ -350,7 +350,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <div class="field">
       <label for="fTemp">ความสร้างสรรค์ (temperature): <span id="fTempVal"></span></label>
       <input id="fTemp" type="range" min="0" max="2" step="0.1" style="width:100%">
-      <small>ไม่มีผลเมื่อเปิด Thinking mode</small>
+      <small>ไม่มีผลกับโมเดล Reasoner</small>
     </div>
     <div class="field">
       <label for="fTheme">ธีม</label>
@@ -369,10 +369,6 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <small>แนะนำให้เปิดไว้ เพื่อให้ปุ่มดาวน์โหลดและ ZIP ได้ชื่อไฟล์ถูกต้อง</small>
     </div>
     <div class="field">
-      <label class="chk"><input id="fLatex" type="checkbox"> แสดงสมการคณิตศาสตร์ด้วย KaTeX</label>
-      <small>แปลง LaTeX ในข้อความให้เป็นสมการสวยงาม</small>
-    </div>
-    <div class="field">
       <label>ข้อมูลแชท</label>
       <div class="row">
         <button id="expBtn" class="btn" type="button">ส่งออก</button>
@@ -388,22 +384,23 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   </div>
 </dialog>
 
+<!-- หน้าต่างเลือกโมเดล + ระดับความพยายาม (effort) -->
 <dialog id="modelDlg" aria-labelledby="modelDlgTitle">
   <div class="dlg-head" id="modelDlgTitle">โมเดลและระดับความพยายาม</div>
   <div class="dlg-body">
     <div class="field">
       <label>โมเดล</label>
       <div class="seg" id="modelSeg"></div>
-      <small id="modelRefreshHint"></small>
+      <small id="modelSrc"></small>
+    </div>
+    <div class="field">
+      <label class="chk"><input id="fThink" type="checkbox"> เปิดโหมดคิด (thinking)</label>
+      <small>ควบคุมด้วยสวิตช์ thinking ของ DeepSeek แยกจากการเลือกโมเดล เปิดเป็นค่าเริ่มต้น</small>
     </div>
     <div class="field">
       <label>ระดับความพยายาม (Effort)</label>
       <div class="seg" id="effortSeg"></div>
-      <small>ควบคุม <code>reasoning_effort</code> และ <code>max_tokens</code> ที่ส่งไป DeepSeek จริง Low = ตอบสั้น / High = ละเอียดสุด</small>
-    </div>
-    <div class="field">
-      <label class="chk"><input id="fThink" type="checkbox"> เปิด Thinking mode</label>
-      <small>ปิดเพื่อตอบเร็วและประหยัด token (เฉพาะโหมดนี้ที่ temperature มีผล)</small>
+      <small>ควบคุม reasoning_effort จริงที่ส่งไป DeepSeek และ max_tokens ที่ปรับตามระดับความคิด</small>
     </div>
   </div>
   <div class="dlg-foot">
@@ -413,36 +410,38 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" integrity="sha384-d0URJhNw3r+6f0bLm0b0FqTJ9fJrXwZ9lV5bE7dQ+3q4o5l5k5n5p5o5n5m5j5i5" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" integrity="sha384-5e0e5f6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b9c0d1e2f" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha384-4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
+<!-- ไลบรารี: Markdown, ป้องกัน XSS, ไฮไลต์โค้ด (ถ้าโหลดไม่ได้ แอปยังใช้งานได้แบบข้อความล้วน) -->
+<!-- TODO ความปลอดภัย: ใส่ integrity="sha384-..." ให้ทั้ง 3 บรรทัดนี้ (หาแฮชได้จาก `openssl dgst -sha384 -binary file.js | openssl base64 -A` หลังดาวน์โหลดไฟล์จริงจาก URL เดียวกัน หรือจากหน้า cdnjs.com ของแต่ละไลบรารี) ยังไม่ใส่ในไฟล์นี้เพราะไม่มีทางตรวจแฮชจริงจากในนี้ได้ ใส่ hash ผิดจะทำให้สคริปต์โดนบล็อกทั้งแอป -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <script>
 (() => {
 'use strict';
 
+/* ===== ค่าคงที่และสถานะ ===== */
 const $ = s => document.querySelector(s);
-const K = { chats:'dschat:chats', set:'dschat:settings', cur:'dschat:current', models:'dschat:models', bal:'dschat:balance' };
-const DEFAULT_MODELS = [
-  ['deepseek-flash','DeepSeek Flash'],
-  ['deepseek-v4-pro','DeepSeek V4 Pro']
-];
+const K = { chats: 'dschat:chats', set: 'dschat:settings', cur: 'dschat:current' };
 const DEFAULTS = {
-  apiKey:'', baseUrl:'https://api.deepseek.com', model:'deepseek-flash',
-  customModel:'', system:'', temperature:1, theme:'auto', fileHint:true,
-  effort:'medium', thinking:true, latex:true
+  apiKey: '', baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash',
+  customModel: '', system: '', temperature: 1, theme: 'auto', fileHint: true, effort: 'high', thinking: true
 };
 const FILE_HINT = 'เมื่อผู้ใช้ขอให้สร้างไฟล์หรือโปรเจกต์ ให้ใส่ชื่อไฟล์ในบรรทัดของตัวเองก่อนโค้ดบล็อกทุกครั้ง เช่น `index.html` หรือ `css/style.css` แล้วตามด้วยโค้ดบล็อกของไฟล์นั้น หนึ่งไฟล์ต่อหนึ่งบล็อก ถ้าเป็นเว็บหน้าเดียวให้รวม HTML CSS JS ไว้ในไฟล์ index.html ไฟล์เดียว ส่วนโค้ดตัวอย่างสั้น ๆ ที่ไม่ใช่ไฟล์ ไม่ต้องใส่ชื่อไฟล์';
-
-/* ✅ ข้อ 2: Effort ใช้ reasoning_effort ของจริง + max_tokens สูงพอกับงานเขียนโค้ด */
+// รายชื่อโมเดลสำรอง (ใช้ตอนโหลดจาก /models ไม่สำเร็จ) — deepseek-chat/deepseek-reasoner เลิกใช้ 24 ก.ค. 2026 ตอนนี้ Chat/Reasoner เป็นสวิตช์ thinking แยกต่างหาก ไม่ใช่ชื่อโมเดลอีกต่อไป
+const FALLBACK_MODELS = [
+  ['deepseek-flash', 'DeepSeek Flash'],
+  ['deepseek-v4-pro', 'DeepSeek V4 Pro']
+];
+let MODELS = FALLBACK_MODELS.slice();
+let modelsFromApi = false;
+// ระดับความพยายาม: ใช้ reasoning_effort จริงของ DeepSeek (low/high/max) และ max_tokens ที่สูงพอสำหรับโหมดคิด (ค่าเริ่มต้นจริงคือ 8K ปกติ / 64K โหมดคิด และส่วนคิดก็นับเป็น token ที่สร้างด้วย)
 const EFFORT = {
-  low:    { label:'Low',    reasoning:'low',  maxTokens: 32768,  hint:'ตอบสั้น กระชับ ตรงประเด็นที่สุด หลีกเลี่ยงรายละเอียดที่ไม่จำเป็น' },
-  medium: { label:'Medium', reasoning:'high', maxTokens: 65536,  hint:'' },
-  high:   { label:'High',   reasoning:'max',  maxTokens: 131072, hint:'ตอบอย่างละเอียดรอบด้าน อธิบายเหตุผลและขั้นตอนประกอบ ตรวจทานความถูกต้องก่อนสรุป' }
+  low: { label: 'Low', reasoning_effort: 'low', maxTokens: 8000, hint: 'ตอบสั้น กระชับ ตรงประเด็นที่สุด หลีกเลี่ยงรายละเอียดที่ไม่จำเป็น' },
+  high: { label: 'High', reasoning_effort: 'high', maxTokens: 32000, hint: 'ตอบอย่างละเอียดรอบด้าน อธิบายเหตุผลและขั้นตอนประกอบ ตรวจทานความถูกต้องก่อนสรุป' },
+  max: { label: 'Max', reasoning_effort: 'max', maxTokens: 65536, hint: 'ตอบอย่างละเอียดที่สุด ตรวจทานหลายรอบ งานเขียนโค้ดให้ครบทุกไฟล์ไม่ตัดทอน' }
 };
-
-const modelLabel = v => (curModels().find(m => m[0] === v) || [v, v])[1].replace(/\s*\(.*\)$/, '');
+const modelLabel = v => (MODELS.find(m => m[0] === v) || [v, v])[1].replace(/\s*\(.*\)$/, '');
 const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
 const LOGO = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v13H10l-4.5 3.5V17H3z"/></svg>';
 const svg = p => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
@@ -454,102 +453,125 @@ const ICON_EDIT = svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L
 const ICON_CONTINUE = svg('<path d="M5 4v16l14-8Z"/>');
 const ICON_FILE = svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>');
 const ICON_XSM = svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
-const ICON_DOWN = svg('<path d="M12 5v14M5 12l7 7 7-7"/>');
 
-const load = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
-const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) { console.warn(e); toast('บันทึกไม่ได้ พื้นที่เต็มหรือปิดการเก็บข้อมูล'); } };
+const load = (k, fallback) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { toast('บันทึกไม่ได้ พื้นที่เต็มหรือปิดการเก็บข้อมูล'); } };
 
 let settings = Object.assign({}, DEFAULTS, load(K.set, {}));
+// ย้ายค่าตั้งค่าเก่าที่เลิกใช้แล้ว: deepseek-chat/deepseek-reasoner ไม่มีแล้ว (เปลี่ยนเป็นสวิตช์ thinking แทน), effort 'medium' ไม่มีในสเกลจริงแล้ว
+if (settings.model === 'deepseek-chat') { settings.model = 'deepseek-flash'; settings.thinking = false; }
+if (settings.model === 'deepseek-reasoner') { settings.model = 'deepseek-flash'; settings.thinking = true; }
+if (!EFFORT[settings.effort]) settings.effort = 'high';
 let chats = load(K.chats, []);
+// ย้ายแชทเก่า: เวอร์ชันก่อนหน้าเก็บ content แบบผสมไฟล์แนบเข้าไปแล้ว (displayText คือข้อความจริงที่พิมพ์) ต้องยุบกลับเป็นข้อความล้วน
+// ไม่งั้นตอนส่ง API ใหม่จะเอาไฟล์แนบไปต่อท้ายซ้ำอีกรอบ (composeUserText ประกอบจาก attachments เองอยู่แล้ว)
+for (const c of chats) for (const m of (c.messages || [])) {
+  if (m.role === 'user' && m.displayText != null && m.displayText !== m.content) { m.content = m.displayText; delete m.displayText; }
+}
 let currentId = load(K.cur, null);
-let cachedModels = load(K.models, null); // {at: timestamp, list: [[id,label],...]}
-let balance = load(K.bal, null);         // {at: timestamp, data: {...}}
 let streaming = false;
 let abortCtl = null;
 let autoScroll = true;
-let pendingAttachments = [];  // [{kind:'text',name,content} | {kind:'image',name,mime,dataUrl}]
+let pendingAttachments = []; // ไฟล์ที่แนบไว้รอส่ง: [{name, content}]
 
-const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+/* ===== ฟังก์ชันช่วย ===== */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* หาความยาวรั้ว (```) ที่ปลอดภัย กันไฟล์แนบที่มี backtick 3 ตัวอยู่ข้างในทำ fence พัง */
+function fenceFor(text) {
+  const runs = String(text).match(/`+/g);
+  const max = runs ? Math.max(...runs.map(r => r.length)) : 0;
+  return '`'.repeat(Math.max(3, max + 1));
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const cur = () => chats.find(c => c.id === currentId) || null;
 const activeModel = () => (settings.customModel || '').trim() || settings.model;
 const isMobile = () => matchMedia('(max-width:800px)').matches;
-const persist = () => { save(K.chats, chats); save(K.cur, currentId); };
-const curModels = () => (cachedModels && Array.isArray(cachedModels.list) && cachedModels.list.length) ? cachedModels.list : DEFAULT_MODELS;
+// แก้บั๊ก "เปิดหลายแท็บแล้วเขียนทับกัน": ก่อนบันทึกทุกครั้ง อ่านค่าล่าสุดจาก localStorage มารวมกับของแท็บนี้
+// แชทที่กำลังเปิด/สตรีมอยู่ในแท็บนี้ (currentId) ให้ถือฉบับแท็บนี้เป็นหลักเสมอ ส่วนแชทอื่นใช้ฉบับที่ updated ใหม่กว่า
+function mergedChats() {
+  const stored = load(K.chats, []);
+  const map = new Map(chats.map(c => [c.id, c]));
+  for (const sc of stored) {
+    const lc = map.get(sc.id);
+    if (!lc) map.set(sc.id, sc);
+    else if (sc.id !== currentId && (sc.updated || 0) > (lc.updated || 0)) map.set(sc.id, sc);
+  }
+  return Array.from(map.values());
+}
+const persist = () => { chats = mergedChats(); save(K.chats, chats); save(K.cur, currentId); };
+
+// แก้บั๊ก "แชทหายเพราะบันทึกตอนสตรีมจบเท่านั้น": เก็บเป็นระยะระหว่างสตรีม และเก็บทันทีเมื่อแท็บถูกซ่อน/ปิด
+let autosaveTimer = null;
+function startAutosave() { stopAutosave(); autosaveTimer = setInterval(() => { if (streaming) persist(); }, 2000); }
+function stopAutosave() { if (autosaveTimer) { clearInterval(autosaveTimer); autosaveTimer = null; } }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && streaming) persist(); });
+window.addEventListener('pagehide', () => { if (streaming) persist(); });
 
 let toastTimer;
 function toast(t) {
-  const el = $('#toast'); el.textContent = t; el.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  const el = $('#toast');
+  el.textContent = t; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
+
 async function copyText(t) {
   try { await navigator.clipboard.writeText(t); toast('คัดลอกแล้ว'); }
   catch {
-    const ta = document.createElement('textarea'); ta.value = t; document.body.append(ta); ta.select();
+    const ta = document.createElement('textarea');
+    ta.value = t; document.body.append(ta); ta.select();
     try { document.execCommand('copy'); toast('คัดลอกแล้ว'); } catch { toast('คัดลอกไม่ได้'); }
     ta.remove();
   }
 }
 
-/* ✅ ข้อ 6: DOMPurify config เข้มขึ้น + ✅ ข้อ 4: เปิด target ให้ลิงก์ */
-function makePurifier(extra) {
-  const p = DOMPurify;
-  p.addHook('afterSanitizeAttributes', node => {
-    if (node.tagName === 'A' && node.getAttribute('href')) {
-      node.setAttribute('target','_blank'); node.setAttribute('rel','noopener noreferrer');
+/* ทำความสะอาด HTML: ลิงก์ให้เปิดแท็บใหม่เสมอ (กันเปิดทับหน้าแอป) และห้ามรูปภายนอก (กัน tracking pixel / SSRF) */
+let dompurifyHooked = false;
+function hookDompurify() {
+  if (dompurifyHooked || !window.DOMPurify) return;
+  dompurifyHooked = true;
+  DOMPurify.addHook('afterSanitizeAttributes', node => {
+    if (node.tagName === 'A' && node.hasAttribute('href')) {
+      node.setAttribute('target', '_blank');
+      node.setAttribute('rel', 'noopener noreferrer nofollow');
+    }
+    if (node.tagName === 'IMG' && node.hasAttribute('src')) {
+      const src = node.getAttribute('src');
+      if (!/^data:image\//i.test(src)) node.removeAttribute('src');
     }
   });
-  return (html) => p.sanitize(html, Object.assign({
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data:image\/(?:png|jpe?g|gif|webp);base64,):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
-    FORBID_TAGS: ['form','input','button','textarea','select','option'],
-    FORBID_ATTR: ['onerror','onload','onclick']
-  }, extra));
 }
-const purifyChat  = makePurifier({});                              // ห้าม style
-const purifyPreview = makePurifier({ ADD_ATTR:['style'], FORBID_TAGS:['form','input','textarea','select','option'] });
-// หมายเหตุ: ในพรีวิวอนุญาต style เพราะโค้ดที่ผู้ใช้ gen ต้องใช้ CSS inline
-
-/* ✅ LaTeX */
-function renderLatex(text) {
-  if (!settings.latex || !window.katex) return esc(text).replace(/\n/g,'<br>');
-  const codeBlocks = [], inlineCodes = [];
-  let s = text.replace(/```[\s\S]*?```/g, m => { codeBlocks.push(m); return '\x00CB'+(codeBlocks.length-1)+'\x00'; });
-  s = s.replace(/`[^`]+`/g, m => { inlineCodes.push(m); return '\x00IC'+(inlineCodes.length-1)+'\x00'; });
-  const kx = (f, d) => { try { return katex.renderToString(f.trim(), {displayMode:d, throwOnError:false}); } catch { return null; } };
-  s = s.replace(/\\\[([\s\S]*?)\\\]/g, (m,f) => kx(f,true) ?? m);
-  s = s.replace(/\$\$([\s\S]*?)\$\$/g, (m,f) => kx(f,true) ?? m);
-  s = s.replace(/\\\(([\s\S]*?)\\\)/g, (m,f) => kx(f,false) ?? m);
-  s = s.replace(/\$([^\$\n]+?)\$/g, (m,f) => kx(f,false) ?? m);
-  s = s.replace(/\x00IC(\d+)\x00/g, (_,i) => inlineCodes[+i]);
-  s = s.replace(/\x00CB(\d+)\x00/g, (_,i) => codeBlocks[+i]);
-  return s;
-}
+/* แปลง Markdown เป็น HTML ที่ปลอดภัย ถ้าไลบรารีโหลดไม่ได้ให้แสดงเป็นข้อความ */
 function md(text) {
   if (window.marked && window.DOMPurify) {
-    let html = marked.parse(text, { gfm:true, breaks:true });
-    if (settings.latex && window.katex) html = renderLatex(html);
-    return purifyChat(html);
+    hookDompurify();
+    return DOMPurify.sanitize(marked.parse(text, { gfm: true, breaks: true }), {
+      FORBID_TAGS: ['style', 'form', 'input', 'textarea', 'button', 'select', 'iframe', 'object', 'embed'],
+      ADD_ATTR: ['target']
+    });
   }
-  return esc(text).replace(/\n/g,'<br>');
+  return esc(text).replace(/\n/g, '<br>');
 }
 
-/* ===== ไฟล์จากโค้ดบล็อก ===== */
+/* ===== ไฟล์จากโค้ดบล็อก: แยกชื่อไฟล์ ดาวน์โหลด ZIP และพรีวิว HTML ===== */
 const EXT = 'html?|css|m?js|jsx|tsx?|json|md|txt|py|ya?ml|toml|xml|svg|sh|csv|sql|java|cpp|c|h|go|rs|php|rb|kt|swift|ini';
 const FNAME = '[\\w\\-./]+\\.(?:' + EXT + ')';
-const RE_INFO = new RegExp('('+FNAME+')(?![\\w])','i');
-const RE_TICK = new RegExp('`('+FNAME+')`','i');
-const RE_BOLD = new RegExp('\\*\\*('+FNAME+')\\*\\*','i');
-const RE_LINE = new RegExp('^[#>\\s*\\-\\d.)]*(?:ไฟล์|file(?:name)?)?\\s*[:：]?\\s*('+FNAME+')\\s*[:：]?\\s*$','i');
-const RE_CMT  = new RegExp('^\\s*(?:<!'+'--|//|#|/\\*)\\s*(?:file(?:name)?\\s*[:：]\\s*)?('+FNAME+')\\s*(?:--'+'>|\\*/)?\\s*$','i');
+const RE_INFO = new RegExp('(' + FNAME + ')(?![\\w])', 'i');
+const RE_TICK = new RegExp('`(' + FNAME + ')`', 'i');
+const RE_BOLD = new RegExp('\\*\\*(' + FNAME + ')\\*\\*', 'i');
+const RE_LINE = new RegExp('^[#>\\s*\\-\\d.)]*(?:ไฟล์|file(?:name)?)?\\s*[:：]?\\s*(' + FNAME + ')\\s*[:：]?\\s*$', 'i');
+const RE_CMT = new RegExp('^\\s*(?:<!' + '--|//|#|/\\*)\\s*(?:file(?:name)?\\s*[:：]\\s*)?(' + FNAME + ')\\s*(?:--' + '>|\\*/)?\\s*$', 'i');
 const RE_CMDLANG = /^(bash|sh|shell|zsh|console|terminal|cmd|powershell)$/;
-const LANG_EXT = { javascript:'js', js:'js', jsx:'jsx', typescript:'ts', ts:'ts', tsx:'tsx', python:'py', py:'py',
-  html:'html', htm:'html', css:'css', json:'json', markdown:'md', md:'md', bash:'sh', sh:'sh', shell:'sh', zsh:'sh',
-  yaml:'yml', yml:'yml', xml:'xml', svg:'svg', sql:'sql', java:'java', c:'c', cpp:'cpp','c++':'cpp', go:'go',
-  rust:'rs', rs:'rs', php:'php', ruby:'rb', rb:'rb', csv:'csv', toml:'toml', text:'txt', txt:'txt', plaintext:'txt' };
+const LANG_EXT = { javascript: 'js', js: 'js', jsx: 'jsx', typescript: 'ts', ts: 'ts', tsx: 'tsx', python: 'py', py: 'py',
+  html: 'html', htm: 'html', css: 'css', json: 'json', markdown: 'md', md: 'md', bash: 'sh', sh: 'sh', shell: 'sh', zsh: 'sh',
+  yaml: 'yml', yml: 'yml', xml: 'xml', svg: 'svg', sql: 'sql', java: 'java', c: 'c', cpp: 'cpp', 'c++': 'cpp', go: 'go',
+  rust: 'rs', rs: 'rs', php: 'php', ruby: 'rb', rb: 'rb', csv: 'csv', toml: 'toml', text: 'txt', txt: 'txt', plaintext: 'txt' };
+
 const base = p => String(p).split('?')[0].split('/').pop().toLowerCase();
 
+/* ทำชื่อไฟล์ให้ปลอดภัย (ตัด .. และอักขระต้องห้าม) */
 function safeName(n) {
-  n = String(n).replace(/\\/g,'/').replace(/[<>:"|?*\x00-\x1f]/g,'').split('/').filter(p => p && p !== '.' && p !== '..').join('/');
+  n = String(n).replace(/\\/g, '/').replace(/[<>:"|?*\x00-\x1f]/g, '').split('/').filter(p => p && p !== '.' && p !== '..').join('/');
   return n || 'file.txt';
 }
 function nameFromLine(l) {
@@ -557,6 +579,8 @@ function nameFromLine(l) {
   const m = l.match(RE_TICK) || l.match(RE_BOLD) || l.match(RE_LINE);
   return m ? m[1] : null;
 }
+
+/* อ่านโค้ดบล็อกจาก Markdown ดิบ พร้อมหาชื่อไฟล์จาก: info string, บรรทัดก่อนหน้า, คอมเมนต์บรรทัดแรก */
 function parseBlocks(text) {
   const lines = String(text).split('\n'); const out = []; let prev = '';
   for (let i = 0; i < lines.length; i++) {
@@ -574,11 +598,13 @@ function parseBlocks(text) {
     let lang = lang0;
     if (name && RE_INFO.test(lang)) lang = '';
     if (!lang && name) lang = (name.split('.').pop() || '').toLowerCase();
-    out.push({ lang, name, named:!!name, code: body.join('\n') });
+    out.push({ lang, name, named: !!name, code: body.join('\n') });
     i = j; prev = '';
   }
   return out;
 }
+
+/* ตั้งชื่อไฟล์สุดท้ายให้ทุกบล็อก (กันชื่อซ้ำ) และสร้างแผนที่ ชื่อไฟล์ -> โค้ด */
 function finalizeBlocks(blocks) {
   const used = new Set(); const map = {}; let n = 0;
   for (const b of blocks) {
@@ -586,16 +612,16 @@ function finalizeBlocks(blocks) {
     let f = b.name ? safeName(b.name) : null;
     if (!f) {
       const ext = LANG_EXT[b.lang] || (/^\w{1,6}$/.test(b.lang) ? b.lang : 'txt');
-      f = (ext === 'html' && !used.has('index.html')) ? 'index.html' : 'file-'+n+'.'+ext;
+      f = (ext === 'html' && !used.has('index.html')) ? 'index.html' : 'file-' + n + '.' + ext;
     }
     let u = f, k = 2;
-    while (used.has(u.toLowerCase())) { u = f.replace(/(\.[^./]*)?$/, '-'+k+'$1'); k++; }
+    while (used.has(u.toLowerCase())) { u = f.replace(/(\.[^./]*)?$/, '-' + k + '$1'); k++; }
     used.add(u.toLowerCase()); b.file = u; map[base(u)] = b.code;
   }
   return map;
 }
 
-/* ===== ZIP ===== */
+/* ===== สร้างไฟล์ ZIP ในเบราว์เซอร์ (แบบไม่บีบอัด ไม่ต้องใช้ไลบรารี) ===== */
 const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 function crc32(b) { let c = -1; for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 255] ^ (c >>> 8); return (~c) >>> 0; }
 function makeZip(files) {
@@ -606,37 +632,45 @@ function makeZip(files) {
   for (const f of files) {
     const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
     const lh = new DataView(new ArrayBuffer(30));
-    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
-    lh.setUint16(10,time,true); lh.setUint16(12,date,true); lh.setUint32(14,crc,true);
-    lh.setUint32(18,data.length,true); lh.setUint32(22,data.length,true); lh.setUint16(26,name.length,true); lh.setUint16(28,0,true);
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
     parts.push(lh.buffer, name, data);
     const ch = new DataView(new ArrayBuffer(46));
-    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true); ch.setUint16(10,0,true);
-    ch.setUint16(12,time,true); ch.setUint16(14,date,true); ch.setUint32(16,crc,true);
-    ch.setUint32(20,data.length,true); ch.setUint32(24,data.length,true); ch.setUint16(28,name.length,true);
-    ch.setUint16(30,0,true); ch.setUint16(32,0,true); ch.setUint16(34,0,true); ch.setUint16(36,0,true);
-    ch.setUint32(38,0,true); ch.setUint32(42,offset,true);
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true);
+    ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true);
+    ch.setUint16(30, 0, true); ch.setUint16(32, 0, true); ch.setUint16(34, 0, true); ch.setUint16(36, 0, true);
+    ch.setUint32(38, 0, true); ch.setUint32(42, offset, true);
     central.push(ch.buffer, name);
     offset += 30 + name.length + data.length;
   }
   let csize = 0; for (let i = 0; i < central.length; i++) csize += central[i].byteLength;
   const end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true);
-  end.setUint32(12,csize,true); end.setUint32(16,offset,true);
-  return new Blob([...parts, ...central, end.buffer], { type:'application/zip' });
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, csize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
 }
+
 function downloadBlob(blob, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
-const withNewline = t => t.endsWith('\n') ? t : t + '\n';
-const downloadText = (name, text) => downloadBlob(new Blob([withNewline(text)], {type:'application/octet-stream'}), name.split('/').pop());
-const downloadZip = blocks => downloadBlob(makeZip(blocks.map(b => ({ name:b.file, text:withNewline(b.code) }))), 'project-'+new Date().toISOString().slice(0,10)+'.zip');
+function withNewline(t) { return t.endsWith('\n') ? t : t + '\n'; }
+function downloadText(name, text) {
+  downloadBlob(new Blob([withNewline(text)], { type: 'application/octet-stream' }), name.split('/').pop());
+}
+function downloadZip(blocks) {
+  const blob = makeZip(blocks.map(b => ({ name: b.file, text: withNewline(b.code) })));
+  downloadBlob(blob, 'project-' + new Date().toISOString().slice(0, 10) + '.zip');
+}
 
-/* ===== พรีวิว ===== */
-const STORAGE_SHIM = '<scr'+'ipt>try{localStorage.getItem("x")}catch(e){var mk=function(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}};try{Object.defineProperty(window,"localStorage",{value:mk(),configurable:true});Object.defineProperty(window,"sessionStorage",{value:mk(),configurable:true})}catch(_){}}</scr'+'ipt>';
+/* ===== พรีวิว HTML ในกล่อง sandbox (แยกจากหน้าแอป จึงอ่าน API key ไม่ได้) ===== */
+// ถ้าโค้ดในพรีวิวใช้ localStorage ซึ่ง sandbox ไม่อนุญาต ให้ใช้ที่เก็บชั่วคราวในหน่วยความจำแทน
+const STORAGE_SHIM = '<scr' + 'ipt>try{localStorage.getItem("x")}catch(e){var mk=function(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}};try{Object.defineProperty(window,"localStorage",{value:mk(),configurable:true});Object.defineProperty(window,"sessionStorage",{value:mk(),configurable:true})}catch(_){}}</scr' + 'ipt>';
 const VIEWPORT = '<meta name="viewport" content="width=device-width, initial-scale=1">';
+
 function injectHead(html, s) {
   let m;
   if ((m = html.match(/<head[^>]*>/i))) return html.replace(m[0], () => m[0] + s);
@@ -644,128 +678,132 @@ function injectHead(html, s) {
   if ((m = html.match(/<!doctype[^>]*>/i))) return html.replace(m[0], () => m[0] + s);
   return s + html;
 }
+
+/* รวม CSS/JS ที่อ้างถึงด้วยชื่อไฟล์ (เช่น style.css, script.js) จากบล็อกอื่นในข้อความเดียวกันเข้าไปในหน้า */
 function buildPreview(code, file, lang, map) {
   if (/\.svg$/i.test(file) || lang === 'svg' || /^\s*<svg[\s>]/i.test(code)) {
-    return '<!doctype html><html><head><meta charset="utf-8">'+VIEWPORT+'<style>body{margin:0;display:grid;place-items:center;min-height:100vh;background:#fff}svg{max-width:100%;height:auto}</style></head><body>'+code+'</body></html>';
+    return '<!doctype html><html><head><meta charset="utf-8">' + VIEWPORT + '<style>body{margin:0;display:grid;place-items:center;min-height:100vh;background:#fff}svg{max-width:100%;height:auto}</style></head><body>' + code + '</body></html>';
   }
   let h = code.replace(/<link\b[^>]*?href=["']([^"']+\.css)["'][^>]*>/gi, (all, href) => {
-    const c = map[base(href)]; return c == null ? all : '<style>' + c.replace(/<\/style/gi, '<\\/style') + '</style>';
+    const c = map[base(href)];
+    return c == null ? all : '<style>' + c.replace(/<\/style/gi, '<\\/style') + '</style>';
   });
   h = h.replace(/<script\b([^>]*?)\ssrc=["']([^"']+\.m?js)["']([^>]*)>\s*<\/script>/gi, (all, a, href, z) => {
-    const c = map[base(href)]; return c == null ? all : '<scr'+'ipt'+a+z+'>' + c.replace(/<\/script/gi, '<\\/scr'+'ipt') + '</scr'+'ipt>';
+    const c = map[base(href)];
+    return c == null ? all : '<scr' + 'ipt' + a + z + '>' + c.replace(/<\/script/gi, '<\\/scr' + 'ipt') + '</scr' + 'ipt>';
   });
   return injectHead(h, VIEWPORT + STORAGE_SHIM);
 }
-let pv = { name:'', html:'', code:'' };
-function openPreview(name, html, code) { pv = {name,html,code}; $('#pvName').textContent = name; $('#pvFrame').srcdoc = html; $('#app').classList.add('previewing'); closeSide(); }
-function closePreview() { $('#app').classList.remove('previewing'); $('#preview').classList.remove('full'); $('#pvFrame').srcdoc=''; }
 
+let pv = { name: '', html: '', code: '' };
+function openPreview(name, html, code) {
+  pv = { name, html, code };
+  $('#pvName').textContent = name;
+  $('#pvFrame').srcdoc = html;
+  $('#app').classList.add('previewing'); closeSide();
+}
+function closePreview() {
+  $('#app').classList.remove('previewing'); $('#preview').classList.remove('full');
+  $('#pvFrame').srcdoc = '';
+}
+
+/* ใส่แถบหัวและปุ่ม (พรีวิว / ดาวน์โหลด / คัดลอก) ให้บล็อกโค้ด พร้อมไฮไลต์สี */
 function enhance(root, blocks, map) {
   const used = new Set();
   root.querySelectorAll('pre').forEach(pre => {
     if (pre.parentElement.classList.contains('codewrap')) return;
     const code = pre.querySelector('code');
-    const txt = (code || pre).textContent.replace(/\n$/,'');
+    const txt = (code || pre).textContent.replace(/\n$/, '');
     if (window.hljs && code) { try { hljs.highlightElement(code); } catch {} }
     const cls = ((code && code.className.match(/language-([^\s]+)/)) || [])[1] || '';
     let b = blocks.find(x => !used.has(x) && x.code.trim() === txt.trim());
-    if (!b) b = blocks.find(x => !used.has(x) && x.code === txt);
-    if (b) used.add(b); else b = { lang:cls, file:'file.'+(LANG_EXT[cls]||'txt'), code:txt, named:false };
+    if (b) used.add(b); else b = { lang: cls, file: 'file.' + (LANG_EXT[cls] || 'txt'), code: txt, named: false };
     const isPreviewable = /\.(html?|svg)$/i.test(b.file) || /^(html|svg)$/.test(cls) || /^\s*(<!doctype html|<html|<svg[\s>])/i.test(b.code);
+
     const wrap = document.createElement('div'); wrap.className = 'codewrap';
     const bar = document.createElement('div'); bar.className = 'codebar';
     const name = document.createElement('span'); name.textContent = b.named ? b.file : (cls || 'code');
     const grp = document.createElement('div'); grp.className = 'grp';
-    const mk = (label, fn) => { const x = document.createElement('button'); x.type='button'; x.textContent=label; x.onclick=fn; return x; };
+    const mk = (label, fn) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; x.onclick = fn; return x; };
     if (isPreviewable) grp.append(mk('พรีวิว', () => openPreview(b.file, buildPreview(b.code, b.file, cls, map), b.code)));
-    grp.append(mk('ดาวน์โหลด', () => { downloadText(b.file, b.code); toast('ดาวน์โหลด '+b.file.split('/').pop()); }));
-    const cp = mk('คัดลอก', async () => { await copyText(b.code); cp.textContent='คัดลอกแล้ว'; setTimeout(()=>cp.textContent='คัดลอก',1500); });
+    grp.append(mk('ดาวน์โหลด', () => { downloadText(b.file, b.code); toast('ดาวน์โหลด ' + b.file.split('/').pop()); }));
+    const cp = mk('คัดลอก', async () => { await copyText(b.code); cp.textContent = 'คัดลอกแล้ว'; setTimeout(() => cp.textContent = 'คัดลอก', 1500); });
     grp.append(cp);
-    bar.append(name, grp); pre.replaceWith(wrap); wrap.append(bar, pre);
+    bar.append(name, grp);
+    pre.replaceWith(wrap); wrap.append(bar, pre);
   });
 }
 
-/* ===== ธีม/โมเดล ===== */
+/* ===== ธีมและโมเดลที่หัวหน้า ===== */
 function applyTheme() {
   const r = document.documentElement;
   if (settings.theme === 'auto') r.removeAttribute('data-theme'); else r.dataset.theme = settings.theme;
 }
 function updatePill() {
   $('#pvModel').textContent = modelLabel(activeModel());
-  $('#pvEffort').textContent = EFFORT[settings.effort].label + (settings.thinking ? '' : ' · ไม่คิด');
+  $('#pvEffort').textContent = EFFORT[settings.effort].label;
 }
 function buildSeg(container, options, current, onPick) {
   container.textContent = '';
-  options.forEach(([v,l]) => {
-    const b = document.createElement('button'); b.type='button'; b.textContent=l;
+  options.forEach(([v, l]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = l;
     if (v === current) b.classList.add('active');
     b.onclick = () => { onPick(v); buildSeg(container, options, v, onPick); };
     container.append(b);
   });
 }
 function fillModelDlg() {
-  buildSeg($('#modelSeg'), curModels(), settings.model, v => {
-    settings.model = v; settings.customModel=''; save(K.set, settings); updatePill();
+  buildSeg($('#modelSeg'), MODELS, settings.model, v => {
+    settings.model = v; settings.customModel = ''; save(K.set, settings); updatePill();
     if (!cur()) renderMessages();
   });
-  buildSeg($('#effortSeg'), Object.entries(EFFORT).map(([k,o])=>[k,o.label]), settings.effort, v => {
+  buildSeg($('#effortSeg'), Object.entries(EFFORT).map(([k, o]) => [k, o.label]), settings.effort, v => {
     settings.effort = v; save(K.set, settings); updatePill();
   });
   $('#fThink').checked = !!settings.thinking;
-  const c = cachedModels;
-  $('#modelRefreshHint').innerHTML = c && c.at
-    ? 'รายการจาก API ณ ' + new Date(c.at).toLocaleString('th-TH') + ' · <a href="#" id="refreshModels">รีเฟรช</a>'
-    : 'ยังไม่ได้โหลดรายการจาก API · <a href="#" id="refreshModels">โหลดเลย</a>';
-  const rf = document.getElementById('refreshModels');
-  if (rf) rf.onclick = e => { e.preventDefault(); refreshModels(true); };
+  $('#modelSrc').textContent = modelsFromApi ? 'โหลดรายชื่อจาก DeepSeek API แล้ว' : 'รายชื่อสำรอง (โหลดจาก API ไม่สำเร็จ หรือยังไม่ได้ใส่ API key)';
 }
 
-/* ===== โหลดรายชื่อโมเดลจาก API (ข้อ A) ===== */
-async function refreshModels(force) {
+/* เพิ่ม A: โหลดรายชื่อโมเดลจาก API แทนการฝังชื่อไว้ตายตัว กันปัญหาโมเดลเปลี่ยนชื่อแล้วแอปพัง */
+let modelsFetchedFor = '';
+async function fetchModels(force) {
   if (!settings.apiKey) return;
-  if (!force && cachedModels && Date.now() - cachedModels.at < 24*3600*1000) return;
+  const key = settings.baseUrl + '|' + settings.apiKey;
+  if (!force && modelsFetchedFor === key) return;
   try {
-    const res = await fetch(settings.baseUrl.replace(/\/+$/,'') + '/models', {
-      headers: { 'Authorization': 'Bearer ' + settings.apiKey }
-    });
+    const url = settings.baseUrl.replace(/\/+$/, '') + '/models';
+    const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + settings.apiKey } });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    const list = (data.data || []).map(m => [m.id, m.id]).filter(m => !/vision|embed|rerank/i.test(m[0]));
-    if (!list.length) throw new Error('empty');
-    cachedModels = { at: Date.now(), list };
-    save(K.models, cachedModels);
-    // ถ้าโมเดลที่ตั้งไว้ไม่อยู่ในรายการใหม่ ให้สลับไปตัวแรก
-    if (!list.some(m => m[0] === settings.model)) { settings.model = list[0][0]; save(K.set, settings); }
-    updatePill(); fillModelDlg();
-  } catch(e) { console.warn('refreshModels failed', e); }
-}
-
-/* ===== ยอดเงินคงเหลือ (ข้อ B) ===== */
-async function refreshBalance() {
-  if (!settings.apiKey) return;
-  try {
-    const res = await fetch(settings.baseUrl.replace(/\/+$/,'') + '/user/balance', {
-      headers: { 'Authorization': 'Bearer ' + settings.apiKey }
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    balance = { at: Date.now(), data };
-    save(K.bal, balance);
-    const el = $('#balance');
-    const b = (data.balance_infos || [])[0];
-    const v = b ? Number(b.total_balance) : Number(data.total_balance);
-    if (isFinite(v)) {
-      el.textContent = v.toFixed(2) + ' ' + (b?.currency || 'USD');
-      el.dataset.low = v < 1 ? '1' : '';
-      el.title = 'ยอดเงินคงเหลือ';
+    const ids = (data.data || []).map(m => m.id).filter(id => /deepseek/i.test(id));
+    if (ids.length) {
+      MODELS = ids.map(id => [id, id.replace(/^deepseek-/, 'DeepSeek ').replace(/\b\w/g, c => c.toUpperCase())]);
+      modelsFromApi = true; modelsFetchedFor = key;
+      if (!MODELS.some(m => m[0] === settings.model)) { settings.model = MODELS[0][0]; save(K.set, settings); updatePill(); }
     }
-  } catch(e) { console.warn('refreshBalance failed', e); }
+  } catch { modelsFromApi = false; MODELS = FALLBACK_MODELS.slice(); }
 }
 
-/* ===== รายการแชท ===== */
+/* เพิ่ม B: เช็กยอดเงินคงเหลือใน DeepSeek (ใช้ key/Base URL ที่พิมพ์อยู่ในกล่องตั้งค่าตอนนี้ ไม่ต้องกดบันทึกก่อน) */
+async function fetchBalance() {
+  const apiKey = ($('#fKey').value || settings.apiKey).trim();
+  const baseUrl = ($('#fBase').value || settings.baseUrl).trim() || DEFAULTS.baseUrl;
+  if (!apiKey) { toast('ใส่ API key ก่อน'); return; }
+  const el = $('#balanceText'); el.textContent = 'ยอดเงิน: กำลังโหลด…';
+  try {
+    const url = baseUrl.replace(/\/+$/, '') + '/user/balance';
+    const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const info = (data.balance_infos || [])[0];
+    el.textContent = info ? 'ยอดเงิน: ' + info.total_balance + ' ' + info.currency : 'ยอดเงิน: ไม่พบข้อมูล';
+  } catch (e) { el.textContent = 'ยอดเงิน: เช็กไม่ได้ (' + friendlyError(e).split('\n')[0] + ')'; }
+}
+
+/* ===== เรนเดอร์รายการแชทด้านข้าง ===== */
 function groupOf(ts) {
-  const d0 = new Date(); d0.setHours(0,0,0,0);
-  const days = Math.floor((d0.getTime() - ts)/86400000) + 1;
+  const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+  const days = Math.floor((d0.getTime() - ts) / 86400000) + 1;
   if (ts >= d0.getTime()) return 'วันนี้';
   if (days <= 1) return 'เมื่อวาน';
   if (days <= 7) return '7 วันที่ผ่านมา';
@@ -775,122 +813,125 @@ function groupOf(ts) {
 function renderList() {
   const q = $('#search').value.trim().toLowerCase();
   const box = $('#list'); box.textContent = '';
-  const items = chats.filter(c => !q || c.title.toLowerCase().includes(q)).sort((a,b) => b.updated - a.updated);
+  const items = chats.filter(c => !q || c.title.toLowerCase().includes(q)).sort((a, b) => b.updated - a.updated);
   if (!items.length) { box.innerHTML = '<p class="none">ยังไม่มีแชท</p>'; return; }
   let lastG = '';
   for (const c of items) {
     const g = groupOf(c.updated);
-    if (g !== lastG) { const t = document.createElement('div'); t.className='grp-t'; t.textContent=g; box.append(t); lastG=g; }
+    if (g !== lastG) { const t = document.createElement('div'); t.className = 'grp-t'; t.textContent = g; box.append(t); lastG = g; }
     const d = document.createElement('div'); d.className = 'item' + (c.id === currentId ? ' active' : '');
-    const t = document.createElement('button'); t.className='t'; t.type='button'; t.textContent=c.title; t.onclick=()=>selectChat(c.id);
-    const ed = document.createElement('button'); ed.className='edit'; ed.type='button'; ed.setAttribute('aria-label','เปลี่ยนชื่อแชท '+c.title); ed.innerHTML=ICON_EDIT; ed.onclick=ev=>{ev.stopPropagation();renameChat(c.id);};
-    const x = document.createElement('button'); x.className='x'; x.type='button'; x.setAttribute('aria-label','ลบแชท '+c.title); x.textContent='×'; x.onclick=()=>removeChat(c.id);
-    d.append(t,ed,x); box.append(d);
+    const t = document.createElement('button'); t.className = 't'; t.type = 'button'; t.textContent = c.title; t.onclick = () => selectChat(c.id);
+    const ed = document.createElement('button'); ed.className = 'edit'; ed.type = 'button'; ed.setAttribute('aria-label', 'เปลี่ยนชื่อแชท ' + c.title); ed.innerHTML = ICON_EDIT; ed.onclick = ev => { ev.stopPropagation(); renameChat(c.id); };
+    const x = document.createElement('button'); x.className = 'x'; x.type = 'button'; x.setAttribute('aria-label', 'ลบแชท ' + c.title); x.textContent = '×'; x.onclick = () => removeChat(c.id);
+    d.append(t, ed, x); box.append(d);
   }
 }
 
-/* ===== ข้อความ ===== */
+/* ===== เรนเดอร์ข้อความ ===== */
 function emptyEl() {
-  const d = document.createElement('div'); d.className='empty';
+  const d = document.createElement('div'); d.className = 'empty';
   const hasKey = !!settings.apiKey;
-  d.innerHTML = '<div class="av-lg">'+LOGO+'</div><h1>'+(hasKey?'วันนี้ให้ช่วยอะไรดี':'เริ่มต้นใช้งาน')+'</h1>';
+  d.innerHTML = '<div class="av-lg">' + LOGO + '</div><h1>' + (hasKey ? 'วันนี้ให้ช่วยอะไรดี' : 'เริ่มต้นใช้งาน') + '</h1>';
   const p = document.createElement('p');
-  p.textContent = hasKey ? 'คุยกับ '+activeModel()+' ประวัติแชทเก็บไว้ในเครื่องนี้เท่านั้น' : 'ใส่ DeepSeek API key ก่อนเริ่มแชท key จะเก็บไว้ในเบราว์เซอร์ของคุณเท่านั้น';
+  p.textContent = hasKey ? 'คุยกับ ' + activeModel() + ' ประวัติแชทเก็บไว้ในเครื่องนี้เท่านั้น' : 'ใส่ DeepSeek API key ก่อนเริ่มแชท key จะเก็บไว้ในเบราว์เซอร์ของคุณเท่านั้น';
   d.append(p);
   if (!hasKey) {
-    const b = document.createElement('button'); b.type='button'; b.className='btn primary'; b.textContent='ใส่ API key'; b.onclick=openSettings; d.append(b);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn primary'; b.textContent = 'ใส่ API key'; b.onclick = openSettings; d.append(b);
     return d;
   }
   const S = [
-    ['สร้างเกมงู','เป็นไฟล์ HTML ไฟล์เดียว พร้อมพรีวิว','สร้างเกมงูเป็นไฟล์ HTML ไฟล์เดียว'],
-    ['ทำเว็บ portfolio','แยกไฟล์ index.html, style.css, script.js','ทำเว็บ portfolio แยกไฟล์ index.html style.css script.js'],
-    ['ทำเครื่องคิดเลขภาษี','เป็นเว็บหน้าเดียว ใช้บนมือถือได้','ทำเครื่องคิดเลขภาษีเงินได้เป็นเว็บหน้าเดียว']
+    ['สร้างเกมงู', 'เป็นไฟล์ HTML ไฟล์เดียว พร้อมพรีวิว', 'สร้างเกมงูเป็นไฟล์ HTML ไฟล์เดียว'],
+    ['ทำเว็บ portfolio', 'แยกไฟล์ index.html, style.css, script.js', 'ทำเว็บ portfolio แยกไฟล์ index.html style.css script.js'],
+    ['ทำเครื่องคิดเลขภาษี', 'เป็นเว็บหน้าเดียว ใช้บนมือถือได้', 'ทำเครื่องคิดเลขภาษีเงินได้เป็นเว็บหน้าเดียว']
   ];
-  const box = document.createElement('div'); box.className='sugg';
-  S.forEach(([t,sub,prompt]) => {
-    const b = document.createElement('button'); b.type='button';
-    const bt = document.createElement('b'); bt.textContent=t; const sp=document.createElement('span'); sp.textContent=sub;
-    b.append(bt,sp); b.onclick=()=>{const i=$('#input'); i.value=prompt; autosize(); i.focus();}; box.append(b);
+  const box = document.createElement('div'); box.className = 'sugg';
+  S.forEach(([t, sub, prompt]) => {
+    const b = document.createElement('button'); b.type = 'button';
+    const bt = document.createElement('b'); bt.textContent = t; const sp = document.createElement('span'); sp.textContent = sub;
+    b.append(bt, sp);
+    b.onclick = () => { const i = $('#input'); i.value = prompt; autosize(); i.focus(); };
+    box.append(b);
   });
-  d.append(box); return d;
+  d.append(box);
+  return d;
 }
+
 function iconBtn(icon, label, fn, cls, withText) {
-  const b = document.createElement('button'); b.type='button'; b.title=label; b.setAttribute('aria-label',label);
-  if (cls) b.className=cls;
-  b.innerHTML = icon + (withText ? '<span>'+esc(label)+'</span>' : '');
+  const b = document.createElement('button'); b.type = 'button'; b.title = label; b.setAttribute('aria-label', label);
+  if (cls) b.className = cls;
+  b.innerHTML = icon + (withText ? '<span>' + esc(label) + '</span>' : '');
   b.onclick = fn; return b;
 }
+
 function msgEl(m, i, chat) {
-  const d = document.createElement('div'); d.className = 'msg '+m.role;
+  const d = document.createElement('div'); d.className = 'msg ' + m.role;
   if (m.role === 'user') {
-    if (!streaming) d.append(iconBtn(ICON_EDIT,'แก้ไขและส่งใหม่',()=>editUserMessage(i),'edit-msg'));
-    const col = document.createElement('div');
-    col.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:82%;min-width:0';
+    if (!streaming) d.append(iconBtn(ICON_EDIT, 'แก้ไขและส่งใหม่', () => editUserMessage(i), 'edit-msg'));
+    const col = document.createElement('div'); col.style.display = 'flex'; col.style.flexDirection = 'column'; col.style.alignItems = 'flex-end'; col.style.gap = '6px'; col.style.maxWidth = '82%'; col.style.minWidth = '0';
     if (m.attachments && m.attachments.length) {
-      const row = document.createElement('div'); row.className='attach-row static';
+      const row = document.createElement('div'); row.className = 'attach-row static';
       m.attachments.forEach(a => {
-        const chip = document.createElement('div'); chip.className='attach-chip';
-        if (a.kind === 'image' && a.dataUrl) {
-          const img = document.createElement('img'); img.className='thumb'; img.src=a.dataUrl; img.alt=a.name;
-          chip.append(img);
-        } else {
-          const ic = document.createElement('span'); ic.className='ic'; ic.innerHTML=ICON_FILE;
-          chip.append(ic);
-        }
-        const nm = document.createElement('span'); nm.className='nm'; nm.textContent=a.name;
-        chip.append(nm); row.append(chip);
+        const isImg = a.type === 'image';
+        const chip = document.createElement('div'); chip.className = 'attach-chip' + (isImg ? ' img' : '');
+        const ic = document.createElement('span'); ic.className = 'ic';
+        if (isImg) { const im = document.createElement('img'); im.src = a.dataUrl; im.alt = ''; ic.append(im); } else ic.innerHTML = ICON_FILE;
+        const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = a.name;
+        chip.append(ic, nm); row.append(chip);
       });
       col.append(row);
     }
     const shownText = m.displayText != null ? m.displayText : m.content;
-    if (shownText) { const b = document.createElement('div'); b.className='bubble'; b.textContent=shownText; col.append(b); }
-    d.append(col); return d;
+    if (shownText) { const b = document.createElement('div'); b.className = 'bubble'; b.textContent = shownText; col.append(b); }
+    d.append(col);
+    return d;
   }
-  d.innerHTML = '<div class="av">'+LOGO+'</div><div class="body"><div class="who"></div><details class="think" hidden><summary>ความคิดของโมเดล</summary><div class="think-body"></div></details><div class="md"></div></div>';
+  d.innerHTML = '<div class="av">' + LOGO + '</div><div class="body"><div class="who"></div><details class="think" hidden><summary>ความคิดของโมเดล</summary><div class="think-body"></div></details><div class="md"></div></div>';
   d.querySelector('.who').textContent = m.model || activeModel();
   const body = d.querySelector('.body');
   const think = d.querySelector('.think');
-  if (m.reasoning) { think.hidden=false; think.querySelector('.think-body').textContent = m.reasoning; if (streaming && !m.content) think.open = true; }
+  if (m.reasoning) { think.hidden = false; think.querySelector('.think-body').textContent = m.reasoning; if (streaming && !m.content) think.open = true; }
   const mdEl = d.querySelector('.md');
   const blocks = m.content ? parseBlocks(m.content) : [];
   const map = finalizeBlocks(blocks);
   if (m.content) { mdEl.innerHTML = md(m.content); if (!(streaming && i === chat.messages.length - 1)) enhance(mdEl, blocks, map); }
-  if (m.error) { const e = document.createElement('div'); e.className='err'; e.textContent=m.error; body.append(e); }
+  if (m.error) { const e = document.createElement('div'); e.className = 'err'; e.textContent = m.error; body.append(e); }
   if (!streaming && m.finishReason === 'length') {
-    const w = document.createElement('div'); w.className='warn';
-    w.textContent = 'คำตอบอาจถูกตัด (ครบ '+EFFORT[settings.effort].maxTokens.toLocaleString()+' tokens) กด "ตอบต่อ" ด้านล่าง';
+    const w = document.createElement('div'); w.className = 'warn';
+    w.textContent = 'คำตอบอาจถูกตัดเนื่องจากครบขีดจำกัดความยาวของระดับ ' + EFFORT[settings.effort].label + ' (' + EFFORT[settings.effort].maxTokens + ' tokens) เพิ่มระดับ effort ได้ที่ปุ่มโมเดล หรือกด "ตอบต่อ" ด้านล่าง';
     body.append(w);
   }
   if (!streaming) {
-    const a = document.createElement('div'); a.className='actions';
-    if (m.content) a.append(iconBtn(ICON_COPY,'คัดลอก',()=>copyText(m.content)));
+    const a = document.createElement('div'); a.className = 'actions';
+    if (m.content) a.append(iconBtn(ICON_COPY, 'คัดลอก', () => copyText(m.content)));
+    // ถ้ามีหลายไฟล์ในข้อความเดียว แสดงปุ่มดาวน์โหลดรวมเป็น ZIP (ใช้เฉพาะบล็อกที่มีชื่อไฟล์ ถ้าไม่มีเลยใช้ทุกบล็อก)
     const zipFiles = blocks.some(b => b.named) ? blocks.filter(b => b.named) : blocks;
-    if (zipFiles.length >= 2) a.append(iconBtn(ICON_DL,'ดาวน์โหลดทั้งหมด (.zip)',()=>{downloadZip(zipFiles);toast('สร้าง ZIP แล้ว');},'zip',true));
+    if (zipFiles.length >= 2) a.append(iconBtn(ICON_DL, 'ดาวน์โหลดทั้งหมด (.zip)', () => { downloadZip(zipFiles); toast('สร้าง ZIP แล้ว'); }, 'zip', true));
     if (i === chat.messages.length - 1) {
-      if (m.finishReason === 'length' || m.stopped) a.append(iconBtn(ICON_CONTINUE,'ตอบต่อ',continueReply,'',true));
+      if (m.finishReason === 'length') a.append(iconBtn(ICON_CONTINUE, 'ตอบต่อ', continueReply, '', true));
       a.append(iconBtn(ICON_REFRESH, m.error ? 'ลองใหม่' : 'สร้างใหม่', regenerate, '', !!m.error));
     }
-    if (m.usage) {
-      const u = document.createElement('span'); u.className='usage';
-      const parts = [];
-      if (u && m.usage.completion_tokens) parts.push(m.usage.completion_tokens.toLocaleString()+' out');
-      if (m.usage.reasoning_tokens) parts.push('คิด '+m.usage.reasoning_tokens.toLocaleString());
-      if (m.usage.prompt_tokens) parts.push(m.usage.prompt_tokens.toLocaleString()+' in');
-      u.textContent = parts.join(' · ');
-      a.append(u);
-    }
     body.append(a);
+    if (m.usage) {
+      const u = document.createElement('div'); u.className = 'usage';
+      const rt = m.usage.completion_tokens_details && m.usage.completion_tokens_details.reasoning_tokens;
+      u.textContent = (m.usage.total_tokens || 0).toLocaleString('th-TH') + ' tokens' + (rt ? ' (คิด ' + rt.toLocaleString('th-TH') + ')' : '');
+      body.append(u);
+    }
   }
   return d;
 }
+
 function renderMessages() {
   const chat = cur(); const box = $('#msgsInner'); box.textContent = '';
   $('#ctitle').textContent = chat ? chat.title : '';
   if (!chat || !chat.messages.length) { box.append(emptyEl()); return; }
-  chat.messages.forEach((m,i) => box.append(msgEl(m,i,chat)));
+  chat.messages.forEach((m, i) => box.append(msgEl(m, i, chat)));
   if (autoScroll) scrollEnd();
+  updateScrollBtn();
 }
 function scrollEnd() { const s = $('#msgs'); s.scrollTop = s.scrollHeight; }
+
+/* ระหว่างสตรีม: อัปเดตเฉพาะข้อความสุดท้ายแบบจำกัดความถี่ */
 let paintQueued = false;
 function paint(el, msg) {
   if (paintQueued) return; paintQueued = true;
@@ -898,12 +939,13 @@ function paint(el, msg) {
     paintQueued = false;
     const th = el.querySelector('.think');
     if (msg.reasoning) {
-      th.hidden=false; th.querySelector('.think-body').textContent = msg.reasoning;
+      th.hidden = false; th.querySelector('.think-body').textContent = msg.reasoning;
       if (!msg.content) th.open = true;
-      else if (!th.dataset.closed) { th.open=false; th.dataset.closed='1'; }
+      else if (!th.dataset.closed) { th.open = false; th.dataset.closed = '1'; }
     }
     el.querySelector('.md').innerHTML = msg.content ? md(msg.content) : '';
     if (autoScroll) scrollEnd();
+    updateScrollBtn();
   });
 }
 
@@ -914,6 +956,7 @@ function setBusy(b) {
   btn.setAttribute('aria-label', b ? 'หยุด' : 'ส่ง');
   updateSend();
 }
+// ปุ่มส่งจาง ๆ เมื่อยังไม่ได้พิมพ์อะไร (ปุ่มหยุดใช้ได้เสมอ)
 function updateSend() { $('#sendBtn').disabled = !streaming && !$('#input').value.trim() && !pendingAttachments.length; }
 function stop() { if (abortCtl) abortCtl.abort(); }
 function closeSide() { $('#app').classList.remove('open'); }
@@ -929,7 +972,7 @@ function selectChat(id) {
 }
 function removeChat(id) {
   const c = chats.find(x => x.id === id); if (!c) return;
-  if (!confirm('ลบแชท "'+c.title+'" ?')) return;
+  if (!confirm('ลบแชท "' + c.title + '" ?')) return;
   if (id === currentId && streaming) stop();
   chats = chats.filter(x => x.id !== id);
   if (id === currentId) currentId = null;
@@ -940,95 +983,69 @@ function renameChat(id) {
   const name = prompt('เปลี่ยนชื่อแชท', c.title);
   if (name == null) return;
   const t = name.trim(); if (!t) return;
-  c.title = t.slice(0,60); persist(); renderList(); renderMessages();
+  c.title = t.slice(0, 60); persist(); renderList(); renderMessages();
 }
 function editUserMessage(i) {
   if (streaming) return;
   const chat = cur(); if (!chat) return;
   const m = chat.messages[i];
   const text = m.displayText != null ? m.displayText : m.content;
-  pendingAttachments = (m.attachments || []).slice();
+  pendingAttachments = (m.attachments || []).map(a => a.type === 'image' ? { name: a.name, type: 'image', dataUrl: a.dataUrl } : { name: a.name, content: a.content });
   chat.messages.splice(i);
   chat.updated = Date.now();
   persist(); renderMessages(); renderList(); renderAttachRow();
   const input = $('#input'); input.value = text; autosize(); input.focus();
 }
-
-/* ✅ ข้อ 3 + C: ตอบต่อแบบต่อท้าย msg.content เดิม */
-async function continueReply() {
-  if (streaming) return;
-  const chat = cur(); if (!chat) return;
-  const last = chat.messages[chat.messages.length - 1];
-  if (!last || last.role !== 'assistant') return;
-  // ตัด finishReason และ stopped ก่อนสตรีมต่อ
-  delete last.finishReason; delete last.stopped;
-  await streamAssistant(chat, last, { append: true });
-}
-
 function friendlyError(e) {
   const m = String(e && e.message || e);
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'เชื่อมต่อ DeepSeek ไม่ได้ ตรวจสอบอินเทอร์เน็ตและ Base URL ในตั้งค่า';
-  if (/^HTTP 401/.test(m)) return 'API key ไม่ถูกต้อง ตรวจสอบในตั้งค่า\n'+m;
-  if (/^HTTP 402/.test(m)) return 'ยอดเงินในบัญชี DeepSeek ไม่พอ ต้องเติมเงินก่อน\n'+m;
-  if (/^HTTP 429/.test(m)) return 'ส่งถี่เกินไป รอสักครู่แล้วลองใหม่\n'+m;
-  if (/^HTTP 400/.test(m)) return 'คำขอไม่ถูกต้อง อาจเกิดจากพารามิเตอร์หรือรูปแบบข้อความ\n'+m;
-  if (/^HTTP 422/.test(m)) return 'พารามิเตอร์ไม่ถูกต้อง ตรวจสอบการตั้งค่าโมเดล\n'+m;
+  if (/^HTTP 401/.test(m)) return 'API key ไม่ถูกต้อง ตรวจสอบในตั้งค่า\n' + m;
+  if (/^HTTP 402/.test(m)) return 'ยอดเงินในบัญชี DeepSeek ไม่พอ ต้องเติมเงินก่อน\n' + m;
+  if (/^HTTP 429/.test(m)) return 'ส่งถี่เกินไป รอสักครู่แล้วลองใหม่\n' + m;
   return m;
 }
 
-/* ✅ สร้าง message array สำหรับ API รองรับทั้งข้อความล้วนและ multimodal */
-function buildApiMessages(chat, skip, appendTarget) {
-  const out = [];
-  for (const m of chat.messages) {
-    if (m === skip || m.error) continue;
-    if (appendTarget && m === appendTarget) {
-      // สำหรับ continue: ส่ง assistant content เดิม + reasoning (ไม่ส่ง reasoning ถ้า API version ใหม่)
-      out.push({ role:'assistant', content: m.content });
-      continue;
-    }
-    if (!m.content && !(m.attachments && m.attachments.some(a => a.kind === 'image'))) continue;
-    // ถ้าเป็น user ที่มีรูป ให้ประกอบเป็น content array
-    if (m.role === 'user' && m.attachments && m.attachments.some(a => a.kind === 'image')) {
-      const parts = [];
-      const text = m.displayText || m.content;
-      if (text) parts.push({ type:'text', text });
-      for (const a of m.attachments) {
-        if (a.kind === 'image' && a.dataUrl) parts.push({ type:'image_url', image_url:{ url:a.dataUrl } });
-      }
-      out.push({ role:'user', content: parts });
-    } else {
-      out.push({ role:m.role, content: m.content });
-    }
-  }
-  return out;
+/* รวมข้อความ + ไฟล์แนบข้อความของ 1 ข้อความผู้ใช้ ให้เป็นข้อความเดียวสำหรับส่งไป API (ไม่เก็บซ้ำในสตอเรจ) */
+function composeUserText(m) {
+  const textAtts = (m.attachments || []).filter(a => a.type !== 'image');
+  const filesText = textAtts.map(a => { const f = fenceFor(a.content); return '`' + a.name + '`\n' + f + '\n' + a.content + '\n' + f; }).join('\n\n');
+  return [m.content || '', filesText].filter(Boolean).join('\n\n');
+}
+/* สร้าง content ของข้อความผู้ใช้สำหรับ API: เป็น string ธรรมดา หรือ array แบบ multimodal ถ้ามีรูปแนบ (deepseek-flash รองรับภาพ) */
+function apiContentFor(m) {
+  const text = composeUserText(m);
+  const imgs = (m.attachments || []).filter(a => a.type === 'image');
+  if (!imgs.length) return text;
+  const parts = [];
+  if (text) parts.push({ type: 'text', text });
+  imgs.forEach(a => parts.push({ type: 'image_url', image_url: { url: a.dataUrl } }));
+  return parts;
 }
 
-/* ✅ ข้อ 2: ใช้ reasoning_effort + thinking + max_tokens จาก EFFORT */
-async function streamChat(chat, msg, signal, appendTarget) {
+/* ส่งประวัติแชทไป DeepSeek แล้วอ่านคำตอบแบบสตรีม (SSE) */
+async function streamChat(chat, msg, onDelta, signal, extraUserText) {
   const model = activeModel();
-  const eff = EFFORT[settings.effort] || EFFORT.medium;
-  const sys = [settings.system.trim(), settings.thinking ? eff.hint : '', settings.fileHint ? FILE_HINT : ''].filter(Boolean).join('\n\n');
-  const history = buildApiMessages(chat, msg, appendTarget);
+  // ไม่ส่งส่วนความคิด (reasoning) กลับไป เพราะ API โหมดคิดไม่รับ
+  // หมายเหตุ: ไม่ต้องกันข้อความ msg เองออกจากประวัติ เพราะตอน reply() ใหม่ msg.content ยังว่าง (ถูกกรองออกเองจากเงื่อนไขข้างล่าง)
+  // ส่วนตอน "ตอบต่อ" (continueReply) msg.content มีข้อความค้างอยู่แล้ว และ "ต้อง" ส่งกลับไปเป็นประวัติ ไม่งั้นโมเดลจะไม่รู้ว่าต่อจากตรงไหน
+  const history = chat.messages.filter(m => !m.error && (m.content || (m.attachments && m.attachments.length))).map(m => ({
+    role: m.role,
+    content: m.role === 'user' ? apiContentFor(m) : m.content
+  }));
+  if (extraUserText) history.push({ role: 'user', content: extraUserText });
+  const eff = EFFORT[settings.effort] || EFFORT.high;
+  const sys = [settings.system.trim(), eff.hint, settings.fileHint ? FILE_HINT : ''].filter(Boolean).join('\n\n');
   const body = {
-    model,
-    messages: (sys ? [{role:'system', content:sys}] : []).concat(history),
-    stream: true,
-    max_tokens: eff.maxTokens,
-    stream_options: { include_usage: true }  // ✅ B: ขอ usage มากับสตรีม
+    model, messages: (sys ? [{ role: 'system', content: sys }] : []).concat(history),
+    stream: true, stream_options: { include_usage: true }, max_tokens: eff.maxTokens, thinking: !!settings.thinking
   };
-  if (settings.thinking) {
-    body.reasoning_effort = eff.reasoning;  // 'low' | 'high' | 'max'
-    body.thinking = { type: 'enabled' };
-  } else {
-    body.reasoning_effort = 'none';
-    body.thinking = { type: 'disabled' };
-    if (!/reasoner|r1/i.test(model)) body.temperature = Number(settings.temperature);
-  }
+  if (settings.thinking) body.reasoning_effort = eff.reasoning_effort;
+  if (!settings.thinking) body.temperature = Number(settings.temperature);
 
-  const url = settings.baseUrl.replace(/\/+$/,'') + '/chat/completions';
+  const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
   const res = await fetch(url, {
-    method:'POST', signal,
-    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + settings.apiKey },
+    method: 'POST', signal,
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.apiKey },
     body: JSON.stringify(body)
   });
   if (!res.ok) {
@@ -1040,78 +1057,65 @@ async function streamChat(chat, msg, signal, appendTarget) {
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buf += dec.decode(value, { stream:true });
+    buf += dec.decode(value, { stream: true });
     const lines = buf.split('\n'); buf = lines.pop();
     for (const ln of lines) {
-      const s = ln.trim(); if (!s.startsWith('data:')) continue;
-      const d = s.slice(5).trim(); if (d === '[DONE]') return;
+      const s = ln.trim();
+      if (!s.startsWith('data:')) continue;
+      const d = s.slice(5).trim();
+      if (d === '[DONE]') return;
       try {
         const parsed = JSON.parse(d);
         const choice = parsed.choices?.[0];
         const delta = choice?.delta || {};
-        if (delta.reasoning_content) msg.reasoning = (msg.reasoning || '') + delta.reasoning_content;
-        if (delta.content) msg.content = (msg.content || '') + delta.content;
+        if (delta.reasoning_content) msg.reasoning += delta.reasoning_content;
+        if (delta.content) msg.content += delta.content;
         if (choice?.finish_reason) msg.finishReason = choice.finish_reason;
-        // ✅ B: usage มากับ chunk สุดท้าย
-        if (parsed.usage) {
-          msg.usage = {
-            prompt_tokens: parsed.usage.prompt_tokens,
-            completion_tokens: parsed.usage.completion_tokens,
-            reasoning_tokens: parsed.usage.completion_tokens_details?.reasoning_tokens
-          };
-        }
+        if (parsed.usage) msg.usage = parsed.usage;
         onDelta();
-      } catch {}
+      } catch { /* ข้ามบรรทัดที่อ่านไม่ได้ */ }
     }
-  }
-}
-
-/* ✅ ข้อ 3: บันทึกทันที + กันเขียนทับข้ามแท็บ */
-let bc = null;
-try { bc = new BroadcastChannel('dschat'); } catch {}
-if (bc) {
-  bc.onmessage = (ev) => {
-    if (ev.data?.type === 'sync') {
-      chats = load(K.chats, []);
-      currentId = load(K.cur, null);
-      renderList(); renderMessages();
-    }
-  };
-}
-function broadcastSync() { try { bc && bc.postMessage({type:'sync'}); } catch {} }
-function persistNow() { persist(); broadcastSync(); }
-
-let onDeltaRef = null;
-async function streamAssistant(chat, msg, opts) {
-  streaming = true; setBusy(true); msg.stopped = false;
-  autoScroll = true;
-  renderMessages(); renderList();
-  const el = $('#msgsInner').lastElementChild;
-  abortCtl = new AbortController();
-  onDeltaRef = () => paint(el, msg);
-  try {
-    await streamChat(chat, msg, abortCtl.signal, opts?.append ? msg : null);
-  } catch (e) {
-    if (e.name === 'AbortError') { msg.stopped = true; }
-    else msg.error = friendlyError(e);
-  } finally {
-    streaming = false; abortCtl = null; setBusy(false);
-    chat.updated = Date.now();
-    if (!msg.content && !msg.reasoning && !msg.error) {
-      const ix = chat.messages.indexOf(msg); if (ix >= 0) chat.messages.splice(ix, 1);
-    }
-    persistNow(); renderMessages(); renderList();
-    // ✅ B: รีเฟรชยอดเงินหลังแต่ละคำตอบ
-    refreshBalance();
   }
 }
 
 async function reply(chat) {
-  const msg = { role:'assistant', content:'', reasoning:'', model: activeModel() };
-  chat.messages.push(msg);
-  chat.updated = Date.now();
-  persistNow();  // ✅ ข้อ 3: บันทึกทันทีที่ push
-  await streamAssistant(chat, msg);
+  streaming = true; setBusy(true); startAutosave();
+  const msg = { role: 'assistant', content: '', reasoning: '', model: activeModel() };
+  chat.messages.push(msg); chat.updated = Date.now();
+  autoScroll = true; renderMessages(); renderList();
+  const el = $('#msgsInner').lastElementChild;
+  abortCtl = new AbortController();
+  try {
+    await streamChat(chat, msg, () => paint(el, msg), abortCtl.signal);
+  } catch (e) {
+    if (e.name !== 'AbortError') msg.error = friendlyError(e);
+  } finally {
+    streaming = false; abortCtl = null; setBusy(false); stopAutosave();
+    if (!msg.content && !msg.reasoning && !msg.error) chat.messages.splice(chat.messages.indexOf(msg), 1);
+    chat.updated = Date.now(); persist(); renderMessages(); renderList();
+  }
+}
+
+/* "ตอบต่อ" (เพิ่ม C): ต่อท้ายข้อความผู้ช่วยเดิมโดยตรง แทนที่จะสร้างข้อความใหม่ (เดิมทำให้โค้ดขาดครึ่ง เพราะแยกเป็นคนละบล็อก) */
+async function continueReply() {
+  if (streaming) return;
+  const chat = cur(); if (!chat) return;
+  const msg = chat.messages[chat.messages.length - 1];
+  if (!msg || msg.role !== 'assistant') return;
+  if (!settings.apiKey) { toast('ใส่ API key ก่อน'); openSettings(); return; }
+  streaming = true; setBusy(true); startAutosave();
+  delete msg.error; msg.finishReason = '';
+  autoScroll = true; renderMessages(); renderList();
+  const el = $('#msgsInner').lastElementChild;
+  abortCtl = new AbortController();
+  try {
+    await streamChat(chat, msg, () => paint(el, msg), abortCtl.signal, 'ตอบต่อจากที่ค้างไว้ทันที ห้ามพูดซ้ำข้อความเดิม ห้ามทวนคำนำหรือขึ้นต้นใหม่');
+  } catch (e) {
+    if (e.name !== 'AbortError') msg.error = friendlyError(e);
+  } finally {
+    streaming = false; abortCtl = null; setBusy(false); stopAutosave();
+    chat.updated = Date.now(); persist(); renderMessages(); renderList();
+  }
 }
 
 function send() {
@@ -1119,175 +1123,147 @@ function send() {
   if ((!text && !pendingAttachments.length) || streaming) return;
   if (!settings.apiKey) { toast('ใส่ API key ก่อน'); openSettings(); return; }
   let chat = cur();
-  if (!chat) { chat = { id:uid(), title:'แชทใหม่', updated:Date.now(), messages:[] }; chats.unshift(chat); currentId = chat.id; }
-
+  if (!chat) { chat = { id: uid(), title: 'แชทใหม่', updated: Date.now(), messages: [] }; chats.unshift(chat); currentId = chat.id; }
   const atts = pendingAttachments.slice();
-  // ✅ ข้อ 5: ใช้ fence ที่ยาวกว่าทุก backtick ในเนื้อหา
-  const filesText = atts
-    .filter(a => a.kind === 'text')
-    .map(a => {
-      const maxRun = (a.content.match(/`+/g) || ['']).reduce((m,s)=>Math.max(m,s.length),0);
-      const fence = '`'.repeat(Math.max(3, maxRun + 1));
-      return fence + a.name + '\n' + a.content + '\n' + fence;
-    }).join('\n\n');
-  const full = [text, filesText].filter(Boolean).join('\n\n');
-  chat.messages.push({ role:'user', content: full, displayText: text, attachments: atts });
-  if (chat.messages.length === 1) chat.title = (text || atts[0]?.name || 'แชทใหม่').replace(/\s+/g,' ').slice(0,40);
-  input.value=''; pendingAttachments = []; renderAttachRow(); autosize();
-  persistNow();
+  // เก็บเนื้อไฟล์แนบไว้ที่เดียวใน attachments (ไม่ผสมเข้า content ซ้ำ) — ประกอบเป็นข้อความเต็มตอนส่งไป API เท่านั้น (composeUserText/apiContentFor)
+  chat.messages.push({ role: 'user', content: text, attachments: atts });
+  if (chat.messages.length === 1) chat.title = (text || (atts[0] && atts[0].name) || 'แชทใหม่').replace(/\s+/g, ' ').slice(0, 40);
+  input.value = ''; pendingAttachments = []; renderAttachRow(); autosize();
   reply(chat);
 }
 
 function regenerate() {
   if (streaming) return;
   const chat = cur(); if (!chat) return;
-  while (chat.messages.length && chat.messages[chat.messages.length-1].role === 'assistant') chat.messages.pop();
+  while (chat.messages.length && chat.messages[chat.messages.length - 1].role === 'assistant') chat.messages.pop();
   if (!chat.messages.length) return;
   if (!settings.apiKey) { openSettings(); return; }
-  persistNow();
   reply(chat);
 }
 
 /* ===== ช่องพิมพ์ ===== */
-function autosize() { const t = $('#input'); t.style.height='auto'; t.style.height = Math.min(t.scrollHeight,200)+'px'; updateSend(); updateCharCount(); }
-function updateCharCount() { const n = $('#input').value.length; $('#charCount').textContent = n > 300 ? ' · '+n.toLocaleString('th-TH')+' ตัวอักษร' : ''; }
+function autosize() { const t = $('#input'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 200) + 'px'; updateSend(); updateCharCount(); }
+function updateCharCount() {
+  const n = $('#input').value.length;
+  $('#charCount').textContent = n > 300 ? ' · ' + n.toLocaleString('th-TH') + ' ตัวอักษร' : '';
+}
 $('#input').addEventListener('input', autosize);
 $('#input').addEventListener('keydown', e => {
+  // บนคอมพิวเตอร์: Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่ / บนมือถือ: Enter ขึ้นบรรทัดใหม่
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !matchMedia('(pointer:coarse)').matches) { e.preventDefault(); send(); }
 });
 $('#sendBtn').onclick = () => streaming ? stop() : send();
-
-/* ✅ C: ปุ่มเลื่อนลงล่าง */
-const msgs = $('#msgs');
-msgs.addEventListener('scroll', () => {
-  autoScroll = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
-  $('#scrollDown').classList.toggle('show', !autoScroll && msgs.scrollHeight > msgs.clientHeight + 200);
-});
-$('#scrollDown').onclick = () => { autoScroll = true; scrollEnd(); $('#scrollDown').classList.remove('show'); };
+function updateScrollBtn() {
+  const s = $('#msgs');
+  const nearBottom = s.scrollHeight - s.scrollTop - s.clientHeight < 80;
+  autoScroll = nearBottom;
+  $('#scrollBtn').classList.toggle('show', !nearBottom && s.scrollHeight > s.clientHeight + 40);
+}
+$('#msgs').addEventListener('scroll', updateScrollBtn);
+$('#scrollBtn').onclick = () => { autoScroll = true; scrollEnd(); $('#scrollBtn').classList.remove('show'); };
 
 const dlg = $('#dlg');
 
-/* ===== แถบข้าง ===== */
+/* ===== แถบข้างและหัวหน้า ===== */
 $('#newBtn').onclick = newChat;
 $('#search').addEventListener('input', renderList);
 $('#menuBtn').onclick = () => $('#app').classList.add('open');
 $('#scrim').onclick = closeSide;
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !dlg.open) { closeSide(); closePreview(); } });
 document.addEventListener('keydown', e => {
-  const meta = e.metaKey || e.ctrlKey; if (!meta) return;
+  const meta = e.metaKey || e.ctrlKey;
+  if (!meta) return;
   const k = e.key.toLowerCase();
   if (k === 'k') { e.preventDefault(); if (isMobile()) $('#app').classList.add('open'); $('#search').focus(); }
   else if (e.shiftKey && k === 'o') { e.preventDefault(); newChat(); }
 });
 
-/* ===== แนบไฟล์ ===== */
+/* ===== ปุ่ม + (แนบไฟล์ข้อความ/โค้ดเข้าไปในข้อความ) ===== */
 $('#plusBtn').onclick = () => $('#attachFile').click();
 $('#attachFile').onchange = async e => {
-  const f = e.target.files[0]; e.target.value=''; if (!f) return;
-  if (f.size > 2*1024*1024) { toast('ไฟล์ใหญ่เกินไป (จำกัด 2MB)'); return; }
-  try {
-    const text = await f.text();
-    pendingAttachments.push({ kind:'text', name:f.name, content:text });
-    renderAttachRow(); toast('แนบไฟล์ '+f.name+' แล้ว'); $('#input').focus();
-  } catch { toast('อ่านไฟล์นี้ไม่ได้'); }
-};
-
-/* ✅ D: แนบรูป */
-$('#imgBtn').onclick = () => $('#imgFile').click();
-$('#imgFile').onchange = async e => {
-  const files = Array.from(e.target.files || []); e.target.value='';
-  for (const f of files) await addImage(f);
-};
-async function addImage(f) {
-  if (!/^image\/(jpeg|png|gif|webp)$/i.test(f.type)) {
-    // ✅ ตรวจ MIME จริงจาก magic bytes (DeepSeek แนะนำให้ไม่เชื่อ filename/MIME ที่ประกาศ)
-    const buf = await f.slice(0,12).arrayBuffer();
-    const b = new Uint8Array(buf);
-    const isJpg = b[0]===0xFF && b[1]===0xD8;
-    const isPng = b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47;
-    const isGif = b[0]===0x47 && b[1]===0x49 && b[2]===0x46;
-    const isWebp = b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50;
-    if (!(isJpg||isPng||isGif||isWebp)) { toast(f.name+' ไม่ใช่รูปแบบที่รองรับ'); return; }
-  }
-  if (f.size > 8*1024*1024) { toast(f.name+' ใหญ่เกินไป (จำกัด 8MB)'); return; }
-  const dataUrl = await new Promise((res,rej) => { const r = new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
-  pendingAttachments.push({ kind:'image', name:f.name, mime:f.type || 'image/jpeg', dataUrl });
-  renderAttachRow(); toast('แนบรูป '+f.name+' แล้ว');
-}
-// paste รูป
-$('#input').addEventListener('paste', async e => {
-  const items = e.clipboardData?.items || [];
-  for (const it of items) {
-    if (it.type.startsWith('image/')) {
-      const f = it.getAsFile();
-      if (f) { e.preventDefault(); await addImage(f); }
+  const files = Array.from(e.target.files || []); e.target.value = ''; if (!files.length) return;
+  for (const f of files) {
+    const isImage = /^image\//.test(f.type) || /\.(png|jpe?g|webp|gif)$/i.test(f.name);
+    if (isImage) {
+      if (f.size > 5 * 1024 * 1024) { toast('รูปใหญ่เกินไป (จำกัด 5MB): ' + f.name); continue; }
+      try {
+        const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+        pendingAttachments.push({ name: f.name, type: 'image', dataUrl });
+        toast('แนบรูป ' + f.name + ' แล้ว');
+      } catch { toast('อ่านรูปนี้ไม่ได้: ' + f.name); }
+    } else {
+      if (f.size > 2 * 1024 * 1024) { toast('ไฟล์ใหญ่เกินไป (จำกัด 2MB): ' + f.name); continue; }
+      try {
+        const text = await f.text();
+        pendingAttachments.push({ name: f.name, type: 'text', content: text });
+        toast('แนบไฟล์ ' + f.name + ' แล้ว');
+      } catch { toast('อ่านไฟล์นี้ไม่ได้: ' + f.name); }
     }
   }
-});
-
+  renderAttachRow();
+  $('#input').focus();
+};
 function renderAttachRow() {
   const row = $('#attachRow'); row.textContent = '';
   row.hidden = !pendingAttachments.length;
   pendingAttachments.forEach((att, idx) => {
-    const chip = document.createElement('div'); chip.className='attach-chip';
-    if (att.kind === 'image' && att.dataUrl) {
-      const img = document.createElement('img'); img.className='thumb'; img.src=att.dataUrl; img.alt=att.name; chip.append(img);
-    } else {
-      const ic = document.createElement('span'); ic.className='ic'; ic.innerHTML=ICON_FILE; chip.append(ic);
-    }
-    const nm = document.createElement('span'); nm.className='nm'; nm.textContent=att.name;
-    const rm = document.createElement('button'); rm.type='button'; rm.className='rm'; rm.setAttribute('aria-label','เอา '+att.name+' ออก'); rm.innerHTML=ICON_XSM;
-    rm.onclick = () => { pendingAttachments.splice(idx,1); renderAttachRow(); };
-    chip.append(nm, rm); row.append(chip);
+    const isImg = att.type === 'image';
+    const chip = document.createElement('div'); chip.className = 'attach-chip' + (isImg ? ' img' : '');
+    const ic = document.createElement('span'); ic.className = 'ic';
+    if (isImg) { const im = document.createElement('img'); im.src = att.dataUrl; im.alt = ''; ic.append(im); } else ic.innerHTML = ICON_FILE;
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = att.name;
+    const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.setAttribute('aria-label', 'เอาไฟล์ ' + att.name + ' ออก'); rm.innerHTML = ICON_XSM;
+    rm.onclick = () => { pendingAttachments.splice(idx, 1); renderAttachRow(); };
+    chip.append(ic, nm, rm); row.append(chip);
   });
   updateSend();
 }
 
-/* ===== ไมค์ ===== */
+/* ===== ปุ่มไมค์ (พูดแทนพิมพ์ ผ่าน Web Speech API ของเบราว์เซอร์) ===== */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognizer = null, recording = false;
 function toggleMic() {
   if (!SR) { toast('เบราว์เซอร์นี้ไม่รองรับการพูดแทนพิมพ์'); return; }
   if (recording) { recognizer && recognizer.stop(); return; }
   recognizer = new SR();
-  recognizer.lang='th-TH'; recognizer.interimResults=false; recognizer.maxAlternatives=1;
-  recognizer.onstart = () => { recording=true; $('#micBtn').classList.add('active'); };
+  recognizer.lang = 'th-TH'; recognizer.interimResults = false; recognizer.maxAlternatives = 1;
+  recognizer.onstart = () => { recording = true; $('#micBtn').classList.add('active'); };
   recognizer.onresult = ev => {
     const t = Array.from(ev.results).map(r => r[0].transcript).join(' ');
-    const input = $('#input'); input.value = (input.value ? input.value+' ' : '') + t; autosize();
+    const input = $('#input'); input.value = (input.value ? input.value + ' ' : '') + t; autosize();
   };
   recognizer.onerror = () => toast('ฟังไม่สำเร็จ ลองใหม่อีกครั้ง');
-  recognizer.onend = () => { recording=false; $('#micBtn').classList.remove('active'); };
+  recognizer.onend = () => { recording = false; $('#micBtn').classList.remove('active'); };
   try { recognizer.start(); } catch { toast('เริ่มไมโครโฟนไม่ได้'); }
 }
 $('#micBtn').onclick = toggleMic;
 
-/* ===== ปุ่มโมเดล ===== */
+/* ===== ปุ่มโมเดล/effort (pill) ===== */
 const modelDlg = $('#modelDlg');
-$('#pillBtn').onclick = () => { fillModelDlg(); closeSide(); modelDlg.showModal(); };
+$('#pillBtn').onclick = async () => { closeSide(); modelDlg.showModal(); fillModelDlg(); await fetchModels(); fillModelDlg(); };
 $('#modelDlgClose').onclick = () => modelDlg.close();
+$('#fThink').onchange = e => { settings.thinking = e.target.checked; save(K.set, settings); };
 modelDlg.addEventListener('click', e => { if (e.target === modelDlg) modelDlg.close(); });
-$('#fThink').onchange = e => { settings.thinking = e.target.checked; save(K.set, settings); updatePill(); };
 $('#pvClose').onclick = closePreview;
-$('#pvReload').onclick = () => { const f = $('#pvFrame'); f.srcdoc=''; requestAnimationFrame(() => { f.srcdoc = pv.html; }); };
+$('#pvReload').onclick = () => { const f = $('#pvFrame'); f.srcdoc = ''; requestAnimationFrame(() => { f.srcdoc = pv.html; }); };
 $('#pvDl').onclick = () => downloadText(pv.name, pv.code);
 $('#pvFull').onclick = () => $('#preview').classList.toggle('full');
 
-/* ===== ตั้งค่า ===== */
+/* ===== หน้าต่างตั้งค่า ===== */
 function openSettings() {
   $('#fKey').value = settings.apiKey; $('#fCustom').value = settings.customModel;
   $('#fSys').value = settings.system; $('#fTemp').value = settings.temperature;
   $('#fTempVal').textContent = settings.temperature; $('#fTheme').value = settings.theme;
   $('#fBase').value = settings.baseUrl; $('#fHint').checked = !!settings.fileHint;
-  $('#fLatex').checked = !!settings.latex;
+  $('#balanceText').textContent = 'ยอดเงิน: —';
   closeSide(); dlg.showModal();
 }
 $('#setBtn').onclick = openSettings;
+$('#balRefresh').onclick = fetchBalance;
 $('#fTemp').oninput = e => $('#fTempVal').textContent = e.target.value;
 $('#cancelBtn').onclick = () => dlg.close();
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 $('#saveBtn').onclick = () => {
-  const oldKey = settings.apiKey, oldBase = settings.baseUrl;
   settings.apiKey = $('#fKey').value.trim();
   settings.customModel = $('#fCustom').value.trim();
   settings.system = $('#fSys').value;
@@ -1295,28 +1271,22 @@ $('#saveBtn').onclick = () => {
   settings.theme = $('#fTheme').value;
   settings.baseUrl = $('#fBase').value.trim() || DEFAULTS.baseUrl;
   settings.fileHint = $('#fHint').checked;
-  settings.latex = $('#fLatex').checked;
   save(K.set, settings); applyTheme(); updatePill();
   dlg.close(); toast('บันทึกแล้ว');
   if (!cur()) renderMessages();
-  // โหลดข้อมูลใหม่ถ้า key/base เปลี่ยน
-  if (oldKey !== settings.apiKey || oldBase !== settings.baseUrl) {
-    cachedModels = null; save(K.models, null); balance = null; save(K.bal, null);
-    refreshModels(true); refreshBalance();
-  }
 };
 
-/* ===== ส่งออก/นำเข้า ===== */
+/* ส่งออก / นำเข้า / ลบแชททั้งหมด (ไม่รวม API key) */
 $('#expBtn').onclick = () => {
-  const blob = new Blob([JSON.stringify({ app:'deepseek-chat', chats }, null, 2)], { type:'application/json' });
+  const blob = new Blob([JSON.stringify({ app: 'deepseek-chat', chats }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'deepseek-chats-'+new Date().toISOString().slice(0,10)+'.json';
+  a.download = 'deepseek-chats-' + new Date().toISOString().slice(0, 10) + '.json';
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 $('#impBtn').onclick = () => $('#impFile').click();
 $('#impFile').onchange = async e => {
-  const f = e.target.files[0]; e.target.value=''; if (!f) return;
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   try {
     const data = JSON.parse(await f.text());
     const list = Array.isArray(data) ? data : data.chats;
@@ -1324,51 +1294,31 @@ $('#impFile').onchange = async e => {
     let n = 0;
     for (const c of list) {
       if (!c || !c.id || !Array.isArray(c.messages) || chats.some(x => x.id === c.id)) continue;
-      // ✅ ข้อ 5: หลัง import ให้ displayText และ attachments ถูกต้อง
-      const messages = c.messages
-        .filter(m => m && (m.role === 'user' || m.role === 'assistant'))
-        .map(m => {
-          const out = { role:m.role, content:String(m.content || ''), reasoning:String(m.reasoning || '') };
-          if (m.role === 'user') {
-            out.displayText = (m.displayText != null) ? String(m.displayText) : String(m.content || '');
-            out.attachments = Array.isArray(m.attachments) ? m.attachments.map(a => ({
-              kind: a.kind === 'image' ? 'image' : 'text',
-              name: String(a.name || 'file'),
-              content: a.kind === 'image' ? undefined : String(a.content || ''),
-              dataUrl: a.dataUrl ? String(a.dataUrl) : undefined,
-              mime: a.mime ? String(a.mime) : undefined
-            })) : [];
-          }
+      chats.push({ id: String(c.id), title: String(c.title || 'แชท'), updated: Number(c.updated) || Date.now(),
+        messages: c.messages.filter(m => m && (m.role === 'user' || m.role === 'assistant')).map(m => {
+          const out = { role: m.role, content: String(m.content || ''), reasoning: String(m.reasoning || '') };
+          if (m.displayText != null) out.displayText = String(m.displayText);
+          if (m.model) out.model = String(m.model);
+          if (m.usage) out.usage = m.usage;
+          if (Array.isArray(m.attachments)) out.attachments = m.attachments.filter(a => a && a.name).map(a =>
+            a.type === 'image' && a.dataUrl ? { name: String(a.name), type: 'image', dataUrl: String(a.dataUrl) } : { name: String(a.name), content: String(a.content || '') });
           return out;
-        });
-      chats.push({ id:String(c.id), title:String(c.title || 'แชท'), updated:Number(c.updated) || Date.now(), messages });
+        }) });
       n++;
     }
-    persistNow(); renderList(); renderMessages(); toast('นำเข้า '+n+' แชท');
+    persist(); renderList(); toast('นำเข้า ' + n + ' แชท');
   } catch { toast('ไฟล์ไม่ถูกต้อง'); }
 };
 $('#clrBtn').onclick = () => {
   if (!confirm('ลบแชททั้งหมดในเครื่องนี้ ?')) return;
   if (streaming) stop();
-  chats = []; currentId = null; persistNow(); renderList(); renderMessages(); dlg.close();
+  chats = []; currentId = null; persist(); renderList(); renderMessages(); dlg.close();
 };
 
 /* ===== เริ่มต้น ===== */
 applyTheme(); updatePill(); fillModelDlg(); setBusy(false);
 if (!cur()) currentId = null;
 renderList(); renderMessages(); autosize();
-
-// โหลดข้อมูลจาก API เมื่อมี key
-if (settings.apiKey) {
-  refreshModels(false);
-  refreshBalance();
-  // แสดงยอดจาก cache ก่อนระหว่างรอ
-  if (balance?.data) {
-    const b = (balance.data.balance_infos || [])[0];
-    const v = b ? Number(b.total_balance) : Number(balance.data.total_balance);
-    if (isFinite(v)) { $('#balance').textContent = v.toFixed(2)+' '+(b?.currency||'USD'); $('#balance').dataset.low = v<1?'1':''; }
-  }
-}
 })();
 </script>
 </body>
