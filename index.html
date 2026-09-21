@@ -89,8 +89,6 @@ button,input,select,textarea{font:inherit;color:inherit}
 #main{flex:1;min-width:0;display:flex;flex-direction:column}
 header{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 4px;min-height:52px}
 #menuBtn{display:none}
-#modelSel{-webkit-appearance:none;appearance:none;border:0;background-color:transparent;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239b9b9b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;background-size:14px;padding:6px 28px 6px 12px;border-radius:12px;font-weight:500;font-size:1rem;cursor:pointer;max-width:75%}
-#modelSel:hover{background-color:var(--hover)}
 #ctitle{color:var(--faint);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 #msgs{flex:1;overflow-y:auto;overscroll-behavior:contain}
 #msgsInner{max-width:800px;margin:0 auto;padding:12px 16px 8px}
@@ -155,14 +153,30 @@ header{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-
 
 /* ช่องพิมพ์ */
 #composer{padding:6px 12px calc(8px + env(safe-area-inset-bottom,0px))}
-.box{max-width:800px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--input);border:1px solid var(--line);border-radius:28px;padding:8px 8px 8px 20px}
+.box{max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:6px;background:var(--input);border:1px solid var(--line);border-radius:28px;padding:12px 12px 8px 20px}
 .box:focus-within{border-color:var(--faint)}
-#input{flex:1;min-width:0;border:0;background:transparent;resize:none;outline:none;font-size:16px;line-height:1.5;padding:6px 0;max-height:200px}
+#input{flex:1;min-width:0;border:0;background:transparent;resize:none;outline:none;font-size:16px;line-height:1.5;padding:2px 0;max-height:200px}
 #input::placeholder{color:var(--faint)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.toolbar-right{display:flex;align-items:center;gap:4px;min-width:0}
+.round{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.round:hover{background:var(--hover)}
+.round svg{width:18px;height:18px}
+.round.active{color:var(--accent);border-color:var(--accent)}
+.pill{flex:none;display:flex;align-items:center;gap:6px;max-width:220px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:7px 12px;cursor:pointer;font-size:.85rem;font-weight:500;color:var(--ink)}
+.pill:hover{background:var(--hover)}
+.pill .pv-model{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill .pv-effort{color:var(--faint);font-weight:400;flex:none}
 .send{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);cursor:pointer;display:grid;place-items:center}
 .send:disabled{opacity:.3;cursor:default}
 .send svg{width:18px;height:18px}
 .hint{max-width:800px;margin:6px auto 0;text-align:center;color:var(--faint);font-size:.75rem}
+
+/* กล่องเลือกโมเดล/ระดับความพยายาม แบบปุ่มกลุ่ม */
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{flex:1 1 auto;border:1px solid var(--line);background:transparent;border-radius:12px;padding:9px 10px;cursor:pointer;font-size:.88rem;white-space:nowrap}
+.seg button:hover{background:var(--hover)}
+.seg button.active{background:var(--ink);color:var(--bg);border-color:transparent}
 
 /* หน้าต่างตั้งค่า */
 dialog{border:1px solid var(--line);border-radius:20px;background:var(--bg);color:var(--ink);padding:0;width:min(520px,calc(100% - 24px));max-height:90dvh;overflow:hidden}
@@ -239,7 +253,6 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <button id="menuBtn" class="icon" type="button" aria-label="เปิดเมนู">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
-      <select id="modelSel" aria-label="เลือกโมเดล"></select>
       <span id="ctitle"></span>
     </header>
 
@@ -248,9 +261,23 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <div id="composer">
       <div class="box">
         <textarea id="input" rows="1" placeholder="พิมพ์ข้อความ" aria-label="ข้อความ"></textarea>
-        <button id="sendBtn" class="send" type="button" aria-label="ส่ง"></button>
+        <div class="toolbar">
+          <button id="plusBtn" class="round" type="button" aria-label="แนบไฟล์">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <div class="toolbar-right">
+            <button id="pillBtn" class="pill" type="button" aria-haspopup="dialog">
+              <span class="pv-model" id="pvModel">DeepSeek Chat</span><span class="pv-effort" id="pvEffort">Medium</span>
+            </button>
+            <button id="micBtn" class="round" type="button" aria-label="พูดแทนพิมพ์">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 19v3"/></svg>
+            </button>
+            <button id="sendBtn" class="send" type="button" aria-label="ส่ง"></button>
+          </div>
+        </div>
       </div>
       <p class="hint">AI อาจตอบผิดได้ ตรวจสอบข้อมูลสำคัญอีกครั้ง</p>
+      <input id="attachFile" type="file" accept=".txt,.md,.markdown,.js,.jsx,.ts,.tsx,.py,.json,.csv,.html,.htm,.css,.xml,.yml,.yaml,.java,.c,.cpp,.h,.go,.rs,.php,.rb,.sql,.sh,.toml,.ini" hidden>
     </div>
   </main>
 
@@ -321,6 +348,25 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   </div>
 </dialog>
 
+<!-- หน้าต่างเลือกโมเดล + ระดับความพยายาม (effort) -->
+<dialog id="modelDlg" aria-labelledby="modelDlgTitle">
+  <div class="dlg-head" id="modelDlgTitle">โมเดลและระดับความพยายาม</div>
+  <div class="dlg-body">
+    <div class="field">
+      <label>โมเดล</label>
+      <div class="seg" id="modelSeg"></div>
+    </div>
+    <div class="field">
+      <label>ระดับความพยายาม (Effort)</label>
+      <div class="seg" id="effortSeg"></div>
+      <small>ควบคุมความยาว/ความละเอียดของคำตอบจริง โดยปรับ max_tokens และคำสั่งระบบที่ส่งไปยัง DeepSeek</small>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button id="modelDlgClose" class="btn primary" type="button">เสร็จสิ้น</button>
+  </div>
+</dialog>
+
 <div id="toast" role="status" aria-live="polite"></div>
 
 <!-- ไลบรารี: Markdown, ป้องกัน XSS, ไฮไลต์โค้ด (ถ้าโหลดไม่ได้ แอปยังใช้งานได้แบบข้อความล้วน) -->
@@ -337,13 +383,20 @@ const $ = s => document.querySelector(s);
 const K = { chats: 'dschat:chats', set: 'dschat:settings', cur: 'dschat:current' };
 const DEFAULTS = {
   apiKey: '', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat',
-  customModel: '', system: '', temperature: 1, theme: 'auto', fileHint: true
+  customModel: '', system: '', temperature: 1, theme: 'auto', fileHint: true, effort: 'medium'
 };
 const FILE_HINT = 'เมื่อผู้ใช้ขอให้สร้างไฟล์หรือโปรเจกต์ ให้ใส่ชื่อไฟล์ในบรรทัดของตัวเองก่อนโค้ดบล็อกทุกครั้ง เช่น `index.html` หรือ `css/style.css` แล้วตามด้วยโค้ดบล็อกของไฟล์นั้น หนึ่งไฟล์ต่อหนึ่งบล็อก ถ้าเป็นเว็บหน้าเดียวให้รวม HTML CSS JS ไว้ในไฟล์ index.html ไฟล์เดียว ส่วนโค้ดตัวอย่างสั้น ๆ ที่ไม่ใช่ไฟล์ ไม่ต้องใส่ชื่อไฟล์';
 const MODELS = [
   ['deepseek-chat', 'DeepSeek Chat'],
   ['deepseek-reasoner', 'DeepSeek Reasoner (คิดลึก)']
 ];
+// ระดับความพยายาม: ปรับ max_tokens จริงที่ส่งไป DeepSeek และคำสั่งระบบเสริม เพื่อคุมความยาว/ความละเอียดของคำตอบ
+const EFFORT = {
+  low: { label: 'Low', maxTokens: 700, hint: 'ตอบสั้น กระชับ ตรงประเด็นที่สุด หลีกเลี่ยงรายละเอียดที่ไม่จำเป็น' },
+  medium: { label: 'Medium', maxTokens: 2048, hint: '' },
+  high: { label: 'High', maxTokens: 8000, hint: 'ตอบอย่างละเอียดรอบด้าน อธิบายเหตุผลและขั้นตอนประกอบ ตรวจทานความถูกต้องก่อนสรุป' }
+};
+const modelLabel = v => (MODELS.find(m => m[0] === v) || [v, v])[1].replace(/\s*\(.*\)$/, '');
 const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
 const LOGO = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v13H10l-4.5 3.5V17H3z"/></svg>';
 const svg = p => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
@@ -582,10 +635,27 @@ function applyTheme() {
   const r = document.documentElement;
   if (settings.theme === 'auto') r.removeAttribute('data-theme'); else r.dataset.theme = settings.theme;
 }
-function fillModelSel() {
-  const sel = $('#modelSel'); sel.textContent = '';
-  MODELS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; sel.append(o); });
-  sel.value = settings.model;
+function updatePill() {
+  $('#pvModel').textContent = modelLabel(activeModel());
+  $('#pvEffort').textContent = EFFORT[settings.effort].label;
+}
+function buildSeg(container, options, current, onPick) {
+  container.textContent = '';
+  options.forEach(([v, l]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = l;
+    if (v === current) b.classList.add('active');
+    b.onclick = () => { onPick(v); buildSeg(container, options, v, onPick); };
+    container.append(b);
+  });
+}
+function fillModelDlg() {
+  buildSeg($('#modelSeg'), MODELS, settings.model, v => {
+    settings.model = v; settings.customModel = ''; save(K.set, settings); updatePill();
+    if (!cur()) renderMessages();
+  });
+  buildSeg($('#effortSeg'), Object.entries(EFFORT).map(([k, o]) => [k, o.label]), settings.effort, v => {
+    settings.effort = v; save(K.set, settings); updatePill();
+  });
 }
 
 /* ===== เรนเดอร์รายการแชทด้านข้าง ===== */
@@ -748,8 +818,9 @@ async function streamChat(chat, msg, onDelta, signal) {
   const model = activeModel();
   // ไม่ส่งส่วนความคิด (reasoning) กลับไป เพราะ API ของ Reasoner ไม่รับ
   const history = chat.messages.filter(m => m !== msg && !m.error && m.content).map(m => ({ role: m.role, content: m.content }));
-  const sys = [settings.system.trim(), settings.fileHint ? FILE_HINT : ''].filter(Boolean).join('\n\n');
-  const body = { model, messages: (sys ? [{ role: 'system', content: sys }] : []).concat(history), stream: true };
+  const eff = EFFORT[settings.effort] || EFFORT.medium;
+  const sys = [settings.system.trim(), eff.hint, settings.fileHint ? FILE_HINT : ''].filter(Boolean).join('\n\n');
+  const body = { model, messages: (sys ? [{ role: 'system', content: sys }] : []).concat(history), stream: true, max_tokens: eff.maxTokens };
   if (!/reasoner|r1/i.test(model)) body.temperature = Number(settings.temperature);
 
   const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
@@ -840,8 +911,46 @@ $('#newBtn').onclick = newChat;
 $('#search').addEventListener('input', renderList);
 $('#menuBtn').onclick = () => $('#app').classList.add('open');
 $('#scrim').onclick = closeSide;
-$('#modelSel').onchange = e => { settings.model = e.target.value; settings.customModel = ''; save(K.set, settings); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !dlg.open) { closeSide(); closePreview(); } });
+
+/* ===== ปุ่ม + (แนบไฟล์ข้อความ/โค้ดเข้าไปในข้อความ) ===== */
+$('#plusBtn').onclick = () => $('#attachFile').click();
+$('#attachFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (f.size > 2 * 1024 * 1024) { toast('ไฟล์ใหญ่เกินไป (จำกัด 2MB)'); return; }
+  try {
+    const text = await f.text();
+    const input = $('#input');
+    const block = (input.value ? input.value + '\n\n' : '') + '`' + f.name + '`\n```\n' + text + '\n```\n';
+    input.value = block; autosize(); input.focus();
+    toast('แนบไฟล์ ' + f.name + ' แล้ว');
+  } catch { toast('อ่านไฟล์นี้ไม่ได้'); }
+};
+
+/* ===== ปุ่มไมค์ (พูดแทนพิมพ์ ผ่าน Web Speech API ของเบราว์เซอร์) ===== */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognizer = null, recording = false;
+function toggleMic() {
+  if (!SR) { toast('เบราว์เซอร์นี้ไม่รองรับการพูดแทนพิมพ์'); return; }
+  if (recording) { recognizer && recognizer.stop(); return; }
+  recognizer = new SR();
+  recognizer.lang = 'th-TH'; recognizer.interimResults = false; recognizer.maxAlternatives = 1;
+  recognizer.onstart = () => { recording = true; $('#micBtn').classList.add('active'); };
+  recognizer.onresult = ev => {
+    const t = Array.from(ev.results).map(r => r[0].transcript).join(' ');
+    const input = $('#input'); input.value = (input.value ? input.value + ' ' : '') + t; autosize();
+  };
+  recognizer.onerror = () => toast('ฟังไม่สำเร็จ ลองใหม่อีกครั้ง');
+  recognizer.onend = () => { recording = false; $('#micBtn').classList.remove('active'); };
+  try { recognizer.start(); } catch { toast('เริ่มไมโครโฟนไม่ได้'); }
+}
+$('#micBtn').onclick = toggleMic;
+
+/* ===== ปุ่มโมเดล/effort (pill) ===== */
+const modelDlg = $('#modelDlg');
+$('#pillBtn').onclick = () => { fillModelDlg(); closeSide(); modelDlg.showModal(); };
+$('#modelDlgClose').onclick = () => modelDlg.close();
+modelDlg.addEventListener('click', e => { if (e.target === modelDlg) modelDlg.close(); });
 $('#pvClose').onclick = closePreview;
 $('#pvReload').onclick = () => { const f = $('#pvFrame'); f.srcdoc = ''; requestAnimationFrame(() => { f.srcdoc = pv.html; }); };
 $('#pvDl').onclick = () => downloadText(pv.name, pv.code);
@@ -867,7 +976,7 @@ $('#saveBtn').onclick = () => {
   settings.theme = $('#fTheme').value;
   settings.baseUrl = $('#fBase').value.trim() || DEFAULTS.baseUrl;
   settings.fileHint = $('#fHint').checked;
-  save(K.set, settings); applyTheme(); fillModelSel();
+  save(K.set, settings); applyTheme(); updatePill();
   dlg.close(); toast('บันทึกแล้ว');
   if (!cur()) renderMessages();
 };
@@ -904,7 +1013,7 @@ $('#clrBtn').onclick = () => {
 };
 
 /* ===== เริ่มต้น ===== */
-applyTheme(); fillModelSel(); setBusy(false);
+applyTheme(); updatePill(); fillModelDlg(); setBusy(false);
 if (!cur()) currentId = null;
 renderList(); renderMessages(); autosize();
 })();
