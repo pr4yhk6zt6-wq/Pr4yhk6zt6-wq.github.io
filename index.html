@@ -1,500 +1,913 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PySlide</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DeepSeek Chat</title>
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171717" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234d6bfe'/%3E%3Cpath d='M9 11h14v9H15l-4 3v-3H9z' fill='%23fff'/%3E%3C/svg%3E">
+
+<!-- ฟอนต์และไลบรารีจาก CDN (ไม่มี key หรือข้อมูลลับในไฟล์นี้) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-    font-family: 'Inter', sans-serif;
-    background: #0a0a0a;
-    color: #ededed;
-    min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
-    display: flex;
-    flex-direction: column;
-    color-scheme: dark;
+/* ===== ธีมสีแบบ Open WebUI: โทนเทากลาง สว่าง / มืด / ตามระบบ ===== */
+:root{
+  --bg:#ffffff; --side:#f9f9f9; --side-hover:#ececec; --side-line:#ececec;
+  --ink:#1f1f1f; --mute:#676767; --faint:#9b9b9b; --line:#e3e3e3;
+  --bubble:#f4f4f4; --hover:#f0f0f0; --input:#f4f4f4;
+  --accent:#2563eb; --danger:#d64545; --code:#0d0d0d;
+  --font:"Inter","IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#171717; --side:#0d0d0d; --side-hover:#171717; --side-line:transparent;
+    --ink:#ececec; --mute:#b4b4b4; --faint:#7d7d7d; --line:#2a2a2a;
+    --bubble:#262626; --hover:#262626; --input:#262626;
+    --accent:#6ea8fe; --danger:#ff7676;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171717; --side:#0d0d0d; --side-hover:#171717; --side-line:transparent;
+  --ink:#ececec; --mute:#b4b4b4; --faint:#7d7d7d; --line:#2a2a2a;
+  --bubble:#262626; --hover:#262626; --input:#262626;
+  --accent:#6ea8fe; --danger:#ff7676;
+  color-scheme:dark;
 }
 
-.topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 32px;
-    border-bottom: 1px solid #262626;
-    background: #121212;
+/* ===== โครงหน้า ===== */
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:16px;line-height:1.7;-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#app{display:flex;height:100%;height:100dvh;overflow:hidden}
+
+/* แถบด้านข้าง */
+#side{width:272px;flex:none;background:var(--side);border-right:1px solid var(--side-line);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);font-size:.9rem;line-height:1.5}
+.brand{display:flex;align-items:center;gap:10px;padding:16px 16px 8px;font-weight:600;font-size:.95rem}
+.logo{width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;flex:none}
+.logo svg{width:13px;height:13px}
+.side-top{padding:4px 8px;display:grid;gap:2px}
+.nav-row{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border:0;background:none;border-radius:12px;cursor:pointer;text-align:left;font-size:.9rem;font-weight:500}
+.nav-row:hover{background:var(--side-hover)}
+.nav-row svg,.searchbox svg{width:18px;height:18px;flex:none}
+.searchbox{display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:12px;color:var(--mute)}
+.searchbox:hover,.searchbox:focus-within{background:var(--side-hover)}
+#search{flex:1;min-width:0;border:0;background:none;padding:8px 0;font-size:.9rem;outline:none;-webkit-appearance:none;appearance:none;color:var(--ink)}
+#search::placeholder{color:var(--mute)}
+#list{flex:1;overflow-y:auto;padding:4px 8px 8px}
+.grp-t{color:var(--faint);font-size:.75rem;font-weight:500;padding:14px 12px 4px}
+.none{color:var(--faint);text-align:center;font-size:.85rem;margin-top:20px}
+.item{display:flex;align-items:center;border-radius:12px;padding-left:12px}
+.item:hover,.item.active{background:var(--side-hover)}
+.item .t{flex:1;min-width:0;text-align:left;background:none;border:0;padding:8px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-size:.9rem}
+.item .x{background:none;border:0;width:34px;height:34px;border-radius:8px;color:var(--faint);cursor:pointer;opacity:0;font-size:1.2rem;line-height:1}
+.item:hover .x,.item.active .x,.item .x:focus-visible{opacity:1}
+@media (hover:none){.item .x{opacity:.6}}
+.side-foot{padding:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--side-line)}
+
+/* ปุ่มทั่วไป */
+.btn{border:1px solid var(--line);background:transparent;border-radius:12px;padding:9px 14px;cursor:pointer}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:transparent}
+.btn.primary:hover{opacity:.88;background:var(--ink)}
+.btn.danger{color:var(--danger)}
+.wide{width:100%}
+.icon{background:none;border:0;width:40px;height:40px;border-radius:12px;cursor:pointer;display:grid;place-items:center}
+.icon:hover{background:var(--hover)}
+.icon svg{width:22px;height:22px}
+
+/* ส่วนหลัก */
+#main{flex:1;min-width:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 4px;min-height:52px}
+#menuBtn{display:none}
+#modelSel{-webkit-appearance:none;appearance:none;border:0;background-color:transparent;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239b9b9b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;background-size:14px;padding:6px 28px 6px 12px;border-radius:12px;font-weight:500;font-size:1rem;cursor:pointer;max-width:75%}
+#modelSel:hover{background-color:var(--hover)}
+#ctitle{color:var(--faint);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+#msgs{flex:1;overflow-y:auto;overscroll-behavior:contain}
+#msgsInner{max-width:800px;margin:0 auto;padding:12px 16px 8px}
+
+/* ข้อความ */
+.msg{margin:0 0 26px}
+.msg.user{display:flex;justify-content:flex-end}
+.bubble{background:var(--bubble);padding:9px 18px;border-radius:24px;max-width:82%;white-space:pre-wrap;word-break:break-word}
+.msg.assistant{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px}
+.av{width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;margin-top:1px}
+.av svg{width:15px;height:15px}
+.who{font-weight:600;font-size:.95rem;line-height:28px}
+.body{min-width:0}
+.md{word-break:break-word}
+.md>:first-child{margin-top:0}
+.md p{margin:.6em 0}
+.md ul,.md ol{padding-left:1.4em}
+.md h1,.md h2,.md h3,.md h4{line-height:1.3;margin:1.1em 0 .4em}
+.md h1{font-size:1.4rem}.md h2{font-size:1.2rem}.md h3{font-size:1.05rem}
+.md a{color:var(--accent)}
+.md blockquote{margin:.6em 0;padding-left:12px;border-left:3px solid var(--line);color:var(--mute)}
+.md table{border-collapse:collapse;display:block;overflow-x:auto;max-width:100%}
+.md th,.md td{border:1px solid var(--line);padding:6px 10px}
+.md code{font-family:var(--mono);font-size:.88em;background:var(--bubble);padding:.1em .35em;border-radius:6px}
+.md:empty::after{content:"▍";color:var(--faint);animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.md:empty::after{animation:none}}
+
+/* บล็อกโค้ด */
+.codewrap{margin:.8em 0;border-radius:16px;overflow:hidden;background:var(--code)}
+.codebar{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 4px 16px;background:#171717;color:#9b9b9b;font:12px var(--mono)}
+.codebar .grp{display:flex;gap:2px}
+.codebar button{background:none;border:0;color:#b4b4b4;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px}
+.codebar button:hover{background:#262626}
+.codewrap pre{margin:0;overflow-x:auto}
+.codewrap pre code,.codewrap pre code.hljs{display:block;padding:12px 16px;background:none;color:#e6edf3;font-family:var(--mono);font-size:13px;line-height:1.55}
+
+/* ส่วนความคิด (deepseek-reasoner) */
+.think{margin:0 0 8px;color:var(--mute);font-size:.92em;border-left:2px solid var(--line);padding:2px 0 2px 12px}
+.think summary{cursor:pointer}
+.think-body{white-space:pre-wrap;margin-top:6px;word-break:break-word}
+
+/* ปุ่มไอคอนใต้ข้อความ */
+.actions{display:flex;gap:2px;margin-top:4px;align-items:center}
+.actions button{background:none;border:0;color:var(--faint);padding:6px 8px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:.82rem}
+.actions button svg{width:16px;height:16px}
+.actions button:hover{background:var(--hover);color:var(--ink)}
+.actions .zip{color:var(--accent)}
+.err{color:var(--danger);border:1px solid var(--danger);border-radius:12px;padding:8px 12px;margin-top:8px;font-size:.92em;white-space:pre-wrap}
+
+/* หน้าเริ่มต้น */
+.empty{max-width:640px;margin:0 auto;padding:12vh 8px 0;text-align:center}
+.av-lg{width:44px;height:44px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;margin:0 auto 16px}
+.av-lg svg{width:22px;height:22px}
+.empty h1{font-size:1.75rem;font-weight:600;letter-spacing:-.01em;margin:0 0 4px;line-height:1.3}
+.empty p{color:var(--mute);margin:0 0 22px}
+.sugg{display:grid;text-align:left;margin-top:8px}
+.sugg button{background:none;border:0;text-align:left;padding:10px 14px;border-radius:14px;cursor:pointer;line-height:1.45}
+.sugg button:hover{background:var(--hover)}
+.sugg b{display:block;font-weight:500;font-size:.95rem}
+.sugg span{display:block;color:var(--faint);font-size:.85rem}
+
+/* ช่องพิมพ์ */
+#composer{padding:6px 12px calc(8px + env(safe-area-inset-bottom,0px))}
+.box{max-width:800px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--input);border:1px solid var(--line);border-radius:28px;padding:8px 8px 8px 20px}
+.box:focus-within{border-color:var(--faint)}
+#input{flex:1;min-width:0;border:0;background:transparent;resize:none;outline:none;font-size:16px;line-height:1.5;padding:6px 0;max-height:200px}
+#input::placeholder{color:var(--faint)}
+.send{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);cursor:pointer;display:grid;place-items:center}
+.send:disabled{opacity:.3;cursor:default}
+.send svg{width:18px;height:18px}
+.hint{max-width:800px;margin:6px auto 0;text-align:center;color:var(--faint);font-size:.75rem}
+
+/* หน้าต่างตั้งค่า */
+dialog{border:1px solid var(--line);border-radius:20px;background:var(--bg);color:var(--ink);padding:0;width:min(520px,calc(100% - 24px));max-height:90dvh;overflow:hidden}
+dialog[open]{display:flex;flex-direction:column}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.dlg-head{padding:18px 22px 8px;font-weight:600;font-size:1.1rem}
+.dlg-body{padding:4px 22px 12px;overflow-y:auto;display:grid;gap:14px}
+.dlg-foot{padding:12px 22px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.field label{display:block;font-size:.9rem;font-weight:500;margin-bottom:4px}
+.field small{display:block;color:var(--faint);font-size:.8rem;margin-top:4px}
+.field input:not([type=range]):not([type=checkbox]),.field select,.field textarea{width:100%;border:1px solid var(--line);background:var(--input);border-radius:12px;padding:9px 12px;font-size:16px}
+.field textarea{min-height:80px;resize:vertical}
+.field .chk{display:flex;gap:10px;align-items:center}
+.field .chk input{width:18px;height:18px;flex:none}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row .btn{flex:1}
+
+#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:14px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90%}
+#toast.show{opacity:1}
+
+/* แผงพรีวิว HTML */
+#preview{display:none;flex-direction:column;flex:0 0 46%;min-width:340px;max-width:900px;background:var(--bg);border-left:1px solid var(--line)}
+#app.previewing #preview{display:flex}
+.pv-head{display:flex;align-items:center;gap:6px;padding:calc(6px + env(safe-area-inset-top,0px)) 10px 6px;border-bottom:1px solid var(--line)}
+#pvName{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.95rem;font-weight:500}
+.pv-head .btn{padding:6px 10px;font-size:.88rem}
+#pvFrame{flex:1;width:100%;border:0;background:#fff}
+#preview.full{position:fixed;inset:0;z-index:30;max-width:none}
+@media (max-width:800px){
+  #preview{position:fixed;inset:0;z-index:30;flex:none;max-width:none;min-width:0;border-left:0}
+  #pvFull{display:none}
 }
 
-.brand {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
+/* มือถือ: แถบข้างเป็นลิ้นชักเลื่อนออกมา */
+#scrim{display:none}
+@media (max-width:800px){
+  #menuBtn{display:grid}
+  #side{position:fixed;left:0;top:0;bottom:0;z-index:20;transform:translateX(-100%);transition:transform .2s;width:min(300px,86vw)}
+  #app.open #side{transform:none}
+  #app.open #scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10}
+  .empty{padding-top:8vh}
 }
-
-.brand h1 {
-    font-size: 1rem;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    color: #ededed;
-}
-
-.brand span {
-    font-size: 0.6875rem;
-    font-weight: 300;
-    color: #666666;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.topbar-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.btn {
-    font-family: 'Inter', sans-serif;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 10px 18px;
-    border: 1px solid #ededed;
-    background: #ededed;
-    color: #0a0a0a;
-    border-radius: 2px;
-    cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.btn:hover { background: #ffffff; border-color: #ffffff; }
-
-.btn-ghost {
-    background: transparent;
-    color: #ededed;
-    border-color: #333333;
-}
-
-.btn-ghost:hover {
-    background: transparent;
-    color: #ffffff;
-    border-color: #ffffff;
-}
-
-.btn:disabled {
-    background: #333333;
-    border-color: #333333;
-    color: #666666;
-    cursor: not-allowed;
-}
-
-.workspace {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1px;
-    background: #262626;
-    min-height: 0;
-}
-
-.pane {
-    background: #121212;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    min-width: 0;
-}
-
-.pane-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    border-bottom: 1px solid #262626;
-    background: #121212;
-}
-
-.pane-title {
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #666666;
-}
-
-.pane-meta {
-    font-size: 0.6875rem;
-    font-weight: 300;
-    color: #444444;
-    font-family: 'JetBrains Mono', monospace;
-}
-
-.editor-wrap {
-    flex: 1;
-    position: relative;
-    min-height: 0;
-    display: flex;
-}
-
-textarea {
-    flex: 1;
-    width: 100%;
-    height: 100%;
-    border: none;
-    outline: none;
-    resize: none;
-    padding: 20px 20px 20px 56px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8125rem;
-    line-height: 1.7;
-    color: #ededed;
-    background: transparent;
-    caret-color: #ededed;
-    tab-size: 2;
-    white-space: pre;
-    overflow: auto;
-}
-
-.gutter {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 40px;
-    padding: 20px 0;
-    background: #0a0a0a;
-    border-right: 1px solid #262626;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8125rem;
-    line-height: 1.7;
-    color: #444444;
-    text-align: right;
-    padding-right: 10px;
-    overflow: hidden;
-    user-select: none;
-    pointer-events: none;
-}
-
-.dropzone-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(18,18,18,0.92);
-    border: 1px dashed #ededed;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8125rem;
-    font-weight: 400;
-    color: #ededed;
-    letter-spacing: 0.04em;
-    pointer-events: none;
-}
-
-.editor-wrap.dragging .dropzone-overlay {
-    display: flex;
-}
-
-.console {
-    flex: 1;
-    overflow: auto;
-    padding: 20px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    line-height: 1.7;
-    color: #a3a3a3;
-    background: #121212;
-    min-height: 0;
-}
-
-.console-line {
-    display: flex;
-    gap: 12px;
-    padding: 2px 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-
-.console-line .tag {
-    flex-shrink: 0;
-    color: #444444;
-    width: 60px;
-}
-
-.console-line.info .tag { color: #666666; }
-.console-line.log .tag { color: #444444; }
-.console-line.error { color: #ef4444; }
-.console-line.error .tag { color: #ef4444; }
-.console-line.success { color: #22c55e; }
-.console-line.success .tag { color: #22c55e; }
-
-.console-empty {
-    color: #444444;
-}
-
-.footer {
-    padding: 12px 32px;
-    border-top: 1px solid #262626;
-    background: #121212;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.6875rem;
-    font-weight: 300;
-    color: #666666;
-    letter-spacing: 0.02em;
-}
-
-.footer kbd {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.6875rem;
-    border: 1px solid #333333;
-    border-radius: 2px;
-    padding: 2px 6px;
-    color: #a3a3a3;
-    background: #0a0a0a;
-}
-
-@media (max-width: 800px) {
-    .workspace { grid-template-columns: 1fr; }
-    .topbar { padding: 16px 20px; flex-wrap: wrap; gap: 12px; }
-    .footer { padding: 12px 20px; }
-    .brand span { display: none; }
-}
+@media (max-width:800px) and (prefers-reduced-motion:reduce){#side{transition:none}}
 </style>
 </head>
 <body>
+<div id="app">
 
-<header class="topbar">
-    <div class="brand">
-        <h1>PySlide</h1>
-        <span>JS to PPTX</span>
+  <!-- แถบด้านข้าง: แชทใหม่ ค้นหา รายการแชท ตั้งค่า -->
+  <aside id="side" aria-label="ประวัติแชท">
+    <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v13H10l-4.5 3.5V17H3z"/></svg></span><span>DeepSeek Chat</span></div>
+    <div class="side-top">
+      <button id="newBtn" class="nav-row" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        <span>แชทใหม่</span>
+      </button>
+      <label class="searchbox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="search" type="search" placeholder="ค้นหา" aria-label="ค้นหาแชท">
+      </label>
     </div>
-    <div class="topbar-actions">
-        <button type="button" class="btn btn-ghost" id="clearBtn">Clear</button>
-        <button type="button" class="btn" id="runBtn">Run</button>
+    <nav id="list"></nav>
+    <div class="side-foot">
+      <button id="setBtn" class="nav-row" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 18h10"/><path d="M18 18h2"/><circle cx="16" cy="18" r="2"/></svg>
+        <span>ตั้งค่า</span>
+      </button>
     </div>
-</header>
+  </aside>
+  <div id="scrim"></div>
 
-<main class="workspace">
-    <section class="pane">
-        <div class="pane-head">
-            <span class="pane-title">Script</span>
-            <span class="pane-meta" id="lineInfo">0 lines</span>
-        </div>
-        <div class="editor-wrap" id="editorWrap">
-            <div class="gutter" id="gutter">1</div>
-            <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
-            <div class="dropzone-overlay">Drop a .js file</div>
-        </div>
-    </section>
+  <main id="main">
+    <header>
+      <button id="menuBtn" class="icon" type="button" aria-label="เปิดเมนู">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <select id="modelSel" aria-label="เลือกโมเดล"></select>
+      <span id="ctitle"></span>
+    </header>
 
-    <section class="pane">
-        <div class="pane-head">
-            <span class="pane-title">Output</span>
-            <span class="pane-meta" id="statusInfo">Idle</span>
-        </div>
-        <div class="console" id="console"></div>
-    </section>
-</main>
+    <div id="msgs"><div id="msgsInner"></div></div>
 
-<footer class="footer">
-    <span>API: pptx, PptxGenJS</span>
-    <span><kbd>Ctrl</kbd> <kbd>Enter</kbd> to run</span>
-</footer>
+    <div id="composer">
+      <div class="box">
+        <textarea id="input" rows="1" placeholder="พิมพ์ข้อความ" aria-label="ข้อความ"></textarea>
+        <button id="sendBtn" class="send" type="button" aria-label="ส่ง"></button>
+      </div>
+      <p class="hint">AI อาจตอบผิดได้ ตรวจสอบข้อมูลสำคัญอีกครั้ง</p>
+    </div>
+  </main>
 
-<script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
+  <!-- แผงพรีวิว HTML (รันในกล่อง sandbox แยกจากแอป) -->
+  <aside id="preview" aria-label="พรีวิว">
+    <div class="pv-head">
+      <span id="pvName"></span>
+      <button id="pvReload" class="btn" type="button">โหลดใหม่</button>
+      <button id="pvDl" class="btn" type="button">ดาวน์โหลด</button>
+      <button id="pvFull" class="btn" type="button">เต็มจอ</button>
+      <button id="pvClose" class="btn" type="button" aria-label="ปิดพรีวิว">ปิด</button>
+    </div>
+    <iframe id="pvFrame" title="พรีวิว" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe>
+  </aside>
+</div>
+
+<!-- หน้าต่างตั้งค่า -->
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <div class="dlg-head" id="dlgTitle">ตั้งค่า</div>
+  <div class="dlg-body">
+    <div class="field">
+      <label for="fKey">DeepSeek API key</label>
+      <input id="fKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-...">
+      <small>เก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น ไม่ถูกส่งไปที่อื่นนอกจาก DeepSeek อย่าใช้บนเครื่องที่คนอื่นใช้ร่วมกัน</small>
+    </div>
+    <div class="field">
+      <label for="fCustom">ชื่อโมเดลกำหนดเอง (ไม่บังคับ)</label>
+      <input id="fCustom" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="เว้นว่างเพื่อใช้ตามที่เลือกด้านบนของหน้าแชท">
+    </div>
+    <div class="field">
+      <label for="fSys">คำสั่งระบบ (System prompt)</label>
+      <textarea id="fSys" placeholder="เช่น ตอบเป็นภาษาไทยกระชับ"></textarea>
+    </div>
+    <div class="field">
+      <label for="fTemp">ความสร้างสรรค์ (temperature): <span id="fTempVal"></span></label>
+      <input id="fTemp" type="range" min="0" max="2" step="0.1" style="width:100%">
+      <small>ไม่มีผลกับโมเดล Reasoner</small>
+    </div>
+    <div class="field">
+      <label for="fTheme">ธีม</label>
+      <select id="fTheme">
+        <option value="auto">ตามระบบ</option>
+        <option value="light">สว่าง</option>
+        <option value="dark">มืด</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="fBase">Base URL</label>
+      <input id="fBase" type="url" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label class="chk"><input id="fHint" type="checkbox"> สอนโมเดลให้ตั้งชื่อไฟล์ก่อนโค้ดบล็อก</label>
+      <small>แนะนำให้เปิดไว้ เพื่อให้ปุ่มดาวน์โหลดและ ZIP ได้ชื่อไฟล์ถูกต้อง</small>
+    </div>
+    <div class="field">
+      <label>ข้อมูลแชท</label>
+      <div class="row">
+        <button id="expBtn" class="btn" type="button">ส่งออก</button>
+        <button id="impBtn" class="btn" type="button">นำเข้า</button>
+        <button id="clrBtn" class="btn danger" type="button">ลบทั้งหมด</button>
+      </div>
+      <input id="impFile" type="file" accept="application/json,.json" hidden>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button id="cancelBtn" class="btn" type="button">ปิด</button>
+    <button id="saveBtn" class="btn primary" type="button">บันทึก</button>
+  </div>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<!-- ไลบรารี: Markdown, ป้องกัน XSS, ไฮไลต์โค้ด (ถ้าโหลดไม่ได้ แอปยังใช้งานได้แบบข้อความล้วน) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
 <script>
-const DEFAULT_SCRIPT = `const slide = pptx.addSlide();
+(() => {
+'use strict';
 
-slide.addText("Quarterly Report", {
-  x: 0.6,
-  y: 0.6,
-  w: 9,
-  h: 1,
-  fontSize: 36,
-  bold: true,
-  color: "EDEDED"
+/* ===== ค่าคงที่และสถานะ ===== */
+const $ = s => document.querySelector(s);
+const K = { chats: 'dschat:chats', set: 'dschat:settings', cur: 'dschat:current' };
+const DEFAULTS = {
+  apiKey: '', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat',
+  customModel: '', system: '', temperature: 1, theme: 'auto', fileHint: true
+};
+const FILE_HINT = 'เมื่อผู้ใช้ขอให้สร้างไฟล์หรือโปรเจกต์ ให้ใส่ชื่อไฟล์ในบรรทัดของตัวเองก่อนโค้ดบล็อกทุกครั้ง เช่น `index.html` หรือ `css/style.css` แล้วตามด้วยโค้ดบล็อกของไฟล์นั้น หนึ่งไฟล์ต่อหนึ่งบล็อก ถ้าเป็นเว็บหน้าเดียวให้รวม HTML CSS JS ไว้ในไฟล์ index.html ไฟล์เดียว ส่วนโค้ดตัวอย่างสั้น ๆ ที่ไม่ใช่ไฟล์ ไม่ต้องใส่ชื่อไฟล์';
+const MODELS = [
+  ['deepseek-chat', 'DeepSeek Chat'],
+  ['deepseek-reasoner', 'DeepSeek Reasoner (คิดลึก)']
+];
+const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const LOGO = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v13H10l-4.5 3.5V17H3z"/></svg>';
+const svg = p => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
+const ICON_COPY = svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>');
+const ICON_REFRESH = svg('<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>');
+const ICON_DL = svg('<path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>');
+const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+
+const load = (k, fallback) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { toast('บันทึกไม่ได้ พื้นที่เต็มหรือปิดการเก็บข้อมูล'); } };
+
+let settings = Object.assign({}, DEFAULTS, load(K.set, {}));
+let chats = load(K.chats, []);
+let currentId = load(K.cur, null);
+let streaming = false;
+let abortCtl = null;
+let autoScroll = true;
+
+/* ===== ฟังก์ชันช่วย ===== */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const cur = () => chats.find(c => c.id === currentId) || null;
+const activeModel = () => (settings.customModel || '').trim() || settings.model;
+const isMobile = () => matchMedia('(max-width:800px)').matches;
+const persist = () => { save(K.chats, chats); save(K.cur, currentId); };
+
+let toastTimer;
+function toast(t) {
+  const el = $('#toast');
+  el.textContent = t; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); toast('คัดลอกแล้ว'); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = t; document.body.append(ta); ta.select();
+    try { document.execCommand('copy'); toast('คัดลอกแล้ว'); } catch { toast('คัดลอกไม่ได้'); }
+    ta.remove();
+  }
+}
+
+/* แปลง Markdown เป็น HTML ที่ปลอดภัย ถ้าไลบรารีโหลดไม่ได้ให้แสดงเป็นข้อความ */
+function md(text) {
+  if (window.marked && window.DOMPurify) {
+    return DOMPurify.sanitize(marked.parse(text, { gfm: true, breaks: true }));
+  }
+  return esc(text).replace(/\n/g, '<br>');
+}
+
+/* ===== ไฟล์จากโค้ดบล็อก: แยกชื่อไฟล์ ดาวน์โหลด ZIP และพรีวิว HTML ===== */
+const EXT = 'html?|css|m?js|jsx|tsx?|json|md|txt|py|ya?ml|toml|xml|svg|sh|csv|sql|java|cpp|c|h|go|rs|php|rb|kt|swift|ini';
+const FNAME = '[\\w\\-./]+\\.(?:' + EXT + ')';
+const RE_INFO = new RegExp('(' + FNAME + ')(?![\\w])', 'i');
+const RE_TICK = new RegExp('`(' + FNAME + ')`', 'i');
+const RE_BOLD = new RegExp('\\*\\*(' + FNAME + ')\\*\\*', 'i');
+const RE_LINE = new RegExp('^[#>\\s*\\-\\d.)]*(?:ไฟล์|file(?:name)?)?\\s*[:：]?\\s*(' + FNAME + ')\\s*[:：]?\\s*$', 'i');
+const RE_CMT = new RegExp('^\\s*(?:<!' + '--|//|#|/\\*)\\s*(?:file(?:name)?\\s*[:：]\\s*)?(' + FNAME + ')\\s*(?:--' + '>|\\*/)?\\s*$', 'i');
+const RE_CMDLANG = /^(bash|sh|shell|zsh|console|terminal|cmd|powershell)$/;
+const LANG_EXT = { javascript: 'js', js: 'js', jsx: 'jsx', typescript: 'ts', ts: 'ts', tsx: 'tsx', python: 'py', py: 'py',
+  html: 'html', htm: 'html', css: 'css', json: 'json', markdown: 'md', md: 'md', bash: 'sh', sh: 'sh', shell: 'sh', zsh: 'sh',
+  yaml: 'yml', yml: 'yml', xml: 'xml', svg: 'svg', sql: 'sql', java: 'java', c: 'c', cpp: 'cpp', 'c++': 'cpp', go: 'go',
+  rust: 'rs', rs: 'rs', php: 'php', ruby: 'rb', rb: 'rb', csv: 'csv', toml: 'toml', text: 'txt', txt: 'txt', plaintext: 'txt' };
+
+const base = p => String(p).split('?')[0].split('/').pop().toLowerCase();
+
+/* ทำชื่อไฟล์ให้ปลอดภัย (ตัด .. และอักขระต้องห้าม) */
+function safeName(n) {
+  n = String(n).replace(/\\/g, '/').replace(/[<>:"|?*\x00-\x1f]/g, '').split('/').filter(p => p && p !== '.' && p !== '..').join('/');
+  return n || 'file.txt';
+}
+function nameFromLine(l) {
+  if (l.length > 140) return null;
+  const m = l.match(RE_TICK) || l.match(RE_BOLD) || l.match(RE_LINE);
+  return m ? m[1] : null;
+}
+
+/* อ่านโค้ดบล็อกจาก Markdown ดิบ พร้อมหาชื่อไฟล์จาก: info string, บรรทัดก่อนหน้า, คอมเมนต์บรรทัดแรก */
+function parseBlocks(text) {
+  const lines = String(text).split('\n'); const out = []; let prev = '';
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^\s{0,3}(`{3,}|~{3,})\s*([^`]*)$/);
+    if (!m) { if (lines[i].trim()) prev = lines[i]; continue; }
+    const fence = m[1], info = m[2].trim(); const body = []; let j = i + 1;
+    while (j < lines.length) {
+      const cl = lines[j].match(/^\s{0,3}(`{3,}|~{3,})\s*$/);
+      if (cl && cl[1][0] === fence[0] && cl[1].length >= fence.length) break;
+      body.push(lines[j]); j++;
+    }
+    const lang0 = (info.split(/[\s:{,]/)[0] || '').toLowerCase();
+    let name = (info.match(RE_INFO) || [])[1] || null;
+    if (!name && !RE_CMDLANG.test(lang0)) name = nameFromLine(prev) || (body.length ? (body[0].match(RE_CMT) || [])[1] : null) || null;
+    let lang = lang0;
+    if (name && RE_INFO.test(lang)) lang = '';
+    if (!lang && name) lang = (name.split('.').pop() || '').toLowerCase();
+    out.push({ lang, name, named: !!name, code: body.join('\n') });
+    i = j; prev = '';
+  }
+  return out;
+}
+
+/* ตั้งชื่อไฟล์สุดท้ายให้ทุกบล็อก (กันชื่อซ้ำ) และสร้างแผนที่ ชื่อไฟล์ -> โค้ด */
+function finalizeBlocks(blocks) {
+  const used = new Set(); const map = {}; let n = 0;
+  for (const b of blocks) {
+    n++;
+    let f = b.name ? safeName(b.name) : null;
+    if (!f) {
+      const ext = LANG_EXT[b.lang] || (/^\w{1,6}$/.test(b.lang) ? b.lang : 'txt');
+      f = (ext === 'html' && !used.has('index.html')) ? 'index.html' : 'file-' + n + '.' + ext;
+    }
+    let u = f, k = 2;
+    while (used.has(u.toLowerCase())) { u = f.replace(/(\.[^./]*)?$/, '-' + k + '$1'); k++; }
+    used.add(u.toLowerCase()); b.file = u; map[base(u)] = b.code;
+  }
+  return map;
+}
+
+/* ===== สร้างไฟล์ ZIP ในเบราว์เซอร์ (แบบไม่บีบอัด ไม่ต้องใช้ไลบรารี) ===== */
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = -1; for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 255] ^ (c >>> 8); return (~c) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(); const parts = []; const central = []; let offset = 0;
+  const d = new Date();
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (const f of files) {
+    const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(lh.buffer, name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true);
+    ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true);
+    ch.setUint16(30, 0, true); ch.setUint16(32, 0, true); ch.setUint16(34, 0, true); ch.setUint16(36, 0, true);
+    ch.setUint32(38, 0, true); ch.setUint32(42, offset, true);
+    central.push(ch.buffer, name);
+    offset += 30 + name.length + data.length;
+  }
+  let csize = 0; for (let i = 0; i < central.length; i++) csize += central[i].byteLength;
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, csize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+}
+
+function downloadBlob(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function withNewline(t) { return t.endsWith('\n') ? t : t + '\n'; }
+function downloadText(name, text) {
+  downloadBlob(new Blob([withNewline(text)], { type: 'application/octet-stream' }), name.split('/').pop());
+}
+function downloadZip(blocks) {
+  const blob = makeZip(blocks.map(b => ({ name: b.file, text: withNewline(b.code) })));
+  downloadBlob(blob, 'project-' + new Date().toISOString().slice(0, 10) + '.zip');
+}
+
+/* ===== พรีวิว HTML ในกล่อง sandbox (แยกจากหน้าแอป จึงอ่าน API key ไม่ได้) ===== */
+// ถ้าโค้ดในพรีวิวใช้ localStorage ซึ่ง sandbox ไม่อนุญาต ให้ใช้ที่เก็บชั่วคราวในหน่วยความจำแทน
+const STORAGE_SHIM = '<scr' + 'ipt>try{localStorage.getItem("x")}catch(e){var mk=function(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}};try{Object.defineProperty(window,"localStorage",{value:mk(),configurable:true});Object.defineProperty(window,"sessionStorage",{value:mk(),configurable:true})}catch(_){}}</scr' + 'ipt>';
+const VIEWPORT = '<meta name="viewport" content="width=device-width, initial-scale=1">';
+
+function injectHead(html, s) {
+  let m;
+  if ((m = html.match(/<head[^>]*>/i))) return html.replace(m[0], () => m[0] + s);
+  if ((m = html.match(/<html[^>]*>/i))) return html.replace(m[0], () => m[0] + '<head>' + s + '</head>');
+  if ((m = html.match(/<!doctype[^>]*>/i))) return html.replace(m[0], () => m[0] + s);
+  return s + html;
+}
+
+/* รวม CSS/JS ที่อ้างถึงด้วยชื่อไฟล์ (เช่น style.css, script.js) จากบล็อกอื่นในข้อความเดียวกันเข้าไปในหน้า */
+function buildPreview(code, file, lang, map) {
+  if (/\.svg$/i.test(file) || lang === 'svg' || /^\s*<svg[\s>]/i.test(code)) {
+    return '<!doctype html><html><head><meta charset="utf-8">' + VIEWPORT + '<style>body{margin:0;display:grid;place-items:center;min-height:100vh;background:#fff}svg{max-width:100%;height:auto}</style></head><body>' + code + '</body></html>';
+  }
+  let h = code.replace(/<link\b[^>]*?href=["']([^"']+\.css)["'][^>]*>/gi, (all, href) => {
+    const c = map[base(href)];
+    return c == null ? all : '<style>' + c.replace(/<\/style/gi, '<\\/style') + '</style>';
+  });
+  h = h.replace(/<script\b([^>]*?)\ssrc=["']([^"']+\.m?js)["']([^>]*)>\s*<\/script>/gi, (all, a, href, z) => {
+    const c = map[base(href)];
+    return c == null ? all : '<scr' + 'ipt' + a + z + '>' + c.replace(/<\/script/gi, '<\\/scr' + 'ipt') + '</scr' + 'ipt>';
+  });
+  return injectHead(h, VIEWPORT + STORAGE_SHIM);
+}
+
+let pv = { name: '', html: '', code: '' };
+function openPreview(name, html, code) {
+  pv = { name, html, code };
+  $('#pvName').textContent = name;
+  $('#pvFrame').srcdoc = html;
+  $('#app').classList.add('previewing'); closeSide();
+}
+function closePreview() {
+  $('#app').classList.remove('previewing'); $('#preview').classList.remove('full');
+  $('#pvFrame').srcdoc = '';
+}
+
+/* ใส่แถบหัวและปุ่ม (พรีวิว / ดาวน์โหลด / คัดลอก) ให้บล็อกโค้ด พร้อมไฮไลต์สี */
+function enhance(root, blocks, map) {
+  const used = new Set();
+  root.querySelectorAll('pre').forEach(pre => {
+    if (pre.parentElement.classList.contains('codewrap')) return;
+    const code = pre.querySelector('code');
+    const txt = (code || pre).textContent.replace(/\n$/, '');
+    if (window.hljs && code) { try { hljs.highlightElement(code); } catch {} }
+    const cls = ((code && code.className.match(/language-([^\s]+)/)) || [])[1] || '';
+    let b = blocks.find(x => !used.has(x) && x.code.trim() === txt.trim());
+    if (b) used.add(b); else b = { lang: cls, file: 'file.' + (LANG_EXT[cls] || 'txt'), code: txt, named: false };
+    const isPreviewable = /\.(html?|svg)$/i.test(b.file) || /^(html|svg)$/.test(cls) || /^\s*(<!doctype html|<html|<svg[\s>])/i.test(b.code);
+
+    const wrap = document.createElement('div'); wrap.className = 'codewrap';
+    const bar = document.createElement('div'); bar.className = 'codebar';
+    const name = document.createElement('span'); name.textContent = b.named ? b.file : (cls || 'code');
+    const grp = document.createElement('div'); grp.className = 'grp';
+    const mk = (label, fn) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; x.onclick = fn; return x; };
+    if (isPreviewable) grp.append(mk('พรีวิว', () => openPreview(b.file, buildPreview(b.code, b.file, cls, map), b.code)));
+    grp.append(mk('ดาวน์โหลด', () => { downloadText(b.file, b.code); toast('ดาวน์โหลด ' + b.file.split('/').pop()); }));
+    const cp = mk('คัดลอก', async () => { await copyText(b.code); cp.textContent = 'คัดลอกแล้ว'; setTimeout(() => cp.textContent = 'คัดลอก', 1500); });
+    grp.append(cp);
+    bar.append(name, grp);
+    pre.replaceWith(wrap); wrap.append(bar, pre);
+  });
+}
+
+/* ===== ธีมและโมเดลที่หัวหน้า ===== */
+function applyTheme() {
+  const r = document.documentElement;
+  if (settings.theme === 'auto') r.removeAttribute('data-theme'); else r.dataset.theme = settings.theme;
+}
+function fillModelSel() {
+  const sel = $('#modelSel'); sel.textContent = '';
+  MODELS.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; sel.append(o); });
+  sel.value = settings.model;
+}
+
+/* ===== เรนเดอร์รายการแชทด้านข้าง ===== */
+function groupOf(ts) {
+  const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+  const days = Math.floor((d0.getTime() - ts) / 86400000) + 1;
+  if (ts >= d0.getTime()) return 'วันนี้';
+  if (days <= 1) return 'เมื่อวาน';
+  if (days <= 7) return '7 วันที่ผ่านมา';
+  if (days <= 30) return '30 วันที่ผ่านมา';
+  return 'เก่ากว่านั้น';
+}
+function renderList() {
+  const q = $('#search').value.trim().toLowerCase();
+  const box = $('#list'); box.textContent = '';
+  const items = chats.filter(c => !q || c.title.toLowerCase().includes(q)).sort((a, b) => b.updated - a.updated);
+  if (!items.length) { box.innerHTML = '<p class="none">ยังไม่มีแชท</p>'; return; }
+  let lastG = '';
+  for (const c of items) {
+    const g = groupOf(c.updated);
+    if (g !== lastG) { const t = document.createElement('div'); t.className = 'grp-t'; t.textContent = g; box.append(t); lastG = g; }
+    const d = document.createElement('div'); d.className = 'item' + (c.id === currentId ? ' active' : '');
+    const t = document.createElement('button'); t.className = 't'; t.type = 'button'; t.textContent = c.title; t.onclick = () => selectChat(c.id);
+    const x = document.createElement('button'); x.className = 'x'; x.type = 'button'; x.setAttribute('aria-label', 'ลบแชท ' + c.title); x.textContent = '×'; x.onclick = () => removeChat(c.id);
+    d.append(t, x); box.append(d);
+  }
+}
+
+/* ===== เรนเดอร์ข้อความ ===== */
+function emptyEl() {
+  const d = document.createElement('div'); d.className = 'empty';
+  const hasKey = !!settings.apiKey;
+  d.innerHTML = '<div class="av-lg">' + LOGO + '</div><h1>' + (hasKey ? 'วันนี้ให้ช่วยอะไรดี' : 'เริ่มต้นใช้งาน') + '</h1>';
+  const p = document.createElement('p');
+  p.textContent = hasKey ? 'คุยกับ ' + activeModel() + ' ประวัติแชทเก็บไว้ในเครื่องนี้เท่านั้น' : 'ใส่ DeepSeek API key ก่อนเริ่มแชท key จะเก็บไว้ในเบราว์เซอร์ของคุณเท่านั้น';
+  d.append(p);
+  if (!hasKey) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn primary'; b.textContent = 'ใส่ API key'; b.onclick = openSettings; d.append(b);
+    return d;
+  }
+  const S = [
+    ['สร้างเกมงู', 'เป็นไฟล์ HTML ไฟล์เดียว พร้อมพรีวิว', 'สร้างเกมงูเป็นไฟล์ HTML ไฟล์เดียว'],
+    ['ทำเว็บ portfolio', 'แยกไฟล์ index.html, style.css, script.js', 'ทำเว็บ portfolio แยกไฟล์ index.html style.css script.js'],
+    ['ทำเครื่องคิดเลขภาษี', 'เป็นเว็บหน้าเดียว ใช้บนมือถือได้', 'ทำเครื่องคิดเลขภาษีเงินได้เป็นเว็บหน้าเดียว']
+  ];
+  const box = document.createElement('div'); box.className = 'sugg';
+  S.forEach(([t, sub, prompt]) => {
+    const b = document.createElement('button'); b.type = 'button';
+    const bt = document.createElement('b'); bt.textContent = t; const sp = document.createElement('span'); sp.textContent = sub;
+    b.append(bt, sp);
+    b.onclick = () => { const i = $('#input'); i.value = prompt; autosize(); i.focus(); };
+    box.append(b);
+  });
+  d.append(box);
+  return d;
+}
+
+function iconBtn(icon, label, fn, cls, withText) {
+  const b = document.createElement('button'); b.type = 'button'; b.title = label; b.setAttribute('aria-label', label);
+  if (cls) b.className = cls;
+  b.innerHTML = icon + (withText ? '<span>' + esc(label) + '</span>' : '');
+  b.onclick = fn; return b;
+}
+
+function msgEl(m, i, chat) {
+  const d = document.createElement('div'); d.className = 'msg ' + m.role;
+  if (m.role === 'user') {
+    const b = document.createElement('div'); b.className = 'bubble'; b.textContent = m.content; d.append(b);
+    return d;
+  }
+  d.innerHTML = '<div class="av">' + LOGO + '</div><div class="body"><div class="who"></div><details class="think" hidden><summary>ความคิดของโมเดล</summary><div class="think-body"></div></details><div class="md"></div></div>';
+  d.querySelector('.who').textContent = m.model || activeModel();
+  const body = d.querySelector('.body');
+  const think = d.querySelector('.think');
+  if (m.reasoning) { think.hidden = false; think.querySelector('.think-body').textContent = m.reasoning; if (streaming && !m.content) think.open = true; }
+  const mdEl = d.querySelector('.md');
+  const blocks = m.content ? parseBlocks(m.content) : [];
+  const map = finalizeBlocks(blocks);
+  if (m.content) { mdEl.innerHTML = md(m.content); if (!(streaming && i === chat.messages.length - 1)) enhance(mdEl, blocks, map); }
+  if (m.error) { const e = document.createElement('div'); e.className = 'err'; e.textContent = m.error; body.append(e); }
+  if (!streaming) {
+    const a = document.createElement('div'); a.className = 'actions';
+    if (m.content) a.append(iconBtn(ICON_COPY, 'คัดลอก', () => copyText(m.content)));
+    // ถ้ามีหลายไฟล์ในข้อความเดียว แสดงปุ่มดาวน์โหลดรวมเป็น ZIP (ใช้เฉพาะบล็อกที่มีชื่อไฟล์ ถ้าไม่มีเลยใช้ทุกบล็อก)
+    const zipFiles = blocks.some(b => b.named) ? blocks.filter(b => b.named) : blocks;
+    if (zipFiles.length >= 2) a.append(iconBtn(ICON_DL, 'ดาวน์โหลดทั้งหมด (.zip)', () => { downloadZip(zipFiles); toast('สร้าง ZIP แล้ว'); }, 'zip', true));
+    if (i === chat.messages.length - 1) a.append(iconBtn(ICON_REFRESH, m.error ? 'ลองใหม่' : 'สร้างใหม่', regenerate, '', !!m.error));
+    body.append(a);
+  }
+  return d;
+}
+
+function renderMessages() {
+  const chat = cur(); const box = $('#msgsInner'); box.textContent = '';
+  $('#ctitle').textContent = chat ? chat.title : '';
+  if (!chat || !chat.messages.length) { box.append(emptyEl()); return; }
+  chat.messages.forEach((m, i) => box.append(msgEl(m, i, chat)));
+  if (autoScroll) scrollEnd();
+}
+function scrollEnd() { const s = $('#msgs'); s.scrollTop = s.scrollHeight; }
+
+/* ระหว่างสตรีม: อัปเดตเฉพาะข้อความสุดท้ายแบบจำกัดความถี่ */
+let paintQueued = false;
+function paint(el, msg) {
+  if (paintQueued) return; paintQueued = true;
+  requestAnimationFrame(() => {
+    paintQueued = false;
+    const th = el.querySelector('.think');
+    if (msg.reasoning) {
+      th.hidden = false; th.querySelector('.think-body').textContent = msg.reasoning;
+      if (!msg.content) th.open = true;
+      else if (!th.dataset.closed) { th.open = false; th.dataset.closed = '1'; }
+    }
+    el.querySelector('.md').innerHTML = msg.content ? md(msg.content) : '';
+    if (autoScroll) scrollEnd();
+  });
+}
+
+/* ===== จัดการแชท ===== */
+function setBusy(b) {
+  const btn = $('#sendBtn');
+  btn.innerHTML = b ? ICON_STOP : ICON_SEND;
+  btn.setAttribute('aria-label', b ? 'หยุด' : 'ส่ง');
+  updateSend();
+}
+// ปุ่มส่งจาง ๆ เมื่อยังไม่ได้พิมพ์อะไร (ปุ่มหยุดใช้ได้เสมอ)
+function updateSend() { $('#sendBtn').disabled = !streaming && !$('#input').value.trim(); }
+function stop() { if (abortCtl) abortCtl.abort(); }
+function closeSide() { $('#app').classList.remove('open'); }
+
+function newChat() {
+  if (streaming) stop();
+  currentId = null; closePreview(); persist(); renderList(); renderMessages(); closeSide();
+  $('#input').focus();
+}
+function selectChat(id) {
+  if (streaming) stop();
+  currentId = id; autoScroll = true; closePreview(); persist(); renderList(); renderMessages(); closeSide();
+}
+function removeChat(id) {
+  const c = chats.find(x => x.id === id); if (!c) return;
+  if (!confirm('ลบแชท "' + c.title + '" ?')) return;
+  if (id === currentId && streaming) stop();
+  chats = chats.filter(x => x.id !== id);
+  if (id === currentId) currentId = null;
+  persist(); renderList(); renderMessages();
+}
+
+function friendlyError(e) {
+  const m = String(e && e.message || e);
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'เชื่อมต่อ DeepSeek ไม่ได้ ตรวจสอบอินเทอร์เน็ตและ Base URL ในตั้งค่า';
+  if (/^HTTP 401/.test(m)) return 'API key ไม่ถูกต้อง ตรวจสอบในตั้งค่า\n' + m;
+  if (/^HTTP 402/.test(m)) return 'ยอดเงินในบัญชี DeepSeek ไม่พอ ต้องเติมเงินก่อน\n' + m;
+  if (/^HTTP 429/.test(m)) return 'ส่งถี่เกินไป รอสักครู่แล้วลองใหม่\n' + m;
+  return m;
+}
+
+/* ส่งประวัติแชทไป DeepSeek แล้วอ่านคำตอบแบบสตรีม (SSE) */
+async function streamChat(chat, msg, onDelta, signal) {
+  const model = activeModel();
+  // ไม่ส่งส่วนความคิด (reasoning) กลับไป เพราะ API ของ Reasoner ไม่รับ
+  const history = chat.messages.filter(m => m !== msg && !m.error && m.content).map(m => ({ role: m.role, content: m.content }));
+  const sys = [settings.system.trim(), settings.fileHint ? FILE_HINT : ''].filter(Boolean).join('\n\n');
+  const body = { model, messages: (sys ? [{ role: 'system', content: sys }] : []).concat(history), stream: true };
+  if (!/reasoner|r1/i.test(model)) body.temperature = Number(settings.temperature);
+
+  const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+  const res = await fetch(url, {
+    method: 'POST', signal,
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.apiKey },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    let t = await res.text();
+    try { t = JSON.parse(t).error.message; } catch {}
+    throw new Error('HTTP ' + res.status + ': ' + t);
+  }
+  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop();
+    for (const ln of lines) {
+      const s = ln.trim();
+      if (!s.startsWith('data:')) continue;
+      const d = s.slice(5).trim();
+      if (d === '[DONE]') return;
+      try {
+        const delta = JSON.parse(d).choices?.[0]?.delta || {};
+        if (delta.reasoning_content) msg.reasoning += delta.reasoning_content;
+        if (delta.content) msg.content += delta.content;
+        onDelta();
+      } catch { /* ข้ามบรรทัดที่อ่านไม่ได้ */ }
+    }
+  }
+}
+
+async function reply(chat) {
+  streaming = true; setBusy(true);
+  const msg = { role: 'assistant', content: '', reasoning: '', model: activeModel() };
+  chat.messages.push(msg); chat.updated = Date.now();
+  autoScroll = true; renderMessages(); renderList();
+  const el = $('#msgsInner').lastElementChild;
+  abortCtl = new AbortController();
+  try {
+    await streamChat(chat, msg, () => paint(el, msg), abortCtl.signal);
+  } catch (e) {
+    if (e.name !== 'AbortError') msg.error = friendlyError(e);
+  } finally {
+    streaming = false; abortCtl = null; setBusy(false);
+    if (!msg.content && !msg.reasoning && !msg.error) chat.messages.splice(chat.messages.indexOf(msg), 1);
+    chat.updated = Date.now(); persist(); renderMessages(); renderList();
+  }
+}
+
+function send() {
+  const input = $('#input'); const text = input.value.trim();
+  if (!text || streaming) return;
+  if (!settings.apiKey) { toast('ใส่ API key ก่อน'); openSettings(); return; }
+  let chat = cur();
+  if (!chat) { chat = { id: uid(), title: 'แชทใหม่', updated: Date.now(), messages: [] }; chats.unshift(chat); currentId = chat.id; }
+  chat.messages.push({ role: 'user', content: text });
+  if (chat.messages.length === 1) chat.title = text.replace(/\s+/g, ' ').slice(0, 40);
+  input.value = ''; autosize();
+  reply(chat);
+}
+
+function regenerate() {
+  if (streaming) return;
+  const chat = cur(); if (!chat) return;
+  while (chat.messages.length && chat.messages[chat.messages.length - 1].role === 'assistant') chat.messages.pop();
+  if (!chat.messages.length) return;
+  if (!settings.apiKey) { openSettings(); return; }
+  reply(chat);
+}
+
+/* ===== ช่องพิมพ์ ===== */
+function autosize() { const t = $('#input'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 200) + 'px'; updateSend(); }
+$('#input').addEventListener('input', autosize);
+$('#input').addEventListener('keydown', e => {
+  // บนคอมพิวเตอร์: Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่ / บนมือถือ: Enter ขึ้นบรรทัดใหม่
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !matchMedia('(pointer:coarse)').matches) { e.preventDefault(); send(); }
 });
+$('#sendBtn').onclick = () => streaming ? stop() : send();
+$('#msgs').addEventListener('scroll', () => { const s = $('#msgs'); autoScroll = s.scrollHeight - s.scrollTop - s.clientHeight < 80; });
 
-slide.addText("Generated in the browser", {
-  x: 0.6,
-  y: 1.8,
-  w: 9,
-  h: 1,
-  fontSize: 16,
-  color: "A3A3A3"
-});
+const dlg = $('#dlg');
 
-await pptx.writeFile({ fileName: "presentation.pptx" });`;
+/* ===== แถบข้างและหัวหน้า ===== */
+$('#newBtn').onclick = newChat;
+$('#search').addEventListener('input', renderList);
+$('#menuBtn').onclick = () => $('#app').classList.add('open');
+$('#scrim').onclick = closeSide;
+$('#modelSel').onchange = e => { settings.model = e.target.value; settings.customModel = ''; save(K.set, settings); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !dlg.open) { closeSide(); closePreview(); } });
+$('#pvClose').onclick = closePreview;
+$('#pvReload').onclick = () => { const f = $('#pvFrame'); f.srcdoc = ''; requestAnimationFrame(() => { f.srcdoc = pv.html; }); };
+$('#pvDl').onclick = () => downloadText(pv.name, pv.code);
+$('#pvFull').onclick = () => $('#preview').classList.toggle('full');
 
-const editor = document.getElementById('editor');
-const gutter = document.getElementById('gutter');
-const lineInfo = document.getElementById('lineInfo');
-const consoleEl = document.getElementById('console');
-const statusInfo = document.getElementById('statusInfo');
-const runBtn = document.getElementById('runBtn');
-const clearBtn = document.getElementById('clearBtn');
-const editorWrap = document.getElementById('editorWrap');
-
-const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-
-let running = false;
-
-function syncGutter() {
-    const lines = editor.value.split('\n').length;
-    let out = '';
-    for (let i = 1; i <= lines; i++) out += i + '\n';
-    gutter.textContent = out;
-    lineInfo.textContent = lines + (lines === 1 ? ' line' : ' lines');
+/* ===== หน้าต่างตั้งค่า ===== */
+function openSettings() {
+  $('#fKey').value = settings.apiKey; $('#fCustom').value = settings.customModel;
+  $('#fSys').value = settings.system; $('#fTemp').value = settings.temperature;
+  $('#fTempVal').textContent = settings.temperature; $('#fTheme').value = settings.theme;
+  $('#fBase').value = settings.baseUrl; $('#fHint').checked = !!settings.fileHint;
+  closeSide(); dlg.showModal();
 }
-
-function appendLine(text, type) {
-    const line = document.createElement('div');
-    line.className = 'console-line ' + (type || 'log');
-
-    const tag = document.createElement('span');
-    tag.className = 'tag';
-
-    const stamp = new Date();
-    const hh = String(stamp.getHours()).padStart(2, '0');
-    const mm = String(stamp.getMinutes()).padStart(2, '0');
-    const ss = String(stamp.getSeconds()).padStart(2, '0');
-    tag.textContent = hh + ':' + mm + ':' + ss;
-
-    const body = document.createElement('span');
-    body.textContent = text;
-
-    line.appendChild(tag);
-    line.appendChild(body);
-    consoleEl.appendChild(line);
-    consoleEl.scrollTop = consoleEl.scrollHeight;
-}
-
-function clearConsole() {
-    consoleEl.innerHTML = '';
-    const empty = document.createElement('div');
-    empty.className = 'console-empty';
-    empty.textContent = 'Waiting for output';
-    consoleEl.appendChild(empty);
-}
-
-function setStatus(text) {
-    statusInfo.textContent = text;
-}
-
-const customConsole = {
-    log: (...args) => appendLine(args.map(formatArg).join(' '), 'log'),
-    info: (...args) => appendLine(args.map(formatArg).join(' '), 'info'),
-    warn: (...args) => appendLine(args.map(formatArg).join(' '), 'log'),
-    error: (...args) => appendLine(args.map(formatArg).join(' '), 'error'),
-    clear: clearConsole,
+$('#setBtn').onclick = openSettings;
+$('#fTemp').oninput = e => $('#fTempVal').textContent = e.target.value;
+$('#cancelBtn').onclick = () => dlg.close();
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+$('#saveBtn').onclick = () => {
+  settings.apiKey = $('#fKey').value.trim();
+  settings.customModel = $('#fCustom').value.trim();
+  settings.system = $('#fSys').value;
+  settings.temperature = Number($('#fTemp').value);
+  settings.theme = $('#fTheme').value;
+  settings.baseUrl = $('#fBase').value.trim() || DEFAULTS.baseUrl;
+  settings.fileHint = $('#fHint').checked;
+  save(K.set, settings); applyTheme(); fillModelSel();
+  dlg.close(); toast('บันทึกแล้ว');
+  if (!cur()) renderMessages();
 };
 
-function formatArg(value) {
-    if (typeof value === 'string') return value;
-    try { return JSON.stringify(value); }
-    catch (e) { return String(value); }
-}
-
-async function run() {
-    if (running) return;
-    running = true;
-    runBtn.disabled = true;
-    setStatus('Running');
-
-    const first = consoleEl.querySelector('.console-empty');
-    if (first) consoleEl.innerHTML = '';
-
-    appendLine('Execution started', 'info');
-
-    const code = editor.value;
-    const pptx = new PptxGenJS();
-    pptx.layout = 'LAYOUT_16x9';
-    pptx.author = 'PySlide';
-    pptx.title = 'Presentation';
-
-    const startedAt = performance.now();
-
-    try {
-        const fn = new AsyncFunction('pptx', 'PptxGenJS', 'console', code);
-        await fn(pptx, PptxGenJS, customConsole);
-
-        const elapsed = (performance.now() - startedAt).toFixed(0);
-        appendLine('Finished in ' + elapsed + ' ms', 'success');
-        setStatus('Done');
-    } catch (err) {
-        const message = err && err.message ? err.message : String(err);
-        appendLine(message, 'error');
-        if (err && err.stack) {
-            const firstFrame = err.stack.split('\n')[1];
-            if (firstFrame) appendLine(firstFrame.trim(), 'error');
-        }
-        setStatus('Failed');
-    } finally {
-        running = false;
-        runBtn.disabled = false;
+/* ส่งออก / นำเข้า / ลบแชททั้งหมด (ไม่รวม API key) */
+$('#expBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify({ app: 'deepseek-chat', chats }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'deepseek-chats-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('#impBtn').onclick = () => $('#impFile').click();
+$('#impFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const list = Array.isArray(data) ? data : data.chats;
+    if (!Array.isArray(list)) throw new Error('bad');
+    let n = 0;
+    for (const c of list) {
+      if (!c || !c.id || !Array.isArray(c.messages) || chats.some(x => x.id === c.id)) continue;
+      chats.push({ id: String(c.id), title: String(c.title || 'แชท'), updated: Number(c.updated) || Date.now(),
+        messages: c.messages.filter(m => m && (m.role === 'user' || m.role === 'assistant')).map(m => ({ role: m.role, content: String(m.content || ''), reasoning: String(m.reasoning || '') })) });
+      n++;
     }
-}
+    persist(); renderList(); toast('นำเข้า ' + n + ' แชท');
+  } catch { toast('ไฟล์ไม่ถูกต้อง'); }
+};
+$('#clrBtn').onclick = () => {
+  if (!confirm('ลบแชททั้งหมดในเครื่องนี้ ?')) return;
+  if (streaming) stop();
+  chats = []; currentId = null; persist(); renderList(); renderMessages(); dlg.close();
+};
 
-editor.addEventListener('input', syncGutter);
-
-editor.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') {
-        e.preventDefault();
-        const start = editor.selectionStart;
-        const end = editor.selectionEnd;
-        editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
-        editor.selectionStart = editor.selectionEnd = start + 2;
-        syncGutter();
-    }
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        run();
-    }
-});
-
-editorWrap.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    editorWrap.classList.add('dragging');
-});
-
-editorWrap.addEventListener('dragleave', () => {
-    editorWrap.classList.remove('dragging');
-});
-
-editorWrap.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    editorWrap.classList.remove('dragging');
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.js')) {
-        appendLine('Only .js files are accepted', 'error');
-        return;
-    }
-    const text = await file.text();
-    editor.value = text;
-    syncGutter();
-    appendLine('Loaded ' + file.name, 'info');
-});
-
-runBtn.addEventListener('click', run);
-
-clearBtn.addEventListener('click', () => {
-    editor.value = '';
-    syncGutter();
-    clearConsole();
-    setStatus('Idle');
-    editor.focus();
-});
-
-editor.value = DEFAULT_SCRIPT;
-syncGutter();
-clearConsole();
-setStatus('Idle');
+/* ===== เริ่มต้น ===== */
+applyTheme(); fillModelSel(); setBusy(false);
+if (!cur()) currentId = null;
+renderList(); renderMessages(); autosize();
+})();
 </script>
 </body>
 </html>
