@@ -1068,6 +1068,8 @@ async function streamChat(chat, msg, onDelta, signal, extraUserText) {
       if (d === '[DONE]') return;
       try {
         const parsed = JSON.parse(d);
+        // บาง endpoint ส่ง error กลับมาเป็น event ข้างใน stream (HTTP 200) แทนที่จะเป็น HTTP error status ตรงๆ ต้องดักไว้ ไม่งั้นข้อความจะหายเงียบๆ
+        if (parsed.error) throw new Error(parsed.error.message || JSON.stringify(parsed.error));
         const choice = parsed.choices?.[0];
         const delta = choice?.delta || {};
         if (delta.reasoning_content) msg.reasoning += delta.reasoning_content;
@@ -1075,7 +1077,10 @@ async function streamChat(chat, msg, onDelta, signal, extraUserText) {
         if (choice?.finish_reason) msg.finishReason = choice.finish_reason;
         if (parsed.usage) msg.usage = parsed.usage;
         onDelta();
-      } catch { /* ข้ามบรรทัดที่อ่านไม่ได้ */ }
+      } catch (e) {
+        if (e instanceof SyntaxError) continue; // บรรทัด JSON ไม่สมบูรณ์ (ยังส่งมาไม่ครบ) ข้ามไปรอบข้อมูลถัดไป
+        throw e; // error จริงจาก API (parsed.error) ต้องส่งต่อให้ reply()/continueReply() จับแล้วโชว์ให้ผู้ใช้เห็น
+      }
     }
   }
 }
@@ -1087,13 +1092,16 @@ async function reply(chat) {
   autoScroll = true; renderMessages(); renderList();
   const el = $('#msgsInner').lastElementChild;
   abortCtl = new AbortController();
+  let aborted = false;
   try {
     await streamChat(chat, msg, () => paint(el, msg), abortCtl.signal);
   } catch (e) {
-    if (e.name !== 'AbortError') msg.error = friendlyError(e);
+    if (e.name === 'AbortError') aborted = true; else msg.error = friendlyError(e);
   } finally {
     streaming = false; abortCtl = null; setBusy(false); stopAutosave();
-    if (!msg.content && !msg.reasoning && !msg.error) chat.messages.splice(chat.messages.indexOf(msg), 1);
+    if (aborted && !msg.content && !msg.reasoning) chat.messages.splice(chat.messages.indexOf(msg), 1);
+    // ไม่ splice ทิ้งเงียบๆ อีกต่อไปถ้าไม่มี error ชัดเจนแต่ก็ไม่มีเนื้อหาเลย (เช่น API ส่ง HTTP 200 มาเปล่าๆ) ต้องโชว์ให้เห็นว่าเกิดอะไรขึ้น
+    else if (!msg.content && !msg.reasoning && !msg.error) msg.error = 'ไม่ได้รับคำตอบจาก DeepSeek (การเชื่อมต่อจบโดยไม่มีเนื้อหาหรือข้อผิดพลาดกลับมา) ลองใหม่อีกครั้ง หรือตรวจสอบว่าตั้งค่าโมเดล/ยอดเงินถูกต้อง';
     chat.updated = Date.now(); persist(); renderMessages(); renderList();
   }
 }
