@@ -3,1510 +3,790 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>DeepSeek Chat</title>
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#171717" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234d6bfe'/%3E%3Cpath d='M9 11h14v9H15l-4 3v-3H9z' fill='%23fff'/%3E%3C/svg%3E">
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#0f1117">
+<title>BYOK AI Chat</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
-/* ===== ธีมสี ===== */
 :root{
-  --bg:#ffffff; --side:#f9f9f9; --side-hover:#ececec; --side-line:#ececec;
-  --ink:#1f1f1f; --mute:#676767; --faint:#9b9b9b; --line:#e3e3e3;
-  --bubble:#f4f4f4; --hover:#f0f0f0; --input:#f4f4f4;
-  --accent:#2563eb; --danger:#d64545; --code:#0d0d0d;
-  --font:"Inter","IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  color-scheme:light;
+  --bg:#0f1117; --bg2:#171a23; --bg3:#1f2430; --line:#2a3040;
+  --txt:#e8eaf0; --dim:#9aa3b5; --acc:#5b8cff; --acc2:#7c5bff;
+  --user:#2b3550; --danger:#ff5b6e; --ok:#3ddc97;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#171717; --side:#0d0d0d; --side-hover:#171717; --side-line:transparent;
-    --ink:#ececec; --mute:#b4b4b4; --faint:#7d7d7d; --line:#2a2a2a;
-    --bubble:#262626; --hover:#262626; --input:#262626;
-    --accent:#6ea8fe; --danger:#ff7676;
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#171717; --side:#0d0d0d; --side-hover:#171717; --side-line:transparent;
-  --ink:#ececec; --mute:#b4b4b4; --faint:#7d7d7d; --line:#2a2a2a;
-  --bubble:#262626; --hover:#262626; --input:#262626;
-  --accent:#6ea8fe; --danger:#ff7676;
-  color-scheme:dark;
-}
-
-/* ===== โครงหน้า ===== */
-*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
-html,body{height:100%;margin:0}
-body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:16px;line-height:1.7;-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
-button,input,select,textarea{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-#app{display:flex;height:100%;height:100dvh;overflow:hidden}
-
-#side{width:272px;flex:none;background:var(--side);border-right:1px solid var(--side-line);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);font-size:.9rem;line-height:1.5}
-.brand{display:flex;align-items:center;gap:10px;padding:16px 16px 8px;font-weight:600;font-size:.95rem}
-.logo{width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;flex:none}
-.logo svg{width:13px;height:13px}
-.side-top{padding:4px 8px;display:grid;gap:2px}
-.nav-row{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border:0;background:none;border-radius:12px;cursor:pointer;text-align:left;font-size:.9rem;font-weight:500}
-.nav-row:hover{background:var(--side-hover)}
-.nav-row svg,.searchbox svg{width:18px;height:18px;flex:none}
-.searchbox{display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:12px;color:var(--mute)}
-.searchbox:hover,.searchbox:focus-within{background:var(--side-hover)}
-#search{flex:1;min-width:0;border:0;background:none;padding:8px 0;font-size:.9rem;outline:none;-webkit-appearance:none;appearance:none;color:var(--ink)}
-#search::placeholder{color:var(--mute)}
-#list{flex:1;overflow-y:auto;padding:4px 8px 8px}
-.grp-t{color:var(--faint);font-size:.75rem;font-weight:500;padding:14px 12px 4px}
-.none{color:var(--faint);text-align:center;font-size:.85rem;margin-top:20px}
-.item{display:flex;align-items:center;border-radius:12px;padding-left:12px}
-.item:hover,.item.active{background:var(--side-hover)}
-.item .t{flex:1;min-width:0;text-align:left;background:none;border:0;padding:8px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-size:.9rem}
-.item .x{background:none;border:0;width:34px;height:34px;border-radius:8px;color:var(--faint);cursor:pointer;opacity:0;font-size:1.2rem;line-height:1}
-.item .edit{background:none;border:0;width:34px;height:34px;border-radius:8px;color:var(--faint);cursor:pointer;opacity:0;display:grid;place-items:center;flex:none}
-.item .edit svg{width:15px;height:15px}
-.item:hover .x,.item.active .x,.item .x:focus-visible,.item:hover .edit,.item.active .edit,.item .edit:focus-visible{opacity:1}
-@media (hover:none){.item .x,.item .edit{opacity:.6}}
-.side-foot{padding:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--side-line)}
-
-.btn{border:1px solid var(--line);background:transparent;border-radius:12px;padding:9px 14px;cursor:pointer}
-.btn:hover{background:var(--hover)}
-.btn.primary{background:var(--ink);color:var(--bg);border-color:transparent}
-.btn.primary:hover{opacity:.88;background:var(--ink)}
-.btn.danger{color:var(--danger)}
-.wide{width:100%}
-.icon{background:none;border:0;width:40px;height:40px;border-radius:12px;cursor:pointer;display:grid;place-items:center}
-.icon:hover{background:var(--hover)}
-.icon svg{width:22px;height:22px}
-
-#main{flex:1;min-width:0;display:flex;flex-direction:column}
-header{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 4px;min-height:52px}
-#menuBtn{display:none}
-#ctitle{color:var(--faint);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-#msgs{flex:1;overflow-y:auto;overscroll-behavior:contain}
-#msgsInner{max-width:800px;margin:0 auto;padding:12px 16px 8px}
-
-.msg{margin:0 0 26px}
-.msg.user{display:flex;justify-content:flex-end;align-items:flex-end;gap:6px}
-.bubble{background:var(--bubble);padding:9px 18px;border-radius:24px;max-width:82%;white-space:pre-wrap;word-break:break-word}
-.edit-msg{opacity:0;background:none;border:0;color:var(--faint);width:28px;height:28px;border-radius:8px;display:grid;place-items:center;cursor:pointer;flex:none}
-.edit-msg svg{width:14px;height:14px}
-.edit-msg:hover{background:var(--hover);color:var(--ink)}
-.msg.user:hover .edit-msg,.msg.user .edit-msg:focus-visible{opacity:1}
-@media (hover:none){.edit-msg{opacity:.5}}
-.msg.assistant{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px}
-.av{width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;margin-top:1px}
-.av svg{width:15px;height:15px}
-.who{font-weight:600;font-size:.95rem;line-height:28px}
-.body{min-width:0}
-.md{word-break:break-word}
-.md>:first-child{margin-top:0}
-.md p{margin:.6em 0}
-.md ul,.md ol{padding-left:1.4em}
-.md h1,.md h2,.md h3,.md h4{line-height:1.3;margin:1.1em 0 .4em}
-.md h1{font-size:1.4rem}.md h2{font-size:1.2rem}.md h3{font-size:1.05rem}
-.md a{color:var(--accent)}
-.md blockquote{margin:.6em 0;padding-left:12px;border-left:3px solid var(--line);color:var(--mute)}
-.md table{border-collapse:collapse;display:block;overflow-x:auto;max-width:100%}
-.md th,.md td{border:1px solid var(--line);padding:6px 10px}
-.md code{font-family:var(--mono);font-size:.88em;background:var(--bubble);padding:.1em .35em;border-radius:6px}
-/* ✅ FIX: cursor กระพริบเฉพาะตอนสตรีม */
-.md:empty::after{content:"";}
-.msg.streaming .md:empty::after{content:"▍";color:var(--faint);animation:blink 1s steps(2) infinite}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px;overscroll-behavior:none}
+button{font-size:16px;cursor:pointer;border:none;background:none;color:var(--txt)}
+input,select,textarea{font-size:16px;color:var(--txt);background:var(--bg3);
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+select{appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa3b5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+#app{display:flex;height:100dvh;overflow:hidden}
+/* ---------- Sidebar ---------- */
+#backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:none}
+#backdrop.on{display:block}
+#sidebar{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:82vw;background:var(--bg2);
+  border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:50;
+  transform:translateX(-105%);transition:transform .25s ease}
+#sidebar.on{transform:translateX(0)}
+.sb-head{display:flex;align-items:center;gap:8px;padding:14px;border-bottom:1px solid var(--line)}
+.sb-head b{flex:1;font-size:17px}
+#newChatBtn{background:var(--acc);color:#fff;border-radius:10px;padding:8px 12px;font-weight:600}
+#chatList{flex:1;overflow-y:auto;padding:8px}
+.chat-item{display:flex;align-items:center;gap:6px;padding:11px 10px;border-radius:10px;margin-bottom:4px;
+  background:transparent;border:1px solid transparent}
+.chat-item.active{background:var(--bg3);border-color:var(--line)}
+.chat-item .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;color:var(--txt);font-size:15px;padding:0}
+.chat-item .ic{color:var(--dim);padding:2px 6px;border-radius:6px;font-size:15px}
+.chat-item .ic:active{background:var(--bg3)}
+/* ---------- Main ---------- */
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+header{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);
+  background:var(--bg2);flex-wrap:wrap}
+.hbtn{padding:8px 10px;border-radius:10px;color:var(--txt);font-size:18px;line-height:1}
+.hbtn:active{background:var(--bg3)}
+#hdrSelectors{display:flex;gap:6px;flex:1;min-width:0}
+#hdrSelectors select{flex:1;min-width:0;padding:7px 26px 7px 8px;font-size:13px;background-color:var(--bg3)}
+#messages{flex:1;overflow-y:auto;padding:14px 12px 8px;-webkit-overflow-scrolling:touch}
+#empty{max-width:560px;margin:8vh auto 0;text-align:center;color:var(--dim);padding:0 20px}
+#empty h1{font-size:24px;color:var(--txt);margin:0 0 8px}
+#empty p{line-height:1.7;font-size:14px}
+.msg{max-width:820px;margin:0 auto 14px;display:flex;flex-direction:column}
+.msg.user{align-items:flex-end}
+.bubble{padding:10px 14px;border-radius:16px;line-height:1.6;word-break:break-word}
+.msg.user .bubble{background:var(--user);border-bottom-right-radius:4px;white-space:pre-wrap}
+.msg.ai .bubble{background:var(--bg2);border:1px solid var(--line);border-bottom-left-radius:4px;width:100%}
+.msg.ai .md{line-height:1.65}
+.msg.ai .md>:first-child{margin-top:0}.msg.ai .md>:last-child{margin-bottom:0}
+.md pre{background:#0b0d13;border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto;font-size:13.5px}
+.md code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.md p code,.md li code{background:var(--bg3);padding:2px 6px;border-radius:6px;font-size:14px}
+.md table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow-x:auto}
+.md th,.md td{border:1px solid var(--line);padding:7px 10px;text-align:left}
+.md th{background:var(--bg3)}
+.md img{max-width:100%;border-radius:10px}
+.md a{color:var(--acc)}
+.md blockquote{border-left:3px solid var(--acc);margin:8px 0;padding:2px 12px;color:var(--dim)}
+.md h1,.md h2,.md h3,.md h4{line-height:1.35;margin:14px 0 8px}
+.md ul,.md ol{padding-left:22px}
+.thinking{border:1px dashed var(--line);border-radius:10px;padding:8px 12px;margin-bottom:10px;background:#12151f}
+.thinking summary{cursor:pointer;color:var(--dim);font-size:13.5px;user-select:none}
+.thinking pre{white-space:pre-wrap;word-break:break-word;margin:8px 0 2px;font-size:13px;color:var(--dim);
+  font-family:ui-monospace,Menlo,monospace}
+.err{color:#ffb3bc;background:#2a1218;border:1px solid #5a2530}
+.att{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;justify-content:flex-end}
+.att .chip{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:13px;color:var(--dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att img{max-height:90px;border-radius:10px;border:1px solid var(--line)}
+.codebar{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--line);
+  border-bottom:none;border-radius:10px 10px 0 0;padding:5px 8px;font-size:12.5px;color:var(--dim)}
+.codebar .lang{flex:1;text-transform:lowercase}
+.codebar button{color:var(--dim);font-size:12.5px;padding:3px 8px;border-radius:6px;background:var(--bg2);border:1px solid var(--line)}
+.codebar button:active{background:var(--acc);color:#fff}
+.codeblock pre{border-radius:0 0 10px 10px !important;margin-top:0 !important}
+.msg-foot{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.msg-foot button{font-size:12.5px;color:var(--dim);background:var(--bg2);border:1px solid var(--line);
+  border-radius:8px;padding:4px 10px}
+.msg-foot button:active{background:var(--acc);color:#fff}
+.cursor{display:inline-block;width:8px;height:16px;background:var(--acc);vertical-align:-2px;animation:blink 1s infinite}
 @keyframes blink{50%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.msg.streaming .md:empty::after{animation:none}}
-
-.codewrap{margin:.8em 0;border-radius:16px;overflow:hidden;background:var(--code)}
-.codebar{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 4px 16px;background:#171717;color:#9b9b9b;font:12px var(--mono)}
-.codebar .grp{display:flex;gap:2px}
-.codebar button{background:none;border:0;color:#b4b4b4;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px}
-.codebar button:hover{background:#262626}
-.codewrap pre{margin:0;overflow-x:auto}
-.codewrap pre code,.codewrap pre code.hljs{display:block;padding:12px 16px;background:none;color:#e6edf3;font-family:var(--mono);font-size:13px;line-height:1.55}
-
-.think{margin:0 0 8px;color:var(--mute);font-size:.92em;border-left:2px solid var(--line);padding:2px 0 2px 12px}
-.think summary{cursor:pointer}
-.think-body{white-space:pre-wrap;margin-top:6px;word-break:break-word}
-
-.actions{display:flex;gap:2px;margin-top:4px;align-items:center}
-.actions button{background:none;border:0;color:var(--faint);padding:6px 8px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:.82rem}
-.actions button svg{width:16px;height:16px}
-.actions button:hover{background:var(--hover);color:var(--ink)}
-.actions .zip{color:var(--accent)}
-.err{color:var(--danger);border:1px solid var(--danger);border-radius:12px;padding:8px 12px;margin-top:8px;font-size:.92em;white-space:pre-wrap}
-.warn{color:var(--mute);background:var(--bubble);border:1px dashed var(--line);border-radius:12px;padding:8px 12px;margin-top:8px;font-size:.85em}
-
-.empty{max-width:640px;margin:0 auto;padding:12vh 8px 0;text-align:center}
-.av-lg{width:44px;height:44px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;margin:0 auto 16px}
-.av-lg svg{width:22px;height:22px}
-.empty h1{font-size:1.75rem;font-weight:600;letter-spacing:-.01em;margin:0 0 4px;line-height:1.3}
-.empty p{color:var(--mute);margin:0 0 22px}
-.sugg{display:grid;text-align:left;margin-top:8px}
-.sugg button{background:none;border:0;text-align:left;padding:10px 14px;border-radius:14px;cursor:pointer;line-height:1.45}
-.sugg button:hover{background:var(--hover)}
-.sugg b{display:block;font-weight:500;font-size:.95rem}
-.sugg span{display:block;color:var(--faint);font-size:.85rem}
-
-#composer{padding:6px 12px calc(8px + env(safe-area-inset-bottom,0px))}
-.box{max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:6px;background:var(--input);border:1px solid var(--line);border-radius:28px;padding:12px 12px 8px 20px}
-.box:focus-within{border-color:var(--faint)}
-#input{flex:1;min-width:0;border:0;background:transparent;resize:none;outline:none;font-size:16px;line-height:1.5;padding:2px 0;max-height:200px}
-#input::placeholder{color:var(--faint)}
-.toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.toolbar-right{display:flex;align-items:center;gap:4px;min-width:0}
-.round{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;display:grid;place-items:center}
-.round:hover{background:var(--hover)}
-.round svg{width:18px;height:18px}
-.round.active{color:var(--accent);border-color:var(--accent)}
-.pill{flex:none;display:flex;align-items:center;gap:6px;max-width:220px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:7px 12px;cursor:pointer;font-size:.85rem;font-weight:500;color:var(--ink)}
-.pill:hover{background:var(--hover)}
-.pill .pv-model{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pill .pv-effort{color:var(--faint);font-weight:400;flex:none}
-.send{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);cursor:pointer;display:grid;place-items:center}
-.send:disabled{opacity:.3;cursor:default}
-.send svg{width:18px;height:18px}
-.hint{max-width:800px;margin:6px auto 0;text-align:center;color:var(--faint);font-size:.75rem}
-.charcount{color:var(--faint)}
-
-.attach-row{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px}
-.attach-row[hidden]{display:none}
-.attach-chip.img .ic{padding:0;overflow:hidden}
-.attach-chip.img .ic img{width:100%;height:100%;object-fit:cover}
-#scrollBtn{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:10px;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--ink);display:none;place-items:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.15)}
-#scrollBtn.show{display:grid}
-#scrollBtn svg{width:18px;height:18px}
-#composer{position:relative}
-.usage{color:var(--faint);font-size:.78rem;margin-top:2px}
-.balance{color:var(--faint);font-size:.8rem}
-.field .balrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.attach-chip{position:relative;flex:none;display:flex;align-items:center;gap:8px;background:var(--bubble);border:1px solid var(--line);border-radius:14px;padding:8px 12px;max-width:220px}
-.attach-chip .ic{width:26px;height:26px;border-radius:8px;background:var(--hover);display:grid;place-items:center;flex:none;color:var(--mute)}
-.attach-chip .ic svg{width:14px;height:14px}
-.attach-chip .nm{font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.attach-row:not(.static) .attach-chip{padding-right:30px}
-.attach-chip .rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--bg);border:2px solid var(--input);display:grid;place-items:center;cursor:pointer;padding:0}
-.attach-chip .rm svg{width:10px;height:10px}
-.attach-row.static{overflow:visible;padding:0;justify-content:flex-end}
-
-.seg{display:flex;flex-wrap:wrap;gap:6px}
-.seg button{flex:1 1 auto;border:1px solid var(--line);background:transparent;border-radius:12px;padding:9px 10px;cursor:pointer;font-size:.88rem;white-space:nowrap}
-.seg button:hover{background:var(--hover)}
-.seg button.active{background:var(--ink);color:var(--bg);border-color:transparent}
-
-dialog{border:1px solid var(--line);border-radius:20px;background:var(--bg);color:var(--ink);padding:0;width:min(520px,calc(100% - 24px));max-height:90dvh;overflow:hidden}
-dialog[open]{display:flex;flex-direction:column}
-dialog::backdrop{background:rgba(0,0,0,.5)}
-.dlg-head{padding:18px 22px 8px;font-weight:600;font-size:1.1rem}
-.dlg-body{padding:4px 22px 12px;overflow-y:auto;display:grid;gap:14px}
-.dlg-foot{padding:12px 22px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
-.field label{display:block;font-size:.9rem;font-weight:500;margin-bottom:4px}
-.field small{display:block;color:var(--faint);font-size:.8rem;margin-top:4px}
-.field input:not([type=range]):not([type=checkbox]),.field select,.field textarea{width:100%;border:1px solid var(--line);background:var(--input);border-radius:12px;padding:9px 12px;font-size:16px}
-.field textarea{min-height:80px;resize:vertical}
-.field .chk{display:flex;gap:10px;align-items:center}
-.field .chk input{width:18px;height:18px;flex:none}
-.row{display:flex;gap:8px;flex-wrap:wrap}
-.row .btn{flex:1}
-
-#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:14px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90%}
-#toast.show{opacity:1}
-
-#preview{display:none;flex-direction:column;flex:0 0 46%;min-width:340px;max-width:900px;background:var(--bg);border-left:1px solid var(--line)}
-#app.previewing #preview{display:flex}
-.pv-head{display:flex;align-items:center;gap:6px;padding:calc(6px + env(safe-area-inset-top,0px)) 10px 6px;border-bottom:1px solid var(--line)}
-#pvName{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.95rem;font-weight:500}
-.pv-head .btn{padding:6px 10px;font-size:.88rem}
-#pvFrame{flex:1;width:100%;border:0;background:#fff}
-#preview.full{position:fixed;inset:0;z-index:30;max-width:none}
-@media (max-width:800px){
-  #preview{position:fixed;inset:0;z-index:30;flex:none;max-width:none;min-width:0;border-left:0}
-  #pvFull{display:none}
-}
-
-#scrim{display:none}
-@media (max-width:800px){
-  #menuBtn{display:grid}
-  #side{position:fixed;left:0;top:0;bottom:0;z-index:20;transform:translateX(-100%);transition:transform .2s;width:min(300px,86vw)}
-  #app.open #side{transform:none}
-  #app.open #scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10}
-  .empty{padding-top:8vh}
-}
-@media (max-width:800px) and (prefers-reduced-motion:reduce){#side{transition:none}}
-
-/* ===== Settings tabs + Model sheet v2 ===== */
-.tabs{display:flex;gap:4px;padding:2px 22px 0;border-bottom:1px solid var(--line)}
-.tabs button{background:none;border:0;padding:10px 4px;margin-right:18px;color:var(--mute);border-bottom:2px solid transparent;font-size:.9rem;cursor:pointer}
-.tabs button.active{color:var(--ink);border-color:var(--ink);font-weight:600}
-.tab-p{display:grid;gap:14px;padding-top:14px}
-.field.locked input,.field.locked textarea{opacity:.45}
-.seg.disabled{opacity:.45;pointer-events:none}
-.banner{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bubble);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:.85rem}
-.banner[hidden]{display:none}
-.banner b{font-weight:600}
-.banner button{flex:none;background:none;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:.8rem;cursor:pointer;color:var(--ink)}
-.banner button:hover{background:var(--hover)}
-.switch{cursor:pointer}
-.switch input{position:absolute;opacity:0;width:0;height:0}
-.switch i{width:42px;height:26px;border-radius:999px;background:var(--faint);position:relative;transition:background .15s;flex:none;margin-left:auto;display:block}
-.switch i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
-.switch input:checked+i{background:var(--accent)}
-.switch input:checked+i::after{left:19px}
-.effort-desc{color:var(--mute);font-size:.82rem;margin-top:4px;line-height:1.45}
-.custom-row{display:grid;gap:4px;margin-top:2px;padding-top:14px;border-top:1px dashed var(--line)}
-.custom-row input{width:100%;border:1px solid var(--line);background:var(--input);border-radius:12px;padding:9px 12px;font-size:16px;font-family:var(--mono)}
-.custom-row label{font-size:.9rem;font-weight:500}
-.sheet-head{display:flex;align-items:center;gap:8px;padding:18px 22px 8px;font-weight:600;font-size:1.1rem}
-.sheet-head h2{margin:0;flex:1;font-size:1.05rem;font-weight:600;line-height:1.3}
-.sheet-head .icon{width:34px;height:34px}
-.sheet-head .icon svg{width:18px;height:18px}
-#pillBtn{position:relative}
-.pv-badge{flex:none;font-size:.65rem;font-weight:600;letter-spacing:.02em;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 7px}
-.pv-badge[hidden]{display:none}
-#modelSrc{display:inline-block;color:var(--mute);font-size:.78rem;margin-top:4px}
+/* ---------- Composer ---------- */
+#composer{border-top:1px solid var(--line);background:var(--bg2);padding:8px 10px calc(10px + env(safe-area-inset-bottom))}
+#composerInner{max-width:820px;margin:0 auto}
+#chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+#chips .chip{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--line);
+  border-radius:10px;padding:5px 8px;font-size:13px}
+#chips img{height:36px;border-radius:6px}
+#chips .x{color:var(--dim);padding:0 2px}
+#inputRow{display:flex;align-items:flex-end;gap:6px}
+#attachBtn,#sendBtn{width:42px;height:42px;flex:none;border-radius:12px;background:var(--bg3);
+  border:1px solid var(--line);font-size:19px;display:flex;align-items:center;justify-content:center}
+#sendBtn{background:var(--acc);color:#fff;border-color:var(--acc);font-size:17px}
+#sendBtn.stop{background:var(--danger);border-color:var(--danger)}
+#input{resize:none;max-height:150px;border-radius:14px;line-height:1.45}
+/* ---------- Modals ---------- */
+.modal{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;
+  background:rgba(0,0,0,.6)}
+.modal.on{display:flex}
+.sheet{background:var(--bg2);border:1px solid var(--line);border-radius:18px 18px 0 0;width:100%;
+  max-width:560px;max-height:88dvh;overflow-y:auto;padding:18px 16px calc(20px + env(safe-area-inset-bottom))}
+@media(min-width:600px){.modal{align-items:center}.sheet{border-radius:18px}}
+.sheet h2{margin:0 0 14px;font-size:19px}
+.fld{margin-bottom:14px}
+.fld label{display:block;font-size:13px;color:var(--dim);margin-bottom:6px}
+.row{display:flex;gap:8px}
+.btn{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-weight:600;flex:1}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.danger{background:#3a1420;border-color:#5a2530;color:#ffb3bc}
+.btn:active{filter:brightness(1.2)}
+.note{font-size:12.5px;color:var(--dim);line-height:1.6;background:var(--bg3);border:1px solid var(--line);
+  border-radius:10px;padding:10px 12px;margin-bottom:14px}
+#testResult{font-size:13.5px;margin:6px 0 0;min-height:18px}
+.krow{display:flex;gap:6px;margin-top:8px}
+.krow button{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--bg3);border:1px solid var(--line);flex:1}
+#previewFrame{width:100%;height:70dvh;border:none;border-radius:12px;background:#fff}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:#000d;
+  border:1px solid var(--line);color:var(--txt);padding:10px 16px;border-radius:12px;font-size:14px;
+  z-index:99;opacity:0;pointer-events:none;transition:all .25s;max-width:88vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 <div id="app">
-
-  <aside id="side" aria-label="ประวัติแชท">
-    <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v13H10l-4.5 3.5V17H3z"/></svg></span><span>DeepSeek Chat</span></div>
-    <div class="side-top">
-      <button id="newBtn" class="nav-row" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        <span>แชทใหม่</span>
-      </button>
-      <label class="searchbox">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="search" type="search" placeholder="ค้นหา" aria-label="ค้นหาแชท">
-      </label>
-    </div>
-    <nav id="list"></nav>
-    <div class="side-foot">
-      <button id="setBtn" class="nav-row" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 18h10"/><path d="M18 18h2"/><circle cx="16" cy="18" r="2"/></svg>
-        <span>ตั้งค่า</span>
-      </button>
-    </div>
-  </aside>
-  <div id="scrim"></div>
-
+  <div id="backdrop"></div>
+  <nav id="sidebar">
+    <div class="sb-head"><b>💬 แชทของฉัน</b><button id="newChatBtn">＋ ใหม่</button></div>
+    <div id="chatList"></div>
+  </nav>
   <main id="main">
     <header>
-      <button id="menuBtn" class="icon" type="button" aria-label="เปิดเมนู">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
-      <span id="ctitle"></span>
-    </header>
-
-    <div id="msgs"><div id="msgsInner"></div></div>
-
-    <div id="composer">
-      <button id="scrollBtn" type="button" aria-label="เลื่อนลงล่าง"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
-      <div class="box">
-        <div id="attachRow" class="attach-row" hidden></div>
-        <textarea id="input" rows="1" placeholder="พิมพ์ข้อความ" aria-label="ข้อความ"></textarea>
-        <div class="toolbar">
-          <button id="plusBtn" class="round" type="button" aria-label="แนบไฟล์">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          </button>
-          <div class="toolbar-right">
-            <button id="pillBtn" class="pill" type="button" aria-haspopup="dialog">
-              <span class="pv-model" id="pvModel">DeepSeek Chat</span><span class="pv-effort" id="pvEffort">High</span>
-              <span class="pv-badge" id="pvBadge" hidden>กำหนดเอง</span>
-            </button>
-            <button id="micBtn" class="round" type="button" aria-label="พูดแทนพิมพ์">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 19v3"/></svg>
-            </button>
-            <button id="sendBtn" class="send" type="button" aria-label="ส่ง"></button>
-          </div>
-        </div>
+      <button class="hbtn" id="menuBtn">☰</button>
+      <div id="hdrSelectors">
+        <select id="providerSel"></select>
+        <select id="modelSel"></select>
+        <select id="reasoningSel" style="display:none">
+          <option value="auto">🧠 Auto</option>
+          <option value="low">🧠 Low</option>
+          <option value="medium">🧠 Medium</option>
+          <option value="high">🧠 High</option>
+        </select>
       </div>
-      <p class="hint">AI อาจตอบผิดได้ ตรวจสอบข้อมูลสำคัญอีกครั้ง<span id="charCount" class="charcount"></span></p>
-      <input id="attachFile" type="file" accept=".txt,.md,.markdown,.js,.jsx,.ts,.tsx,.py,.json,.csv,.html,.htm,.css,.xml,.yml,.yaml,.java,.c,.cpp,.h,.go,.rs,.php,.rb,.sql,.sh,.toml,.ini,image/png,image/jpeg,image/webp,image/gif" multiple hidden>
-    </div>
+      <button class="hbtn" id="settingsBtn">⚙️</button>
+    </header>
+    <div id="messages"></div>
+    <div id="composer"><div id="composerInner">
+      <div id="chips"></div>
+      <div id="inputRow">
+        <button id="attachBtn" title="แนบไฟล์">📎</button>
+        <textarea id="input" rows="1" placeholder="พิมพ์ข้อความ…"></textarea>
+        <button id="sendBtn" title="ส่ง">➤</button>
+      </div>
+    </div></div>
   </main>
-
-  <aside id="preview" aria-label="พรีวิว">
-    <div class="pv-head">
-      <span id="pvName"></span>
-      <button id="pvReload" class="btn" type="button">โหลดใหม่</button>
-      <button id="pvDl" class="btn" type="button">ดาวน์โหลด</button>
-      <button id="pvFull" class="btn" type="button">เต็มจอ</button>
-      <button id="pvClose" class="btn" type="button" aria-label="ปิดพรีวิว">ปิด</button>
-    </div>
-    <iframe id="pvFrame" title="พรีวิว" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"></iframe>
-  </aside>
 </div>
 
-
-<dialog id="dlg" aria-labelledby="dlgTitle">
-  <div class="dlg-head" id="dlgTitle">ตั้งค่า</div>
-  <div class="tabs" role="tablist">
-    <button class="active" data-tab="general" role="tab" aria-selected="true">ทั่วไป</button>
-    <button data-tab="model" role="tab" aria-selected="false">โมเดล</button>
-    <button data-tab="data" role="tab" aria-selected="false">ข้อมูล</button>
+<!-- Settings -->
+<div class="modal" id="settingsModal"><div class="sheet">
+  <h2>⚙️ ตั้งค่า API Key (BYOK)</h2>
+  <div class="note">🔒 Key ของคุณถูกเก็บในเบราว์เซอร์นี้เท่านั้น (localStorage) และถูกส่งตรงไปยังผู้ให้บริการโมเดล ไม่ผ่านเซิร์ฟเวอร์คนกลาง<br><br>⚠️ บางผู้ให้บริการ (เช่น Anthropic, DeepSeek) อาจบล็อกการเรียกจากเบราว์เซอร์ (CORS) — ถ้าใช้ไม่ได้ แนะนำใช้ <b>OpenRouter</b> ซึ่งเรียกโมเดล Claude/DeepSeek ได้และรองรับเบราว์เซอร์เต็มรูปแบบ</div>
+  <div class="fld"><label>ผู้ให้บริการ (Provider)</label>
+    <select id="setProvider"></select></div>
+  <div class="fld"><label>API Key ของคุณ</label>
+    <div class="row"><input id="setKey" type="password" placeholder="วาง key ที่นี่…" autocomplete="off">
+    <button class="btn" id="saveKeyBtn" style="flex:0 0 auto">บันทึก</button></div>
+    <div class="krow">
+      <button id="testKeyBtn">✅ ทดสอบ Key</button>
+      <button id="delKeyBtn">🗑 ลบ Key นี้</button>
+    </div>
+    <div id="testResult"></div>
   </div>
-  <div class="dlg-body">
-    <div class="tab-p" id="tab-general">
-      <div class="field">
-        <label for="fKey">DeepSeek API key</label>
-        <input id="fKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-...">
-        <small>เก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น ไม่ถูกส่งไปที่อื่นนอกจาก DeepSeek อย่าใช้บนเครื่องที่คนอื่นใช้ร่วมกัน</small>
-        <div class="balrow" style="margin-top:8px">
-          <span class="balance" id="balanceText">ยอดเงิน: —</span>
-          <button id="balRefresh" class="btn" type="button" style="padding:4px 10px;font-size:.8rem">เช็กยอดเงิน</button>
-        </div>
-      </div>
-      <div class="field">
-        <label for="fBase">Base URL</label>
-        <input id="fBase" type="url" autocomplete="off" autocapitalize="off" spellcheck="false">
-      </div>
-      <div class="field">
-        <label>ธีม</label>
-        <div class="seg" id="themeSeg">
-          <button type="button" data-v="auto">ตามระบบ</button>
-          <button type="button" data-v="light">สว่าง</button>
-          <button type="button" data-v="dark">มืด</button>
-        </div>
-        <select id="fTheme" hidden><option value="auto">auto</option><option value="light">light</option><option value="dark">dark</option></select>
-      </div>
-    </div>
-    <div class="tab-p" id="tab-model" hidden>
-      <div class="field">
-        <label for="fSys">คำสั่งระบบ (System prompt)</label>
-        <textarea id="fSys" placeholder="เช่น ตอบเป็นภาษาไทยกระชับ"></textarea>
-      </div>
-      <div class="field" id="tempWrap">
-        <label for="fTemp">ความสร้างสรรค์ (temperature): <span id="fTempVal"></span></label>
-        <input id="fTemp" type="range" min="0" max="2" step="0.1" style="width:100%">
-        <small id="tempNote"></small>
-      </div>
-      <div class="field">
-        <label class="chk"><input id="fHint" type="checkbox"> สอนโมเดลให้ตั้งชื่อไฟล์ก่อนโค้ดบล็อก</label>
-        <small>แนะนำให้เปิดไว้ เพื่อให้ปุ่มดาวน์โหลดและ ZIP ได้ชื่อไฟล์ถูกต้อง</small>
-      </div>
-      <div class="field">
-        <button id="openModelSheet" class="btn wide" type="button">เลือกโมเดล · โหมดคิด · ระดับความพยายาม →</button>
-      </div>
-    </div>
-    <div class="tab-p" id="tab-data" hidden>
-      <div class="field">
-        <label>ข้อมูลแชท</label>
-        <div class="row">
-          <button id="expBtn" class="btn" type="button">ส่งออก</button>
-          <button id="impBtn" class="btn" type="button">นำเข้า</button>
-          <button id="clrBtn" class="btn danger" type="button">ลบทั้งหมด</button>
-        </div>
-        <input id="impFile" type="file" accept="application/json,.json" hidden>
-        <small>ส่งออก/นำเข้าไม่รวม API key</small>
-      </div>
-    </div>
+  <div class="row" style="margin-top:18px">
+    <button class="btn danger" id="clearAllBtn">🗑 ลบ Key ทั้งหมด</button>
+    <button class="btn" id="closeSettings">ปิด</button>
   </div>
-  <div class="dlg-foot">
-    <button id="cancelBtn" class="btn" type="button">ปิด</button>
-    <button id="saveBtn" class="btn primary" type="button">บันทึก</button>
+</div></div>
+
+<!-- Preview -->
+<div class="modal" id="previewModal"><div class="sheet">
+  <div class="row" style="align-items:center;margin-bottom:12px">
+    <h2 style="flex:1;margin:0">👁️ พรีวิวผลลัพธ์</h2>
+    <button class="btn" id="closePreview" style="flex:0 0 auto">ปิด</button>
   </div>
-</dialog>
+  <iframe id="previewFrame" sandbox="allow-scripts allow-modals"></iframe>
+</div></div>
 
-
-<dialog id="modelDlg" aria-labelledby="modelDlgTitle">
-  <div class="sheet-head">
-    <h2 id="modelDlgTitle">โมเดลและความละเอียด</h2>
-    <button id="modelDlgX" class="icon" type="button" aria-label="ปิด">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-    </button>
-  </div>
-  <div class="dlg-body">
-    <div class="banner" id="customBanner" hidden></div>
-    <div class="field">
-      <label>โมเดล</label>
-      <div class="seg" id="modelSeg"></div>
-      <small id="modelSrc"></small>
-    </div>
-    <div class="field">
-      <label class="chk switch"><span>เปิดโหมดคิด (thinking)</span><input id="fThink" type="checkbox"><i></i></label>
-      <small>เลือกคิดก่อนตอบ เห็น reasoning ของโมเดลได้</small>
-    </div>
-    <div class="field" id="effortWrap">
-      <label>ระดับความพยายาม (Effort)</label>
-      <div class="seg" id="effortSeg"></div>
-      <small class="effort-desc" id="effortDesc"></small>
-    </div>
-    <div class="custom-row">
-      <label for="fCustom">ชื่อโมเดลกำหนดเอง (ไม่บังคับ)</label>
-      <input id="fCustom" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="เช่น deepseek-v4-pro หรือโมเดลของ proxy ของคุณ">
-      <small>เว้นว่างเพื่อใช้ตามรายการด้านบน — มีค่านี้จะแทนที่รายการที่เลือกเสมอ</small>
-    </div>
-  </div>
-  <div class="dlg-foot"><button id="modelDlgClose" class="btn primary" type="button">เสร็จสิ้น</button></div>
-</dialog>
-
-<div id="toast" role="status" aria-live="polite"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<input type="file" id="fileInput" multiple hidden
+  accept=".txt,.md,.markdown,.js,.ts,.jsx,.tsx,.py,.json,.html,.css,.csv,.xml,.yml,.yaml,.toml,.sql,.sh,.java,.c,.cpp,.h,.go,.rs,.php,.rb,.swift,.kt,.lua,.log,.env,image/jpeg,image/png,image/webp,image/gif">
+<div id="toast"></div>
 
 <script>
-(() => {
-'use strict';
+/* ================= CONFIG ================= */
+const PROVIDERS = {
+  openai:    {name:'OpenAI',        url:'https://api.openai.com/v1/chat/completions',
+    models:[
+      {id:'gpt-5.1', label:'GPT-5.1', reasoning:'effort'},
+      {id:'gpt-5',   label:'GPT-5',   reasoning:'effort'},
+      {id:'o3',      label:'o3',      reasoning:'effort'},
+      {id:'o4-mini', label:'o4-mini', reasoning:'effort'},
+    ]},
+  anthropic: {name:'Anthropic (Claude)', url:'https://api.anthropic.com/v1/messages',
+    models:[
+      {id:'claude-sonnet-4-5',  label:'Claude Sonnet 4.5',  reasoning:'thinking'},
+      {id:'claude-opus-4-1',    label:'Claude Opus 4.1',    reasoning:'thinking'},
+      {id:'claude-haiku-4-5',   label:'Claude Haiku 4.5',   reasoning:false},
+      {id:'claude-3-7-sonnet-20250224', label:'Claude 3.7 Sonnet', reasoning:'thinking'},
+    ]},
+  gemini:    {name:'Google Gemini', base:'https://generativelanguage.googleapis.com/v1beta/models',
+    models:[
+      {id:'gemini-2.5-pro',       label:'Gemini 2.5 Pro',       reasoning:'gemini'},
+      {id:'gemini-2.5-flash',     label:'Gemini 2.5 Flash',     reasoning:'gemini'},
+      {id:'gemini-2.5-flash-lite',label:'Gemini 2.5 Flash Lite',reasoning:false},
+    ]},
+  deepseek:  {name:'DeepSeek', url:'https://api.deepseek.com/chat/completions',
+    models:[
+      {id:'deepseek-chat',    label:'DeepSeek V3 (chat)',    reasoning:false},
+      {id:'deepseek-reasoner',label:'DeepSeek R1 (reasoner)',reasoning:'always'},
+    ]},
+  openrouter:{name:'OpenRouter', url:'https://openrouter.ai/api/v1/chat/completions',
+    models:[
+      {id:'openai/gpt-5.1',            label:'GPT-5.1 (via OpenRouter)',        reasoning:'effort'},
+      {id:'anthropic/claude-sonnet-4.5', label:'Claude Sonnet 4.5 (via OpenRouter)', reasoning:'effort'},
+      {id:'google/gemini-2.5-pro',     label:'Gemini 2.5 Pro (via OpenRouter)', reasoning:'effort'},
+      {id:'deepseek/deepseek-chat-v3.1', label:'DeepSeek V3.1 (via OpenRouter)', reasoning:false},
+      {id:'deepseek/deepseek-r1',      label:'DeepSeek R1 (via OpenRouter)',    reasoning:'always'},
+      {id:'meta-llama/llama-4-maverick', label:'Llama 4 Maverick (via OpenRouter)', reasoning:false},
+    ]},
+};
+const TEST_URLS = {
+  openai:'https://api.openai.com/v1/models',
+  anthropic:'https://api.anthropic.com/v1/models',
+  gemini:'https://generativelanguage.googleapis.com/v1beta/models',
+  deepseek:'https://api.deepseek.com/models',
+  openrouter:'https://openrouter.ai/api/v1/models',
+};
+const THINK_BUDGET = {low:2000, medium:8000, high:24000};
+const GEMINI_BUDGET = {low:2048, medium:8000, high:24576};
+const LANG_EXT = {python:'py',py:'py',javascript:'js',js:'js',jsx:'jsx',typescript:'ts',ts:'ts',
+  html:'html',htm:'html',css:'css',json:'json',bash:'sh',sh:'sh',shell:'sh',zsh:'sh',sql:'sql',
+  java:'java',c:'c',cpp:'cpp','c++':'cpp',csharp:'cs',go:'go',rust:'rs',php:'php',ruby:'rb',
+  yaml:'yml',yml:'yml',xml:'xml',markdown:'md',md:'md',dockerfile:'dockerfile',kotlin:'kt',
+  swift:'swift',r:'r',lua:'lua',perl:'pl',scala:'scala',haskell:'hs',tex:'tex',ini:'ini',csv:'csv'};
+const SYS_PROMPT = 'You are a helpful AI assistant. Always respond in the same language the user writes in (Thai users write in Thai).';
 
-/* ===== ค่าคงที่และสถานะ ===== */
+/* ================= STATE ================= */
 const $ = s => document.querySelector(s);
-const K = { chats: 'dschat:chats', set: 'dschat:settings', cur: 'dschat:current', del: 'dschat:deleted' };
-// ✅ FIX: default model เป็น deepseek-chat / deepseek-reasoner ที่มีจริงใน API
-const DEFAULTS = {
-  apiKey: '', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat',
-  customModel: '', system: '', temperature: 1, theme: 'auto', fileHint: true, effort: 'high', thinking: true
+const store = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }
+    catch(e){ toast('⚠️ จัดเก็บข้อมูลไม่สำเร็จ (พื้นที่เต็ม?) — รูปภาพอาจใหญ่เกินไป'); return false; } }
 };
-const FILE_HINT = 'เมื่อผู้ใช้ขอให้สร้างไฟล์หรือโปรเจกต์ ให้ใส่ชื่อไฟล์ในบรรทัดของตัวเองก่อนโค้ดบล็อกทุกครั้ง เช่น `index.html` หรือ `css/style.css` แล้วตามด้วยโค้ดบล็อกของไฟล์นั้น หนึ่งไฟล์ต่อหนึ่งบล็อก ถ้าเป็นเว็บหน้าเดียวให้รวม HTML CSS JS ไว้ในไฟล์ index.html ไฟล์เดียว ส่วนโค้ดตัวอย่างสั้น ๆ ที่ไม่ใช่ไฟล์ ไม่ต้องใส่ชื่อไฟล์';
-const FALLBACK_MODELS = [
-  ['deepseek-chat', 'DeepSeek Chat'],
-  ['deepseek-reasoner', 'DeepSeek Reasoner']
-];
-let MODELS = FALLBACK_MODELS.slice();
-let modelsFromApi = false;
-// ✅ FIX: ลด maxTokens ไม่ให้เกิน context 64K ของ DeepSeek
-const EFFORT = {
-  low:  { label: 'Low',  reasoning_effort: 'low',  maxTokens: 4000,  hint: 'ตอบสั้น กระชับ ตรงประเด็นที่สุด หลีกเลี่ยงรายละเอียดที่ไม่จำเป็น' },
-  high: { label: 'High', reasoning_effort: 'high', maxTokens: 16000, hint: 'ตอบอย่างละเอียดรอบด้าน อธิบายเหตุผลและขั้นตอนประกอบ ตรวจทานความถูกต้องก่อนสรุป' },
-  max:  { label: 'Max',  reasoning_effort: 'high', maxTokens: 32000, hint: 'ตอบอย่างละเอียดที่สุด ตรวจทานหลายรอบ งานเขียนโค้ดให้ครบทุกไฟล์ไม่ตัดทอน' }
-};
-const modelLabel = v => (MODELS.find(m => m[0] === v) || [v, v])[1].replace(/\s*\(.*\)$/, '');
-const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
-// ✅ FIX: เพิ่ม ICON_STOP ที่หายไป
-const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
-const LOGO = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v13H10l-4.5 3.5V17H3z"/></svg>';
-const svg = p => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
-const ICON_COPY = svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>');
-const ICON_REFRESH = svg('<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>');
-const ICON_DL = svg('<path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>');
-const ICON_EDIT = svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>');
-const ICON_CONTINUE = svg('<path d="M5 4v16l14-8Z"/>');
-const ICON_FILE = svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>');
-const ICON_XSM = svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
-
-const load = (k, fallback) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
-const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { toast('บันทึกไม่ได้ พื้นที่เต็มหรือปิดการเก็บข้อมูล'); } };
-const apiBase = u => { u = String(u || DEFAULTS.baseUrl).trim(); return /^https?:\/\//i.test(u) ? u.replace(/\/+$/, '') : DEFAULTS.baseUrl.replace(/\/+$/, ''); };
-const httpError = (status, t) => { const e = new Error('HTTP ' + status + ': ' + t); e.status = status; return e; };
-const storedDeleted = load(K.del, []);
-let deletedIds = new Set(Array.isArray(storedDeleted) ? storedDeleted : []);
-const saveDeleted = () => save(K.del, Array.from(deletedIds).slice(-500));
-const markDeleted = id => { if (id) { deletedIds.add(id); saveDeleted(); } };
-const purgeDeleted = list => (Array.isArray(list) ? list : []).filter(c => c && c.id && !deletedIds.has(c.id));
-
-const storedSettings = load(K.set, {});
-const hadStoredThinking = Object.prototype.hasOwnProperty.call(storedSettings, 'thinking');
-let settings = Object.assign({}, DEFAULTS, storedSettings);
-// ✅ FIX: migrate ชื่อโมเดลเก่า (deepseek-flash / deepseek-v4-pro) → ชื่อใหม่
-if (settings.model === 'deepseek-flash' || settings.model === 'deepseek-v4-pro') {
-  settings.model = 'deepseek-chat';
-  if (!hadStoredThinking) settings.thinking = false;
-}
-// ✅ FIX: ของเก่าที่ใช้ deepseek-chat ก่อนมีสวิตช์ thinking ให้ default เป็นปิด ไม่ใช่เอา DEFAULTS.thinking=true ไป
-if (settings.model === 'deepseek-chat' && !hadStoredThinking) settings.thinking = false;
-if (settings.model === 'deepseek-reasoner') settings.thinking = true;
-if (!EFFORT[settings.effort]) settings.effort = 'high';
-let chats = load(K.chats, []);
-for (const c of chats) for (const m of (c.messages || [])) {
-  if (m.role === 'user' && m.displayText != null && m.displayText !== m.content) { m.content = m.displayText; delete m.displayText; }
-}
-let currentId = load(K.cur, null);
-chats = purgeDeleted(chats);
-if (currentId && deletedIds.has(currentId)) currentId = null;
-let streaming = false;
-let abortCtl = null;
-let autoScroll = true;
+let keys    = store.get('byok_keys', {});
+let settings= store.get('byok_settings', {provider:'openai', modelId:'gpt-5.1', effort:'auto'});
+let chats   = store.get('byok_chats', []);
+let currentChatId = store.get('byok_current', null);
 let pendingAttachments = [];
+let abortCtrl = null, streamingIdx = -1, streamTimer = null;
 
-/* ===== ฟังก์ชันช่วย ===== */
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-function fenceFor(text) {
-  const runs = String(text).match(/`+/g);
-  const max = runs ? Math.max(...runs.map(r => r.length)) : 0;
-  return '`'.repeat(Math.max(3, max + 1));
-}
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const cur = () => chats.find(c => c.id === currentId) || null;
-const activeModel = () => (settings.customModel || '').trim() || settings.model;
-const isMobile = () => matchMedia('(max-width:800px)').matches;
-function mergedChats() {
-  const stored = purgeDeleted(load(K.chats, []));
-  chats = purgeDeleted(chats);
-  if (currentId && deletedIds.has(currentId)) { currentId = null; closePreview(); }
-  const map = new Map(chats.map(c => [c.id, c]));
-  for (const sc of stored) {
-    const lc = map.get(sc.id);
-    if (!lc) map.set(sc.id, sc);
-    else if (sc.id !== currentId && (sc.updated || 0) > (lc.updated || 0)) map.set(sc.id, sc);
-  }
-  return Array.from(map.values());
-}
-const persist = () => { chats = mergedChats(); save(K.chats, chats); save(K.cur, currentId); };
-function syncFromStorage() {
-  const sd = load(K.del, []);
-  deletedIds = new Set(Array.isArray(sd) ? sd : []);
-  const before = currentId;
-  chats = mergedChats();
-  if (before && before !== currentId) {
-    if (streaming) stop();
-    renderList(); renderMessages();
-  } else {
-    renderList();
-    if (!streaming) renderMessages();
-  }
-}
-window.addEventListener('storage', e => { if (e.key === K.del || e.key === K.chats) syncFromStorage(); });
+if(!chats.length) newChat(true);
+if(!currentChatId || !chats.find(c=>c.id===currentChatId)) currentChatId = chats[0].id;
 
-let autosaveTimer = null;
-function startAutosave() { stopAutosave(); autosaveTimer = setInterval(() => { if (streaming) persist(); }, 2000); }
-function stopAutosave() { if (autosaveTimer) { clearInterval(autosaveTimer); autosaveTimer = null; } }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && streaming) persist(); });
-window.addEventListener('pagehide', () => { if (streaming) persist(); });
-
-let toastTimer;
-function toast(t) {
-  const el = $('#toast');
-  el.textContent = t; el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+function saveChats(){ store.set('byok_chats', chats); store.set('byok_current', currentChatId); }
+function currentChat(){ return chats.find(c=>c.id===currentChatId); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function newChat(silent){
+  const c = {id:uid(), title:'แชทใหม่', createdAt:Date.now(), updatedAt:Date.now(), messages:[]};
+  chats.unshift(c); currentChatId = c.id; saveChats();
+  if(!silent){ renderSidebar(); renderMessages(); closeSidebar(); }
+  return c;
 }
 
-async function copyText(t) {
-  try { await navigator.clipboard.writeText(t); toast('คัดลอกแล้ว'); }
-  catch {
-    const ta = document.createElement('textarea');
-    ta.value = t; document.body.append(ta); ta.select();
-    try { document.execCommand('copy'); toast('คัดลอกแล้ว'); } catch { toast('คัดลอกไม่ได้'); }
-    ta.remove();
-  }
+/* ================= UI helpers ================= */
+let toastTimer=null;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('on'),2600); }
+function openSidebar(){ $('#sidebar').classList.add('on'); $('#backdrop').classList.add('on'); }
+function closeSidebar(){ $('#sidebar').classList.remove('on'); $('#backdrop').classList.remove('on'); }
+function scrollBottom(){ const m=$('#messages'); m.scrollTop=m.scrollHeight; }
+
+/* ================= Sidebar ================= */
+function renderSidebar(){
+  const box=$('#chatList'); box.innerHTML='';
+  chats.forEach(c=>{
+    const div=document.createElement('div');
+    div.className='chat-item'+(c.id===currentChatId?' active':'');
+    const t=document.createElement('button'); t.className='t'; t.textContent=c.title;
+    t.onclick=()=>{ currentChatId=c.id; saveChats(); renderSidebar(); renderMessages(); closeSidebar(); };
+    const ren=document.createElement('button'); ren.className='ic'; ren.textContent='✎';
+    ren.onclick=(e)=>{ e.stopPropagation();
+      const nt=prompt('เปลี่ยนชื่อแชท', c.title);
+      if(nt && nt.trim()){ c.title=nt.trim().slice(0,50); saveChats(); renderSidebar(); } };
+    const del=document.createElement('button'); del.className='ic'; del.textContent='✕';
+    del.onclick=(e)=>{ e.stopPropagation();
+      if(!confirm('ลบแชท "'+c.title+'" ?')) return;
+      chats=chats.filter(x=>x.id!==c.id);
+      if(!chats.length) newChat(true);
+      if(currentChatId===c.id) currentChatId=chats[0].id;
+      saveChats(); renderSidebar(); renderMessages(); };
+    div.append(t,ren,del); box.appendChild(div);
+  });
 }
 
-let dompurifyHooked = false;
-function hookDompurify() {
-  if (dompurifyHooked || !window.DOMPurify) return;
-  dompurifyHooked = true;
-  DOMPurify.addHook('afterSanitizeAttributes', node => {
-    if (node.tagName === 'A' && node.hasAttribute('href')) {
-      node.setAttribute('target', '_blank');
-      node.setAttribute('rel', 'noopener noreferrer nofollow');
+/* ================= Header selects ================= */
+function fillHeader(){
+  const ps=$('#providerSel'); ps.innerHTML='';
+  Object.keys(PROVIDERS).forEach(k=>{
+    const o=document.createElement('option'); o.value=k; o.textContent=PROVIDERS[k].name; ps.appendChild(o);
+  });
+  if(!PROVIDERS[settings.provider]) settings.provider='openai';
+  ps.value=settings.provider; fillModels();
+}
+function fillModels(){
+  const ms=$('#modelSel'); ms.innerHTML='';
+  PROVIDERS[settings.provider].models.forEach(m=>{
+    const o=document.createElement('option'); o.value=m.id; o.textContent=m.label; ms.appendChild(o);
+  });
+  if(!PROVIDERS[settings.provider].models.find(m=>m.id===settings.modelId))
+    settings.modelId = PROVIDERS[settings.provider].models[0].id;
+  ms.value=settings.modelId; updateReasoningVisibility();
+}
+function currentModel(){ return PROVIDERS[settings.provider].models.find(m=>m.id===settings.modelId); }
+function updateReasoningVisibility(){
+  const r=currentModel().reasoning;
+  $('#reasoningSel').style.display = (r && r!=='always') ? '' : 'none';
+}
+function saveSettings(){ store.set('byok_settings', settings); }
+
+$('#providerSel').onchange=e=>{ settings.provider=e.target.value; fillModels(); saveSettings(); };
+$('#modelSel').onchange=e=>{ settings.modelId=e.target.value; updateReasoningVisibility(); saveSettings(); };
+$('#reasoningSel').onchange=e=>{ settings.effort=e.target.value; saveSettings(); };
+$('#reasoningSel').value = settings.effort || 'auto';
+
+/* ================= Messages render ================= */
+function mdToHtml(text){
+  try{ return marked.parse(text||''); }catch(e){ return '<pre>'+(text||'')+'</pre>'; }
+}
+function highlightIn(el){ if(window.hljs) el.querySelectorAll('pre code').forEach(c=>{ try{hljs.highlightElement(c);}catch(e){} }); }
+function extOf(name){ const p=name.split('.').pop(); return p!==name ? p : 'txt'; }
+
+function attachEls(m){
+  if(!m.attachments || !m.attachments.length) return null;
+  const box=document.createElement('div'); box.className='att';
+  m.attachments.forEach(a=>{
+    if(a.type==='image'){ const img=document.createElement('img'); img.src='data:'+a.mime+';base64,'+a.data; img.alt=a.name; box.appendChild(img); }
+    else { const s=document.createElement('span'); s.className='chip'; s.textContent='📄 '+a.name; box.appendChild(s); }
+  });
+  return box;
+}
+
+function enhanceCodeBlocks(bubble){
+  bubble.querySelectorAll('pre').forEach(pre=>{
+    if(pre.parentElement.classList.contains('codeblock')) return;
+    const codeEl=pre.querySelector('code');
+    const lang=((codeEl&&codeEl.className.match(/language-([\w+-]+)/))||[])[1]||'';
+    const wrap=document.createElement('div'); wrap.className='codeblock';
+    const bar=document.createElement('div'); bar.className='codebar';
+    const lb=document.createElement('span'); lb.className='lang'; lb.textContent=lang||'code';
+    bar.appendChild(lb);
+    const mk=(txt,fn)=>{ const b=document.createElement('button'); b.textContent=txt; b.onclick=fn; bar.appendChild(b); return b; };
+    const codeText=codeEl?codeEl.textContent:pre.textContent;
+    mk('📋 คัดลอก', ()=>copyText(codeText));
+    mk('⬇️ ดาวน์โหลด', ()=>{
+      const ext=LANG_EXT[lang.toLowerCase()]||'txt';
+      downloadText((lang?'code':'file')+'.'+ext, codeText);
+    });
+    if(lang.toLowerCase()==='html'){
+      mk('👁️ พรีวิว', ()=>openPreview(codeText));
     }
-    if (node.tagName === 'IMG' && node.hasAttribute('src')) {
-      const src = node.getAttribute('src');
-      if (!/^data:image\//i.test(src)) node.removeAttribute('src');
+    pre.parentNode.insertBefore(wrap, pre);
+    wrap.appendChild(bar); wrap.appendChild(pre);
+  });
+}
+
+function msgEl(m, idx){
+  const wrap=document.createElement('div');
+  wrap.className='msg '+(m.role==='user'?'user':'ai');
+  wrap.dataset.idx=idx;
+  const bub=document.createElement('div'); bub.className='bubble'+(m.error?' err':'');
+  if(m.role==='user'){
+    const at=attachEls(m); if(at) wrap.appendChild(at);
+    const t=document.createElement('div'); t.style.whiteSpace='pre-wrap'; t.textContent=m.content||'';
+    bub.appendChild(t);
+  } else {
+    if(m.thinking){
+      const d=document.createElement('details'); d.className='thinking';
+      const s=document.createElement('summary'); s.textContent='🧠 กระบวนการคิด ('+m.thinking.length+' ตัวอักษร)';
+      const p=document.createElement('pre'); p.textContent=m.thinking;
+      d.append(s,p); bub.appendChild(d);
+      d.addEventListener('toggle',()=>{ s.textContent='🧠 กระบวนการคิด ('+m.thinking.length+' ตัวอักษร)'+(d.open?' ▾':' ▸'); });
+    }
+    const md=document.createElement('div'); md.className='md';
+    md.innerHTML = mdToHtml(m.streaming ? m.content : m.content);
+    bub.appendChild(md);
+    if(m.streaming){ const c=document.createElement('span'); c.className='cursor'; bub.appendChild(c); }
+    highlightIn(bub); enhanceCodeBlocks(bub);
+  }
+  wrap.appendChild(bub);
+  if(m.role==='assistant' && !m.streaming){
+    const foot=document.createElement('div'); foot.className='msg-foot';
+    const mk=(txt,fn)=>{ const b=document.createElement('button'); b.textContent=txt; b.onclick=fn; foot.appendChild(b); };
+    mk('📋 คัดลอกทั้งข้อความ', ()=>copyText(m.content));
+    mk('⬇️ ดาวน์โหลด .md', ()=>downloadText('คำตอบ-'+Date.now()+'.md', m.content));
+    const trimmed=(m.content||'').trim();
+    if(/^<!DOCTYPE html>/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)){
+      mk('👁️ พรีวิวหน้าเว็บ', ()=>openPreview(m.content));
+      mk('⬇️ ดาวน์โหลด .html', ()=>downloadText('เว็บเพจ-'+Date.now()+'.html', m.content));
+    }
+    wrap.appendChild(foot);
+  }
+  return wrap;
+}
+
+function renderMessages(){
+  const box=$('#messages'); box.innerHTML='';
+  const chat=currentChat();
+  if(!chat || !chat.messages.length){
+    box.innerHTML=`<div id="empty">
+      <h1>🤖 BYOK AI Chat</h1>
+      <p>แชทบอท AI ที่ใช้ <b>API Key ของคุณเอง</b> — ข้อมูลทั้งหมดอยู่ในเบราว์เซอร์นี้เท่านั้น<br><br>
+      1️⃣ แตะ ⚙️ ด้านบน แล้ววาง API Key<br>
+      2️⃣ เลือก Provider และโมเดลจากแถบด้านบน<br>
+      3️⃣ เริ่มแชทได้เลย! แนบไฟล์ 📎 หรือรูปภาพได้ด้วย</p>
+    </div>`;
+    return;
+  }
+  chat.messages.forEach((m,i)=> box.appendChild(msgEl(m,i)));
+  scrollBottom();
+}
+
+/* streaming update */
+function updateStreamBubble(){
+  const chat=currentChat(); if(!chat||streamingIdx<0) return;
+  const m=chat.messages[streamingIdx];
+  const wrap=$('#messages').querySelector('[data-idx="'+streamingIdx+'"]');
+  if(!wrap){ renderMessages(); return; }
+  const bub=wrap.querySelector('.bubble');
+  if(m.thinking){
+    let d=bub.querySelector('.thinking');
+    if(!d){ d=document.createElement('details'); d.className='thinking';
+      const s=document.createElement('summary'); s.textContent='🧠 กระบวนการคิด';
+      const p=document.createElement('pre'); d.append(s,p); bub.insertBefore(d,bub.firstChild); }
+    d.querySelector('pre').textContent=m.thinking;
+    d.querySelector('summary').textContent='🧠 กำลังคิด… ('+m.thinking.length+')';
+  }
+  const md=bub.querySelector('.md');
+  md.innerHTML=mdToHtml(m.content);
+  highlightIn(md);
+  const box=$('#messages');
+  if(box.scrollHeight-box.scrollTop-box.clientHeight<160) scrollBottom();
+}
+
+/* ================= File attachments ================= */
+function compressImage(file){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=1024; let w=img.width,h=img.height;
+      if(Math.max(w,h)>MAX){ const r=MAX/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r); }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const mime=(file.type==='image/png')?'image/png':'image/jpeg';
+      const dataUrl=cv.toDataURL(mime,0.85);
+      res({mime, data:dataUrl.split(',')[1]});
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror=()=>res(null);
+    img.src=URL.createObjectURL(file);
+  });
+}
+function readFile(f){
+  return new Promise(res=>{
+    if(f.type.startsWith('image/')){
+      if(f.size>8*1024*1024){ toast('รูปภาพใหญ่เกินไป (สูงสุด 8MB)'); return res(null); }
+      compressImage(f).then(r=>res(r?{name:f.name,type:'image',mime:r.mime,data:r.data}:null));
+    } else {
+      if(f.size>300*1024){ toast('ไฟล์ "'+f.name+'" ใหญ่เกินไป (สูงสุด 300KB) สำหรับข้อความ'); }
+      const r=new FileReader();
+      r.onload=()=>res({name:f.name,type:'text',data:String(r.result).slice(0,200000)});
+      r.onerror=()=>res(null);
+      r.readAsText(f);
     }
   });
 }
-function md(text) {
-  if (window.marked && window.DOMPurify) {
-    hookDompurify();
-    return DOMPurify.sanitize(marked.parse(text, { gfm: true, breaks: true }), {
-      FORBID_TAGS: ['style', 'form', 'input', 'textarea', 'button', 'select', 'iframe', 'object', 'embed'],
-      ADD_ATTR: ['target', 'rel']
-    });
+function renderChips(){
+  const box=$('#chips'); box.innerHTML='';
+  pendingAttachments.forEach((a,i)=>{
+    const chip=document.createElement('div'); chip.className='chip';
+    if(a.type==='image'){ const img=document.createElement('img'); img.src='data:'+a.mime+';base64,'+a.data; chip.appendChild(img); }
+    const nm=document.createElement('span'); nm.textContent=(a.type==='image'?'🖼 ':'📄 ')+a.name;
+    nm.style.maxWidth='140px'; nm.style.overflow='hidden'; nm.style.textOverflow='ellipsis'; nm.style.whiteSpace='nowrap';
+    const x=document.createElement('button'); x.className='x'; x.textContent='✕';
+    x.onclick=()=>{ pendingAttachments.splice(i,1); renderChips(); };
+    chip.append(nm,x); box.appendChild(chip);
+  });
+}
+$('#attachBtn').onclick=()=>$('#fileInput').click();
+$('#fileInput').onchange=async e=>{
+  const files=[...e.target.files]; e.target.value='';
+  for(const f of files){
+    const imgs=pendingAttachments.filter(a=>a.type==='image').length;
+    if(f.type.startsWith('image/') && imgs>=4){ toast('แนบรูปได้สูงสุด 4 รูปต่อข้อความ'); continue; }
+    if(!f.type.startsWith('image/') && pendingAttachments.length-imgs>=6){ toast('แนบไฟล์ได้สูงสุด 6 ไฟล์ต่อข้อความ'); continue; }
+    const a=await readFile(f); if(a) pendingAttachments.push(a);
   }
-  return esc(text).replace(/\n/g, '<br>');
+  renderChips();
+};
+
+/* ================= Copy / Download / Preview ================= */
+function copyText(t){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>toast('📋 คัดลอกแล้ว'),()=>fallbackCopy(t));
+  } else fallbackCopy(t);
 }
-
-/* ===== ไฟล์จากโค้ดบล็อก ===== */
-const EXT = 'html?|css|m?js|jsx|tsx?|json|md|txt|py|ya?ml|toml|xml|svg|sh|csv|sql|java|cpp|c|h|go|rs|php|rb|kt|swift|ini';
-const FNAME = '[\\w\\-./]+\\.(?:' + EXT + ')';
-const RE_INFO = new RegExp('(' + FNAME + ')(?![\\w])', 'i');
-const RE_TICK = new RegExp('`(' + FNAME + ')`', 'i');
-const RE_BOLD = new RegExp('\\*\\*(' + FNAME + ')\\*\\*', 'i');
-const RE_LINE = new RegExp('^[#>\\s*\\-\\d.)]*(?:ไฟล์|file(?:name)?)?\\s*[:：]?\\s*(' + FNAME + ')\\s*[:：]?\\s*$', 'i');
-const RE_CMT = new RegExp('^\\s*(?:<!' + '--|//|#|/\\*)\\s*(?:file(?:name)?\\s*[:：]\\s*)?(' + FNAME + ')\\s*(?:--' + '>|\\*/)?\\s*$', 'i');
-const RE_CMDLANG = /^(bash|sh|shell|zsh|console|terminal|cmd|powershell)$/;
-const LANG_EXT = { javascript: 'js', js: 'js', jsx: 'jsx', typescript: 'ts', ts: 'ts', tsx: 'tsx', python: 'py', py: 'py',
-  html: 'html', htm: 'html', css: 'css', json: 'json', markdown: 'md', md: 'md', bash: 'sh', sh: 'sh', shell: 'sh', zsh: 'sh',
-  yaml: 'yml', yml: 'yml', xml: 'xml', svg: 'svg', sql: 'sql', java: 'java', c: 'c', cpp: 'cpp', 'c++': 'cpp', go: 'go',
-  rust: 'rs', rs: 'rs', php: 'php', ruby: 'rb', rb: 'rb', csv: 'csv', toml: 'toml', text: 'txt', txt: 'txt', plaintext: 'txt' };
-
-const base = p => String(p).split('?')[0].split('/').pop().toLowerCase();
-
-function safeName(n) {
-  n = String(n).replace(/\\/g, '/').replace(/[<>:"|?*\x00-\x1f]/g, '').split('/').filter(p => p && p !== '.' && p !== '..').join('/');
-  return n || 'file.txt';
+function fallbackCopy(t){
+  const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast('📋 คัดลอกแล้ว'); }catch(e){ toast('คัดลอกไม่สำเร็จ'); }
+  ta.remove();
 }
-function nameFromLine(l) {
-  if (l.length > 140) return null;
-  const m = l.match(RE_TICK) || l.match(RE_BOLD) || l.match(RE_LINE);
-  return m ? m[1] : null;
+function downloadText(name, text){
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+  toast('⬇️ ดาวน์โหลด '+name);
 }
+function openPreview(htmlText){
+  $('#previewFrame').srcdoc=htmlText;
+  $('#previewModal').classList.add('on');
+}
+$('#closePreview').onclick=()=>$('#previewModal').classList.remove('on');
 
-function parseBlocks(text) {
-  const lines = String(text).split('\n'); const out = []; let prev = '';
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^\s{0,3}(`{3,}|~{3,})\s*([^`]*)$/);
-    if (!m) { if (lines[i].trim()) prev = lines[i]; continue; }
-    const fence = m[1], info = m[2].trim(); const body = []; let j = i + 1;
-    while (j < lines.length) {
-      const cl = lines[j].match(/^\s{0,3}(`{3,}|~{3,})\s*$/);
-      if (cl && cl[1][0] === fence[0] && cl[1].length >= fence.length) break;
-      body.push(lines[j]); j++;
+/* ================= API building ================= */
+function buildApiMessages(chat){
+  const out=[{role:'system',content:SYS_PROMPT}];
+  for(const m of chat.messages){
+    if(m.role==='user'){
+      let text=m.content||'';
+      const imgs=(m.attachments||[]).filter(a=>a.type==='image');
+      (m.attachments||[]).filter(a=>a.type==='text').forEach(a=>{
+        text+='\n\n--- ไฟล์แนบ: '+a.name+' ---\n```'+extOf(a.name)+'\n'+a.data+'\n```';
+      });
+      if(settings.provider==='anthropic'){
+        const content=[];
+        if(text.trim()) content.push({type:'text',text});
+        imgs.forEach(a=>content.push({type:'image',source:{type:'base64',media_type:a.mime,data:a.data}}));
+        out.push({role:'user',content});
+      } else if(settings.provider==='gemini'){
+        const parts=[];
+        if(text.trim()) parts.push({text});
+        imgs.forEach(a=>parts.push({inline_data:{mime_type:a.mime,data:a.data}}));
+        out.push({role:'user',parts});
+      } else {
+        if(imgs.length){
+          const content=[{type:'text',text:text||'อธิบายรูปภาพนี้'}];
+          imgs.forEach(a=>content.push({type:'image_url',image_url:{url:'data:'+a.mime+';base64,'+a.data}}));
+          out.push({role:'user',content});
+        } else out.push({role:'user',content:text});
+      }
+    } else if(m.role==='assistant' && !m.error && m.content && !m.streaming){
+      out.push({role:'assistant',content:m.content});
     }
-    const lang0 = (info.split(/[\s:{,]/)[0] || '').toLowerCase();
-    let name = (info.match(RE_INFO) || [])[1] || null;
-    if (!name && !RE_CMDLANG.test(lang0)) name = nameFromLine(prev) || (body.length ? (body[0].match(RE_CMT) || [])[1] : null) || null;
-    let lang = lang0;
-    if (name && RE_INFO.test(lang)) lang = '';
-    if (!lang && name) lang = (name.split('.').pop() || '').toLowerCase();
-    out.push({ lang, name, named: !!name, code: body.join('\n') });
-    i = j; prev = '';
   }
   return out;
 }
+function fixAnthropicAlternation(msgs){
+  const out=[];
+  for(const m of msgs){
+    if(out.length && out[out.length-1].role===m.role){
+      const p=out[out.length-1];
+      if(typeof p.content==='string' && typeof m.content==='string') p.content+='\n\n[ผู้ใช้ส่งเพิ่ม]\n'+m.content;
+      else if(Array.isArray(p.content)&&Array.isArray(m.content)) p.content=p.content.concat(m.content);
+    } else out.push(JSON.parse(JSON.stringify(m)));
+  }
+  return out;
+}
+function buildRequest(model, apiMsgs){
+  const key=keys[settings.provider];
+  const eff=settings.effort||'auto';
+  if(settings.provider==='anthropic'){
+    const body={model:model.id, stream:true,
+      max_tokens: model.reasoning==='thinking'?32000:8192,
+      messages: fixAnthropicAlternation(apiMsgs.slice(1))};
+    if(model.reasoning==='thinking' && eff!=='auto' && THINK_BUDGET[eff])
+      body.thinking={type:'enabled', budget_tokens:THINK_BUDGET[eff]};
+    return {url:PROVIDERS.anthropic.url,
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
+      body};
+  }
+  if(settings.provider==='gemini'){
+    const contents=apiMsgs.slice(1).map(m=> m.parts
+      ? {role:'user', parts:m.parts}
+      : {role:m.role==='assistant'?'model':'user', parts:[{text:m.content}]});
+    const body={contents, systemInstruction:{parts:[{text:apiMsgs[0].content}]}, generationConfig:{}};
+    if(model.reasoning==='gemini' && eff!=='auto' && GEMINI_BUDGET[eff])
+      body.generationConfig.thinkingConfig={thinkingBudget:GEMINI_BUDGET[eff]};
+    return {url:PROVIDERS.gemini.base+'/'+model.id+':streamGenerateContent?alt=sse&key='+encodeURIComponent(key),
+      headers:{'Content-Type':'application/json'}, body};
+  }
+  // OpenAI-compatible: openai / deepseek / openrouter
+  const body={model:model.id, messages:apiMsgs, stream:true};
+  if(model.reasoning==='effort' && eff!=='auto'){
+    if(settings.provider==='openrouter') body.reasoning={effort:eff};
+    else body.reasoning_effort=eff;
+  }
+  const headers={'Content-Type':'application/json','Authorization':'Bearer '+key};
+  if(settings.provider==='openrouter') headers['HTTP-Referer']=location.origin==='null'?'https://byok.local':location.origin;
+  return {url:PROVIDERS[settings.provider].url, headers, body};
+}
 
-function finalizeBlocks(blocks) {
-  const used = new Set(); const map = {}; let n = 0;
-  for (const b of blocks) {
-    n++;
-    let f = b.name ? safeName(b.name) : null;
-    if (!f) {
-      const ext = LANG_EXT[b.lang] || (/^\w{1,6}$/.test(b.lang) ? b.lang : 'txt');
-      f = (ext === 'html' && !used.has('index.html')) ? 'index.html' : 'file-' + n + '.' + ext;
+function handleStreamData(json, sink){
+  if(settings.provider==='anthropic'){
+    if(json.type==='content_block_delta'){
+      const d=json.delta||{};
+      if(d.type==='thinking_delta') sink.thinking+=d.thinking||'';
+      else if(d.type==='text_delta') sink.text+=d.text||'';
     }
-    let u = f, k = 2;
-    while (used.has(u.toLowerCase())) { u = f.replace(/(\.[^./]*)?$/, '-' + k + '$1'); k++; }
-    used.add(u.toLowerCase()); b.file = u;
-    // ✅ FIX: เก็บทั้ง key แบบ full path และ basename เพื่อลด collision
-    map[u] = b.code;
-    const bn = base(u);
-    if (!map['__base__' + bn]) map['__base__' + bn] = b.code;
+    if(json.type==='message_delta' && json.usage) sink.usage=json.usage;
+    return;
   }
-  return map;
-}
-
-/* ===== ZIP ===== */
-const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
-function crc32(b) { let c = -1; for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 255] ^ (c >>> 8); return (~c) >>> 0; }
-function makeZip(files) {
-  const enc = new TextEncoder(); const parts = []; const central = []; let offset = 0;
-  const d = new Date();
-  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
-  const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-  for (const f of files) {
-    const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
-    const lh = new DataView(new ArrayBuffer(30));
-    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
-    lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, crc, true);
-    lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
-    parts.push(lh.buffer, name, data);
-    const ch = new DataView(new ArrayBuffer(46));
-    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
-    ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true);
-    ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true);
-    ch.setUint16(30, 0, true); ch.setUint16(32, 0, true); ch.setUint16(34, 0, true); ch.setUint16(36, 0, true);
-    ch.setUint32(38, 0, true); ch.setUint32(42, offset, true);
-    central.push(ch.buffer, name);
-    offset += 30 + name.length + data.length;
-  }
-  let csize = 0; for (let i = 0; i < central.length; i++) csize += central[i].byteLength;
-  const end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
-  end.setUint32(12, csize, true); end.setUint32(16, offset, true);
-  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
-}
-
-function downloadBlob(blob, name) {
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-}
-function withNewline(t) { return t.endsWith('\n') ? t : t + '\n'; }
-function downloadText(name, text) {
-  downloadBlob(new Blob([withNewline(text)], { type: 'application/octet-stream' }), name.split('/').pop());
-}
-function downloadZip(blocks) {
-  const blob = makeZip(blocks.map(b => ({ name: b.file, text: withNewline(b.code) })));
-  downloadBlob(blob, 'project-' + new Date().toISOString().slice(0, 10) + '.zip');
-}
-
-/* ===== พรีวิว ===== */
-const STORAGE_SHIM = '<scr' + 'ipt>try{localStorage.getItem("x")}catch(e){var mk=function(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}};try{Object.defineProperty(window,"localStorage",{value:mk(),configurable:true});Object.defineProperty(window,"sessionStorage",{value:mk(),configurable:true})}catch(_){}}</scr' + 'ipt>';
-const VIEWPORT = '<meta name="viewport" content="width=device-width, initial-scale=1">';
-
-function injectHead(html, s) {
-  let m;
-  if ((m = html.match(/<head[^>]*>/i))) return html.replace(m[0], () => m[0] + s);
-  if ((m = html.match(/<html[^>]*>/i))) return html.replace(m[0], () => m[0] + '<head>' + s + '</head>');
-  if ((m = html.match(/<!doctype[^>]*>/i))) return html.replace(m[0], () => m[0] + s);
-  return s + html;
-}
-
-// ✅ FIX: lookup ทั้ง path เต็มและ basename
-function lookup(map, href) {
-  const p = String(href).replace(/^\.\//, '');
-  if (Object.prototype.hasOwnProperty.call(map, p)) return map[p];
-  const bn = base(p);
-  return Object.prototype.hasOwnProperty.call(map, '__base__' + bn) ? map['__base__' + bn] : null;
-}
-
-function buildPreview(code, file, lang, map) {
-  if (/\.svg$/i.test(file) || lang === 'svg' || /^\s*<svg[\s>]/i.test(code)) {
-    return '<!doctype html><html><head><meta charset="utf-8">' + VIEWPORT + '<style>body{margin:0;display:grid;place-items:center;min-height:100vh;background:#fff}svg{max-width:100%;height:auto}</style></head><body>' + code + '</body></html>';
-  }
-  let h = code.replace(/<link\b[^>]*?href=["']([^"']+\.css)["'][^>]*>/gi, (all, href) => {
-    const c = lookup(map, href);
-    return c == null ? all : '<style>' + c.replace(/<\/style/gi, '<\\/style') + '</style>';
-  });
-  h = h.replace(/<script\b([^>]*?)\ssrc=["']([^"']+\.m?js)["']([^>]*)>\s*<\/script>/gi, (all, a, href, z) => {
-    const c = lookup(map, href);
-    return c == null ? all : '<scr' + 'ipt' + a + z + '>' + c.replace(/<\/script/gi, '<\\/scr' + 'ipt') + '</scr' + 'ipt>';
-  });
-  return injectHead(h, VIEWPORT + STORAGE_SHIM);
-}
-
-let pv = { name: '', html: '', code: '' };
-function openPreview(name, html, code) {
-  pv = { name, html, code };
-  $('#pvName').textContent = name;
-  $('#pvFrame').srcdoc = html;
-  $('#app').classList.add('previewing'); closeSide();
-}
-function closePreview() {
-  $('#app').classList.remove('previewing'); $('#preview').classList.remove('full');
-  $('#pvFrame').srcdoc = '';
-}
-
-function enhance(root, blocks, map) {
-  const used = new Set();
-  root.querySelectorAll('pre').forEach(pre => {
-    if (pre.parentElement.classList.contains('codewrap')) return;
-    const code = pre.querySelector('code');
-    const txt = (code || pre).textContent.replace(/\n$/, '');
-    if (window.hljs && code) { try { hljs.highlightElement(code); } catch {} }
-    const cls = ((code && code.className.match(/language-([^\s]+)/)) || [])[1] || '';
-    let b = blocks.find(x => !used.has(x) && x.code.trim() === txt.trim());
-    if (b) used.add(b); else b = { lang: cls, file: 'file.' + (LANG_EXT[cls] || 'txt'), code: txt, named: false };
-    const isPreviewable = /\.(html?|svg)$/i.test(b.file) || /^(html|svg)$/.test(cls) || /^\s*(<!doctype html|<html|<svg[\s>])/i.test(b.code);
-
-    const wrap = document.createElement('div'); wrap.className = 'codewrap';
-    const bar = document.createElement('div'); bar.className = 'codebar';
-    const name = document.createElement('span'); name.textContent = b.named ? b.file : (cls || 'code');
-    const grp = document.createElement('div'); grp.className = 'grp';
-    const mk = (label, fn) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; x.onclick = fn; return x; };
-    if (isPreviewable) grp.append(mk('พรีวิว', () => openPreview(b.file, buildPreview(b.code, b.file, cls, map), b.code)));
-    grp.append(mk('ดาวน์โหลด', () => { downloadText(b.file, b.code); toast('ดาวน์โหลด ' + b.file.split('/').pop()); }));
-    const cp = mk('คัดลอก', async () => { await copyText(b.code); cp.textContent = 'คัดลอกแล้ว'; setTimeout(() => cp.textContent = 'คัดลอก', 1500); });
-    grp.append(cp);
-    bar.append(name, grp);
-    pre.replaceWith(wrap); wrap.append(bar, pre);
-  });
-}
-
-/* ===== ธีมและโมเดล ===== */
-function applyTheme() {
-  const r = document.documentElement;
-  if (settings.theme === 'auto') r.removeAttribute('data-theme'); else r.dataset.theme = settings.theme;
-}
-function updatePill() {
-  $('#pvModel').textContent = modelLabel(activeModel());
-  $('#pvEffort').textContent = EFFORT[settings.effort].label;
-  const custom = (settings.customModel || '').trim();
-  $('#pvBadge').hidden = !custom;
-  $('#pillBtn').title = custom
-    ? 'โมเดล: ' + custom + ' (กำหนดเอง — แก้ในหน้าโมเดล)'
-    : 'โมเดล: ' + modelLabel(settings.model) + ' · ' + EFFORT[settings.effort].label + ' · ' + (settings.thinking ? 'คิด' : 'ตอบตรง');
-}
-function buildSeg(container, options, current, onPick) {
-  container.textContent = '';
-  options.forEach(([v, l]) => {
-    const b = document.createElement('button'); b.type = 'button'; b.textContent = l;
-    if (v === current) b.classList.add('active');
-    b.onclick = () => { onPick(v); buildSeg(container, options, v, onPick); };
-    container.append(b);
-  });
-}
-function renderCustomState() {
-  const c = (settings.customModel || '').trim();
-  const banner = $('#customBanner');
-  banner.hidden = !c;
-  if (c) banner.innerHTML =
-    'กำลังใช้โมเดลที่กำหนดเอง: <b>' + esc(c) + '</b><button id="clearCustom" type="button">ใช้ตามที่เลือก</button>';
-  const btn = $('#clearCustom'); if (btn) btn.onclick = clearCustom;
-}
-function syncModelSheetState() {
-  const think = !!settings.thinking;
-  $('#effortWrap').querySelector('.seg').classList.toggle('disabled', !think);
-  $('#effortDesc').textContent =
-    EFFORT[settings.effort].label + ' · ' + EFFORT[settings.effort].hint +
-    (think ? '' : ' (ตอนนี้ใช้คุมความยาวเท่านั้น เพราะปิดโหมดคิดอยู่)');
-  $('#fTemp').disabled = think;
-  $('#tempWrap').classList.toggle('locked', think);
-  $('#tempNote').textContent = think
-    ? 'โมเดลกำลังอยู่ในโหมดคิด — ช่องนี้ไม่มีผล (ปิดโหมดคิดในปุ่มโมเดลก่อน)'
-    : 'ยิ่งมากยิ่งหลากหลาย/กล้าเสี่ยง · 0–1 สำหรับงานจริงจัง, 1–1.5 สำหรับงานสร้างสรรค์';
-}
-function fillModelDlg() {
-  buildSeg($('#modelSeg'), MODELS, settings.model, v => {
-    if (settings.customModel) { settings.customModel = ''; $('#fCustom').value = ''; renderCustomState(); }
-    settings.model = v; save(K.set, settings); updatePill();
-    if (!cur()) renderMessages();
-    setTimeout(() => modelDlg.close(), 220);
-  });
-  buildSeg($('#effortSeg'), Object.entries(EFFORT).map(([k, o]) => [k, o.label]), settings.effort, v => {
-    settings.effort = v; save(K.set, settings); updatePill(); syncModelSheetState();
-    setTimeout(() => modelDlg.close(), 220);
-  });
-  $('#fThink').checked = !!settings.thinking;
-  $('#fCustom').value = settings.customModel || '';
-  renderCustomState(); syncModelSheetState();
-  $('#modelSrc').textContent = modelsFromApi ? 'โหลดรายชื่อจาก API แล้ว ✓' : 'รายการสำรอง (ยังไม่ได้ใส่ key / โหลดไม่สำเร็จ)';
-}
-function clearCustom() {
-  settings.customModel = ''; $('#fCustom').value = '';
-  save(K.set, settings); updatePill(); renderCustomState();
-  if (!cur()) renderMessages();
-}
-
-let modelsFetchedFor = '';
-async function fetchModels(force) {
-  if (!settings.apiKey) return;
-  const key = settings.baseUrl + '|' + settings.apiKey;
-  if (!force && modelsFetchedFor === key) return;
-  try {
-    const url = apiBase(settings.baseUrl) + '/models';
-    const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + settings.apiKey } });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    const ids = (data.data || []).map(m => m.id).filter(id => /deepseek/i.test(id));
-    if (ids.length) {
-      MODELS = ids.map(id => [id, id.replace(/^deepseek-/, 'DeepSeek ').replace(/\b\w/g, c => c.toUpperCase())]);
-      modelsFromApi = true; modelsFetchedFor = key;
-      if (!MODELS.some(m => m[0] === settings.model)) { settings.model = MODELS[0][0]; save(K.set, settings); updatePill(); }
-    } else {
-      modelsFromApi = false; MODELS = FALLBACK_MODELS.slice();
-    }
-  } catch { modelsFromApi = false; MODELS = FALLBACK_MODELS.slice(); }
-}
-
-async function fetchBalance() {
-  const apiKey = ($('#fKey').value || settings.apiKey).trim();
-  const baseUrl = apiBase($('#fBase').value || settings.baseUrl);
-  if (!apiKey) { toast('ใส่ API key ก่อน'); return; }
-  const el = $('#balanceText'); el.textContent = 'ยอดเงิน: กำลังโหลด…';
-  try {
-    const url = baseUrl.replace(/\/+$/, '') + '/user/balance';
-    const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    const info = (data.balance_infos || [])[0];
-    el.textContent = info ? 'ยอดเงิน: ' + info.total_balance + ' ' + info.currency : 'ยอดเงิน: ไม่พบข้อมูล';
-  } catch (e) { el.textContent = 'ยอดเงิน: เช็กไม่ได้ (' + friendlyError(e).split('\n')[0] + ')'; }
-}
-
-/* ===== รายการแชท ===== */
-function groupOf(ts) {
-  const d0 = new Date(); d0.setHours(0, 0, 0, 0);
-  const days = Math.floor((d0.getTime() - ts) / 86400000) + 1;
-  if (ts >= d0.getTime()) return 'วันนี้';
-  if (days <= 1) return 'เมื่อวาน';
-  if (days <= 7) return '7 วันที่ผ่านมา';
-  if (days <= 30) return '30 วันที่ผ่านมา';
-  return 'เก่ากว่านั้น';
-}
-function renderList() {
-  const q = $('#search').value.trim().toLowerCase();
-  const box = $('#list'); box.textContent = '';
-  const items = chats.filter(c => !q || c.title.toLowerCase().includes(q)).sort((a, b) => b.updated - a.updated);
-  if (!items.length) { box.innerHTML = '<p class="none">ยังไม่มีแชท</p>'; return; }
-  let lastG = '';
-  for (const c of items) {
-    const g = groupOf(c.updated);
-    if (g !== lastG) { const t = document.createElement('div'); t.className = 'grp-t'; t.textContent = g; box.append(t); lastG = g; }
-    const d = document.createElement('div'); d.className = 'item' + (c.id === currentId ? ' active' : '');
-    const t = document.createElement('button'); t.className = 't'; t.type = 'button'; t.textContent = c.title; t.onclick = () => selectChat(c.id);
-    const ed = document.createElement('button'); ed.className = 'edit'; ed.type = 'button'; ed.setAttribute('aria-label', 'เปลี่ยนชื่อแชท ' + c.title); ed.innerHTML = ICON_EDIT; ed.onclick = ev => { ev.stopPropagation(); renameChat(c.id); };
-    const x = document.createElement('button'); x.className = 'x'; x.type = 'button'; x.setAttribute('aria-label', 'ลบแชท ' + c.title); x.textContent = '×'; x.onclick = () => removeChat(c.id);
-    d.append(t, ed, x); box.append(d);
-  }
-}
-
-/* ===== ข้อความ ===== */
-function emptyEl() {
-  const d = document.createElement('div'); d.className = 'empty';
-  const hasKey = !!settings.apiKey;
-  d.innerHTML = '<div class="av-lg">' + LOGO + '</div><h1>' + (hasKey ? 'วันนี้ให้ช่วยอะไรดี' : 'เริ่มต้นใช้งาน') + '</h1>';
-  const p = document.createElement('p');
-  p.textContent = hasKey ? 'คุยกับ ' + activeModel() + ' ประวัติแชทเก็บไว้ในเครื่องนี้เท่านั้น' : 'ใส่ DeepSeek API key ก่อนเริ่มแชท key จะเก็บไว้ในเบราว์เซอร์ของคุณเท่านั้น';
-  d.append(p);
-  if (!hasKey) {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn primary'; b.textContent = 'ใส่ API key'; b.onclick = openSettings; d.append(b);
-    return d;
-  }
-  const S = [
-    ['สร้างเกมงู', 'เป็นไฟล์ HTML ไฟล์เดียว พร้อมพรีวิว', 'สร้างเกมงูเป็นไฟล์ HTML ไฟล์เดียว'],
-    ['ทำเว็บ portfolio', 'แยกไฟล์ index.html, style.css, script.js', 'ทำเว็บ portfolio แยกไฟล์ index.html style.css script.js'],
-    ['ทำเครื่องคิดเลขภาษี', 'เป็นเว็บหน้าเดียว ใช้บนมือถือได้', 'ทำเครื่องคิดเลขภาษีเงินได้เป็นเว็บหน้าเดียว']
-  ];
-  const box = document.createElement('div'); box.className = 'sugg';
-  S.forEach(([t, sub, prompt]) => {
-    const b = document.createElement('button'); b.type = 'button';
-    const bt = document.createElement('b'); bt.textContent = t; const sp = document.createElement('span'); sp.textContent = sub;
-    b.append(bt, sp);
-    b.onclick = () => { const i = $('#input'); i.value = prompt; autosize(); i.focus(); };
-    box.append(b);
-  });
-  d.append(box);
-  return d;
-}
-
-function iconBtn(icon, label, fn, cls, withText) {
-  const b = document.createElement('button'); b.type = 'button'; b.title = label; b.setAttribute('aria-label', label);
-  if (cls) b.className = cls;
-  b.innerHTML = icon + (withText ? '<span>' + esc(label) + '</span>' : '');
-  b.onclick = fn; return b;
-}
-
-function msgEl(m, i, chat) {
-  const d = document.createElement('div'); d.className = 'msg ' + m.role;
-  if (m.role === 'user') {
-    if (!streaming) d.append(iconBtn(ICON_EDIT, 'แก้ไขและส่งใหม่', () => editUserMessage(i), 'edit-msg'));
-    const col = document.createElement('div'); col.style.display = 'flex'; col.style.flexDirection = 'column'; col.style.alignItems = 'flex-end'; col.style.gap = '6px'; col.style.maxWidth = '82%'; col.style.minWidth = '0';
-    if (m.attachments && m.attachments.length) {
-      const row = document.createElement('div'); row.className = 'attach-row static';
-      m.attachments.forEach(a => {
-        const isImg = a.type === 'image';
-        const chip = document.createElement('div'); chip.className = 'attach-chip' + (isImg ? ' img' : '');
-        const ic = document.createElement('span'); ic.className = 'ic';
-        if (isImg) { const im = document.createElement('img'); im.src = a.dataUrl; im.alt = ''; ic.append(im); } else ic.innerHTML = ICON_FILE;
-        const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = a.name;
-        chip.append(ic, nm); row.append(chip);
+  if(settings.provider==='gemini'){
+    (json.candidates||[]).forEach(c=>{
+      ((c.content&&c.content.parts)||[]).forEach(p=>{
+        if(p.text){ if(p.thought) sink.thinking+=p.text; else sink.text+=p.text; }
       });
-      col.append(row);
-    }
-    const shownText = m.displayText != null ? m.displayText : m.content;
-    if (shownText) { const b = document.createElement('div'); b.className = 'bubble'; b.textContent = shownText; col.append(b); }
-    d.append(col);
-    return d;
-  }
-  if (streaming && i === chat.messages.length - 1) d.classList.add('streaming');
-  d.innerHTML = '<div class="av">' + LOGO + '</div><div class="body"><div class="who"></div><details class="think" hidden><summary>ความคิดของโมเดล</summary><div class="think-body"></div></details><div class="md"></div></div>';
-  d.querySelector('.who').textContent = m.model || activeModel();
-  const body = d.querySelector('.body');
-  const think = d.querySelector('.think');
-  if (m.reasoning) { think.hidden = false; think.querySelector('.think-body').textContent = m.reasoning; if (streaming && !m.content) think.open = true; }
-  const mdEl = d.querySelector('.md');
-  const blocks = m.content ? parseBlocks(m.content) : [];
-  const map = finalizeBlocks(blocks);
-  if (m.content) { mdEl.innerHTML = md(m.content); if (!(streaming && i === chat.messages.length - 1)) enhance(mdEl, blocks, map); }
-  if (m.error) { const e = document.createElement('div'); e.className = 'err'; e.textContent = m.error; body.append(e); }
-  if (!streaming && m.finishReason === 'length') {
-    const w = document.createElement('div'); w.className = 'warn';
-    w.textContent = 'คำตอบอาจถูกตัดเนื่องจากครบขีดจำกัดความยาวของระดับ ' + EFFORT[settings.effort].label + ' (' + EFFORT[settings.effort].maxTokens + ' tokens) เพิ่มระดับ effort ได้ที่ปุ่มโมเดล หรือกด "ตอบต่อ" ด้านล่าง';
-    body.append(w);
-  }
-  if (!streaming) {
-    const a = document.createElement('div'); a.className = 'actions';
-    if (m.content) a.append(iconBtn(ICON_COPY, 'คัดลอก', () => copyText(m.content)));
-    const zipFiles = blocks.some(b => b.named) ? blocks.filter(b => b.named) : blocks;
-    if (zipFiles.length >= 2) a.append(iconBtn(ICON_DL, 'ดาวน์โหลดทั้งหมด (.zip)', () => { downloadZip(zipFiles); toast('สร้าง ZIP แล้ว'); }, 'zip', true));
-    if (i === chat.messages.length - 1) {
-      if (m.finishReason === 'length') a.append(iconBtn(ICON_CONTINUE, 'ตอบต่อ', continueReply, '', true));
-      a.append(iconBtn(ICON_REFRESH, m.error ? 'ลองใหม่' : 'สร้างใหม่', regenerate, '', !!m.error));
-    }
-    body.append(a);
-    if (m.usage) {
-      const u = document.createElement('div'); u.className = 'usage';
-      const rt = m.usage.completion_tokens_details && m.usage.completion_tokens_details.reasoning_tokens;
-      u.textContent = (m.usage.total_tokens || 0).toLocaleString('th-TH') + ' tokens' + (rt ? ' (คิด ' + rt.toLocaleString('th-TH') + ')' : '');
-      body.append(u);
-    }
-  }
-  return d;
-}
-
-function renderMessages() {
-  const chat = cur(); const box = $('#msgsInner'); box.textContent = '';
-  $('#ctitle').textContent = chat ? chat.title : '';
-  if (!chat || !chat.messages.length) { box.append(emptyEl()); return; }
-  chat.messages.forEach((m, i) => box.append(msgEl(m, i, chat)));
-  if (autoScroll) scrollEnd();
-  updateScrollBtn();
-}
-function scrollEnd() { const s = $('#msgs'); s.scrollTop = s.scrollHeight; }
-
-let paintQueued = false;
-function paint(el, msg) {
-  if (paintQueued) return; paintQueued = true;
-  requestAnimationFrame(() => {
-    paintQueued = false;
-    const th = el.querySelector('.think');
-    if (msg.reasoning) {
-      // ✅ FIX: ถ้ามี reasoning ใหม่ ให้เปิด details อีกครั้ง (เคลียร์ closed flag)
-      if (th.hidden) th.hidden = false;
-      const tb = th.querySelector('.think-body');
-      if (tb.textContent !== msg.reasoning) {
-        tb.textContent = msg.reasoning;
-        delete th.dataset.closed;
-      }
-      if (!msg.content) th.open = true;
-      else if (!th.dataset.closed) { th.open = false; th.dataset.closed = '1'; }
-    }
-    el.querySelector('.md').innerHTML = msg.content ? md(msg.content) : '';
-    if (autoScroll) scrollEnd();
-    updateScrollBtn();
-  });
-}
-
-/* ===== จัดการแชท ===== */
-function setBusy(b) {
-  const btn = $('#sendBtn');
-  btn.innerHTML = b ? ICON_STOP : ICON_SEND;
-  btn.setAttribute('aria-label', b ? 'หยุด' : 'ส่ง');
-  updateSend();
-}
-function updateSend() { $('#sendBtn').disabled = !streaming && !$('#input').value.trim() && !pendingAttachments.length; }
-let recognizer = null, recording = false;
-function stopMic() { if (recognizer && recording) { try { recognizer.stop(); } catch {} } }
-function stop() { stopMic(); if (abortCtl) abortCtl.abort(); }
-function closeSide() { $('#app').classList.remove('open'); }
-
-function newChat() {
-  stopMic();
-  if (streaming) stop();
-  currentId = null; closePreview(); persist(); renderList(); renderMessages(); closeSide();
-  $('#input').focus();
-}
-function selectChat(id) {
-  stopMic();
-  if (streaming) stop();
-  currentId = id; autoScroll = true; closePreview(); persist(); renderList(); renderMessages(); closeSide();
-}
-function removeChat(id) {
-  const c = chats.find(x => x.id === id); if (!c) return;
-  if (!confirm('ลบแชท "' + c.title + '" ?')) return;
-  if (id === currentId && streaming) stop();
-  markDeleted(id);
-  chats = chats.filter(x => x.id !== id);
-  if (id === currentId) currentId = null;
-  persist(); renderList(); renderMessages();
-}
-function renameChat(id) {
-  const c = chats.find(x => x.id === id); if (!c) return;
-  const name = prompt('เปลี่ยนชื่อแชท', c.title);
-  if (name == null) return;
-  const t = name.trim(); if (!t) return;
-  c.title = t.slice(0, 60); persist(); renderList(); renderMessages();
-}
-function editUserMessage(i) {
-  if (streaming) return;
-  const chat = cur(); if (!chat) return;
-  const m = chat.messages[i];
-  const text = m.displayText != null ? m.displayText : m.content;
-  pendingAttachments = (m.attachments || []).map(a => a.type === 'image' ? { name: a.name, type: 'image', dataUrl: a.dataUrl } : { name: a.name, content: a.content });
-  // ✅ FIX: เขียนให้ชัดเจนว่าให้ตัดตั้งแต่ index i เป็นต้นไป
-  chat.messages.length = i;
-  chat.updated = Date.now();
-  persist(); renderMessages(); renderList(); renderAttachRow();
-  const input = $('#input'); input.value = text; autosize(); input.focus();
-}
-function friendlyError(e) {
-  const m = String(e && e.message || e);
-  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'เชื่อมต่อ DeepSeek ไม่ได้ ตรวจสอบอินเทอร์เน็ตและ Base URL ในตั้งค่า';
-  if (/^HTTP 401/.test(m)) return 'API key ไม่ถูกต้อง ตรวจสอบในตั้งค่า\n' + m;
-  if (/^HTTP 402/.test(m)) return 'ยอดเงินในบัญชี DeepSeek ไม่พอ ต้องเติมเงินก่อน\n' + m;
-  if (/^HTTP 429/.test(m)) return 'ส่งถี่เกินไป รอสักครู่แล้วลองใหม่\n' + m;
-  return m;
-}
-
-function composeUserText(m) {
-  const textAtts = (m.attachments || []).filter(a => a.type !== 'image');
-  const filesText = textAtts.map(a => { const f = fenceFor(a.content); return '`' + a.name + '`\n' + f + '\n' + a.content + '\n' + f; }).join('\n\n');
-  return [m.content || '', filesText].filter(Boolean).join('\n\n');
-}
-function apiContentFor(m) {
-  const text = composeUserText(m);
-  const imgs = (m.attachments || []).filter(a => a.type === 'image');
-  if (!imgs.length) return text;
-  const parts = [];
-  if (text) parts.push({ type: 'text', text });
-  imgs.forEach(a => parts.push({ type: 'image_url', image_url: { url: a.dataUrl } }));
-  return parts;
-}
-
-async function streamChat(chat, msg, onDelta, signal, extraUserText) {
-  const model = activeModel();
-  const history = chat.messages.filter(m => !m.error && (m.content || (m.attachments && m.attachments.length))).map(m => ({
-    role: m.role,
-    content: m.role === 'user' ? apiContentFor(m) : m.content
-  }));
-  if (extraUserText) history.push({ role: 'user', content: extraUserText });
-  const eff = EFFORT[settings.effort] || EFFORT.high;
-  const sys = [settings.system.trim(), eff.hint, settings.fileHint ? FILE_HINT : ''].filter(Boolean).join('\n\n');
-  const body = {
-    model, messages: (sys ? [{ role: 'system', content: sys }] : []).concat(history),
-    stream: true, stream_options: { include_usage: true }, max_tokens: eff.maxTokens
-  };
-  // ✅ FIX: ส่ง thinking/reasoning_effort เฉพาะตอนเปิด เพื่อลดความเสี่ยง 400
-  if (settings.thinking) {
-    body.thinking = { type: 'enabled' };
-    body.reasoning_effort = eff.reasoning_effort;
-  } else {
-    body.temperature = Number(settings.temperature);
-  }
-
-  const url = apiBase(settings.baseUrl) + '/chat/completions';
-  const postChat = async payload => {
-    const res = await fetch(url, {
-      method: 'POST', signal,
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.apiKey },
-      body: JSON.stringify(payload)
     });
-    if (!res.ok) {
-      let t = await res.text();
-      try { t = JSON.parse(t).error.message; } catch {}
-      throw httpError(res.status, t);
-    }
-    return res;
-  };
-  let res;
-  try {
-    res = await postChat(body);
-  } catch (e) {
-    const msg0 = String(e && e.message || e);
-    // ✅ FIX: fallback ทั้ง 400 และ 422 สำหรับ unknown fields
-    const isCompatErr = (e && (e.status === 400 || e.status === 422)) &&
-      /thinking|reasoning_effort|extra fields|unknown parameter|unknown field|unrecognized|max_tokens|invalid/i.test(msg0);
-    if (isCompatErr) {
-      const body2 = Object.assign({}, body);
-      delete body2.thinking;
-      delete body2.reasoning_effort;
-      body2.temperature = Number(settings.temperature);
-      res = await postChat(body2);
-    } else {
-      throw e;
-    }
+    if(json.usageMetadata) sink.usage=json.usageMetadata;
+    return;
   }
-  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split('\n'); buf = lines.pop();
-    for (const ln of lines) {
-      const s = ln.trim();
-      if (!s.startsWith('data:')) continue;
-      const d = s.slice(5).trim();
-      if (d === '[DONE]') return;
-      try {
-        const parsed = JSON.parse(d);
-        if (parsed.error) throw new Error(parsed.error.message || JSON.stringify(parsed.error));
-        const choice = parsed.choices?.[0];
-        const delta = choice?.delta || {};
-        if (delta.reasoning_content) msg.reasoning += delta.reasoning_content;
-        if (delta.content) msg.content += delta.content;
-        if (choice?.finish_reason) msg.finishReason = choice.finish_reason;
-        if (parsed.usage) msg.usage = parsed.usage;
-        onDelta();
-      } catch (e) {
-        if (e instanceof SyntaxError) continue;
-        throw e;
+  const ch=(json.choices||[])[0]; if(!ch) return;
+  const d=ch.delta||{};
+  if(d.reasoning_content) sink.thinking+=d.reasoning_content;
+  if(d.reasoning) sink.thinking+=d.reasoning;
+  if(d.content) sink.text+=d.content;
+  if(json.usage) sink.usage=json.usage;
+}
+
+/* ================= Send / Stream ================= */
+const input=$('#input'), sendBtn=$('#sendBtn');
+input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px'; });
+
+async function sendMessage(){
+  if(abortCtrl){ abortCtrl.abort(); return; }
+  const text=input.value.trim();
+  if(!text && !pendingAttachments.length) return;
+  if(!keys[settings.provider]){ toast('⚠️ ยังไม่ได้ใส่ API Key — แตะ ⚙️ เพื่อตั้งค่า'); return; }
+  const chat=currentChat();
+  chat.messages.push({role:'user', content:text, attachments:pendingAttachments.splice(0), ts:Date.now()});
+  if(chat.title==='แชทใหม่') chat.title=(text||'รูปภาพ').slice(0,40);
+  chat.updatedAt=Date.now();
+  const aiMsg={role:'assistant', content:'', thinking:'', streaming:true, ts:Date.now()};
+  chat.messages.push(aiMsg); streamingIdx=chat.messages.length-1;
+  input.value=''; input.style.height='auto'; renderChips(); renderSidebar(); renderMessages();
+  sendBtn.textContent='⏹'; sendBtn.classList.add('stop');
+  abortCtrl=new AbortController();
+  const sink={text:'',thinking:''};
+  const scheduleUpdate=()=>{ if(streamTimer) return;
+    streamTimer=setTimeout(()=>{ streamTimer=null; const m=chat.messages[streamingIdx];
+      m.content=sink.text; m.thinking=sink.thinking; updateStreamBubble(); },120); };
+  try{
+    const model=currentModel();
+    const req=buildRequest(model, buildApiMessages(chat));
+    const resp=await fetch(req.url,{method:'POST',headers:req.headers,body:JSON.stringify(req.body),signal:abortCtrl.signal});
+    if(!resp.ok){
+      const errText=await resp.text().catch(()=>'');
+      let detail=errText.slice(0,400);
+      try{ const j=JSON.parse(errText); detail=j.error?.message||j.error?.type||detail; }catch(e){}
+      throw new Error('HTTP '+resp.status+': '+detail);
+    }
+    const reader=resp.body.getReader();
+    const decoder=new TextDecoder();
+    let buffer='';
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      buffer+=decoder.decode(value,{stream:true}).replace(/\r\n/g,'\n');
+      let idx;
+      while((idx=buffer.indexOf('\n\n'))>=0){
+        const chunk=buffer.slice(0,idx); buffer=buffer.slice(idx+2);
+        for(const line of chunk.split('\n')){
+          const t=line.trim();
+          if(!t.startsWith('data:')) continue;
+          const data=t.slice(5).trim();
+          if(data==='[DONE]') continue;
+          try{ handleStreamData(JSON.parse(data), sink); }catch(e){}
+        }
       }
     }
+    // flush any trailing data lines not terminated by a blank line
+    buffer.split('\n').forEach(line=>{
+      const t=line.trim();
+      if(t.startsWith('data:') && t.slice(5).trim()!=='[DONE]'){
+        try{ handleStreamData(JSON.parse(t.slice(5).trim()), sink); }catch(e){}
+      }
+    });
+    finishStream(chat, sink, null);
+  }catch(err){
+    if(err.name==='AbortError') finishStream(chat, sink, null);
+    else finishStream(chat, sink, friendlyError(err));
   }
 }
-
-async function reply(chat) {
-  streaming = true; setBusy(true); startAutosave();
-  const msg = { role: 'assistant', content: '', reasoning: '', model: activeModel() };
-  chat.messages.push(msg); chat.updated = Date.now();
-  autoScroll = true; renderMessages(); renderList();
-  const el = $('#msgsInner').lastElementChild;
-  abortCtl = new AbortController();
-  let aborted = false;
-  try {
-    await streamChat(chat, msg, () => paint(el, msg), abortCtl.signal);
-  } catch (e) {
-    if (e.name === 'AbortError') aborted = true; else msg.error = friendlyError(e);
-  } finally {
-    streaming = false; abortCtl = null; setBusy(false); stopAutosave();
-    if (aborted && !msg.content && !msg.reasoning) chat.messages.splice(chat.messages.indexOf(msg), 1);
-    else if (!msg.content && !msg.reasoning && !msg.error) msg.error = 'ไม่ได้รับคำตอบจาก DeepSeek (การเชื่อมต่อจบโดยไม่มีเนื้อหาหรือข้อผิดพลาดกลับมา) ลองใหม่อีกครั้ง หรือตรวจสอบว่าตั้งค่าโมเดล/ยอดเงินถูกต้อง';
-    chat.updated = Date.now(); persist(); renderMessages(); renderList();
-  }
+function friendlyError(err){
+  let msg=err.message||String(err);
+  if(/Failed to fetch|NetworkError|Load failed/i.test(msg))
+    msg+=' — สาเหตุที่พบบ่อย: ไม่มีอินเทอร์เน็ต, โมเดลไม่รองรับการเรียกจากเบราว์เซอร์ (CORS — ลองใช้ผ่าน OpenRouter), หรือ Key ไม่ถูกต้อง';
+  return msg;
 }
-
-async function continueReply() {
-  if (streaming) return;
-  const chat = cur(); if (!chat) return;
-  const msg = chat.messages[chat.messages.length - 1];
-  if (!msg || msg.role !== 'assistant') return;
-  if (!settings.apiKey) { toast('ใส่ API key ก่อน'); openSettings(); return; }
-  streaming = true; setBusy(true); startAutosave();
-  delete msg.error; msg.finishReason = '';
-  autoScroll = true; renderMessages(); renderList();
-  const el = $('#msgsInner').lastElementChild;
-  abortCtl = new AbortController();
-  try {
-    await streamChat(chat, msg, () => paint(el, msg), abortCtl.signal, 'ตอบต่อจากที่ค้างไว้ทันที ห้ามพูดซ้ำข้อความเดิม ห้ามทวนคำนำหรือขึ้นต้นใหม่');
-  } catch (e) {
-    if (e.name !== 'AbortError') msg.error = friendlyError(e);
-  } finally {
-    streaming = false; abortCtl = null; setBusy(false); stopAutosave();
-    chat.updated = Date.now(); persist(); renderMessages(); renderList();
-  }
+function finishStream(chat, sink, err){
+  clearTimeout(streamTimer); streamTimer=null;
+  const m=chat.messages[streamingIdx];
+  m.streaming=false; m.content=sink.text; m.thinking=sink.thinking;
+  if(err){ m.error=true; m.content='⚠️ เกิดข้อผิดพลาด\n\n'+err; }
+  if(!m.content && !err){ m.error=true; m.content='⚠️ ไม่ได้รับข้อมูลตอบกลับ (ตรวจสอบ Key / โมเดล / CORS)'; }
+  chat.updatedAt=Date.now(); streamingIdx=-1; abortCtrl=null;
+  sendBtn.textContent='➤'; sendBtn.classList.remove('stop');
+  saveChats(); renderMessages();
 }
+sendBtn.onclick=sendMessage;
+input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); } });
 
-function send() {
-  stopMic();
-  const input = $('#input'); const text = input.value.trim();
-  if ((!text && !pendingAttachments.length) || streaming) return;
-  if (!settings.apiKey) { toast('ใส่ API key ก่อน'); openSettings(); return; }
-  let chat = cur();
-  if (!chat) { chat = { id: uid(), title: 'แชทใหม่', updated: Date.now(), messages: [] }; chats.unshift(chat); currentId = chat.id; }
-  const atts = pendingAttachments.slice();
-  chat.messages.push({ role: 'user', content: text, attachments: atts });
-  if (chat.messages.length === 1) chat.title = (text || (atts[0] && atts[0].name) || 'แชทใหม่').replace(/\s+/g, ' ').slice(0, 40);
-  input.value = ''; pendingAttachments = []; renderAttachRow(); autosize();
-  reply(chat);
-}
-
-function regenerate() {
-  if (streaming) return;
-  const chat = cur(); if (!chat) return;
-  while (chat.messages.length && chat.messages[chat.messages.length - 1].role === 'assistant') chat.messages.pop();
-  if (!chat.messages.length) return;
-  if (!settings.apiKey) { openSettings(); return; }
-  reply(chat);
-}
-
-/* ===== ช่องพิมพ์ ===== */
-function autosize() { const t = $('#input'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 200) + 'px'; updateSend(); updateCharCount(); }
-function updateCharCount() {
-  const n = $('#input').value.length;
-  $('#charCount').textContent = n > 300 ? ' · ' + n.toLocaleString('th-TH') + ' ตัวอักษร' : '';
-}
-$('#input').addEventListener('input', autosize);
-$('#input').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !matchMedia('(pointer:coarse)').matches) { e.preventDefault(); send(); }
-});
-$('#sendBtn').onclick = () => streaming ? stop() : send();
-function updateScrollBtn() {
-  const s = $('#msgs');
-  const nearBottom = s.scrollHeight - s.scrollTop - s.clientHeight < 80;
-  autoScroll = nearBottom;
-  $('#scrollBtn').classList.toggle('show', !nearBottom && s.scrollHeight > s.clientHeight + 40);
-}
-$('#msgs').addEventListener('scroll', updateScrollBtn);
-$('#scrollBtn').onclick = () => { autoScroll = true; scrollEnd(); $('#scrollBtn').classList.remove('show'); };
-
-const dlg = $('#dlg');
-
-/* ===== แถบข้างและหัวหน้า ===== */
-$('#newBtn').onclick = newChat;
-$('#search').addEventListener('input', renderList);
-$('#menuBtn').onclick = () => $('#app').classList.add('open');
-$('#scrim').onclick = closeSide;
-document.addEventListener('keydown', e => { const md = $('#modelDlg'); if (e.key === 'Escape' && !dlg.open && !(md && md.open)) { closeSide(); closePreview(); } });
-document.addEventListener('keydown', e => {
-  const meta = e.metaKey || e.ctrlKey;
-  if (!meta) return;
-  const k = e.key.toLowerCase();
-  if (k === 'k') { e.preventDefault(); if (isMobile()) $('#app').classList.add('open'); $('#search').focus(); }
-  else if (e.shiftKey && k === 'o') { e.preventDefault(); newChat(); }
-});
-
-/* ===== ปุ่ม + (แนบไฟล์) ===== */
-async function imageAttachment(file) {
-  const dataUrl0 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
-  try {
-    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = dataUrl0; });
-    const maxSide = 1600;
-    const iw = img.width || 1, ih = img.height || 1;
-    const scale = Math.min(1, maxSide / Math.max(iw, ih));
-    if (scale < 1 || file.size > 1024 * 1024) {
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(iw * scale));
-      canvas.height = Math.max(1, Math.round(ih * scale));
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      const webp = canvas.toDataURL('image/webp', 0.85);
-      const out = webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', 0.85);
-      if (out.length < dataUrl0.length || file.size > 2 * 1024 * 1024) return { name: file.name, type: 'image', dataUrl: out };
-    }
-    return { name: file.name, type: 'image', dataUrl: dataUrl0 };
-  } catch {
-    return { name: file.name, type: 'image', dataUrl: dataUrl0 };
-  }
-}
-$('#plusBtn').onclick = () => $('#attachFile').click();
-$('#attachFile').onchange = async e => {
-  const files = Array.from(e.target.files || []); e.target.value = ''; if (!files.length) return;
-  for (const f of files) {
-    const isImage = /^image\//.test(f.type) || /\.(png|jpe?g|webp|gif)$/i.test(f.name);
-    if (isImage) {
-      if (f.size > 5 * 1024 * 1024) { toast('รูปใหญ่เกินไป (จำกัด 5MB): ' + f.name); continue; }
-      try {
-        const att = await imageAttachment(f);
-        if (att.dataUrl.length > 6 * 1024 * 1024) { toast('รูปยังใหญ่เกินไปหลังย่อขนาด: ' + f.name); continue; }
-        pendingAttachments.push(att);
-        toast('แนบรูป ' + f.name + ' แล้ว');
-      } catch { toast('อ่านรูปนี้ไม่ได้: ' + f.name); }
-    } else {
-      if (f.size > 2 * 1024 * 1024) { toast('ไฟล์ใหญ่เกินไป (จำกัด 2MB): ' + f.name); continue; }
-      try {
-        const text = await f.text();
-        pendingAttachments.push({ name: f.name, type: 'text', content: text });
-        toast('แนบไฟล์ ' + f.name + ' แล้ว');
-      } catch { toast('อ่านไฟล์นี้ไม่ได้: ' + f.name); }
-    }
-  }
-  renderAttachRow();
-  $('#input').focus();
-};
-function renderAttachRow() {
-  const row = $('#attachRow'); row.textContent = '';
-  row.hidden = !pendingAttachments.length;
-  pendingAttachments.forEach((att, idx) => {
-    const isImg = att.type === 'image';
-    const chip = document.createElement('div'); chip.className = 'attach-chip' + (isImg ? ' img' : '');
-    const ic = document.createElement('span'); ic.className = 'ic';
-    if (isImg) { const im = document.createElement('img'); im.src = att.dataUrl; im.alt = ''; ic.append(im); } else ic.innerHTML = ICON_FILE;
-    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = att.name;
-    const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.setAttribute('aria-label', 'เอาไฟล์ ' + att.name + ' ออก'); rm.innerHTML = ICON_XSM;
-    rm.onclick = () => { pendingAttachments.splice(idx, 1); renderAttachRow(); };
-    chip.append(ic, nm, rm); row.append(chip);
+/* ================= Settings ================= */
+function fillSettings(){
+  const sp=$('#setProvider'); sp.innerHTML='';
+  Object.keys(PROVIDERS).forEach(k=>{
+    const o=document.createElement('option'); o.value=k; o.textContent=PROVIDERS[k].name; sp.appendChild(o);
   });
-  updateSend();
+  sp.value=settings.provider; showKey();
 }
-
-/* ===== ปุ่มไมค์ ===== */
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-function toggleMic() {
-  if (!SR) { toast('เบราว์เซอร์นี้ไม่รองรับการพูดแทนพิมพ์'); return; }
-  if (recording) { recognizer && recognizer.stop(); return; }
-  recognizer = new SR();
-  recognizer.lang = 'th-TH'; recognizer.interimResults = false; recognizer.maxAlternatives = 1;
-  recognizer.onstart = () => { recording = true; $('#micBtn').classList.add('active'); };
-  recognizer.onresult = ev => {
-    const t = Array.from(ev.results).map(r => r[0].transcript).join(' ');
-    const input = $('#input'); input.value = (input.value ? input.value + ' ' : '') + t; autosize();
-  };
-  recognizer.onerror = () => toast('ฟังไม่สำเร็จ ลองใหม่อีกครั้ง');
-  recognizer.onend = () => { recording = false; $('#micBtn').classList.remove('active'); };
-  try { recognizer.start(); } catch { toast('เริ่มไมโครโฟนไม่ได้'); }
+function showKey(){
+  $('#setKey').value = keys[$('#setProvider').value] || '';
+  $('#testResult').textContent='';
 }
-$('#micBtn').onclick = toggleMic;
-
-/* ===== ปุ่มโมเดล/effort (pill) ===== */
-const modelDlg = $('#modelDlg');
-$('#pillBtn').onclick = async () => { closeSide(); modelDlg.showModal(); fillModelDlg(); await fetchModels(); fillModelDlg(); };
-$('#modelDlgClose').onclick = () => modelDlg.close();
-modelDlg.addEventListener('click', e => { if (e.target === modelDlg) modelDlg.close(); });
-
-$('#pvClose').onclick = closePreview;
-$('#pvReload').onclick = () => { const f = $('#pvFrame'); f.srcdoc = ''; requestAnimationFrame(() => { f.srcdoc = pv.html; }); };
-$('#pvDl').onclick = () => downloadText(pv.name, pv.code);
-$('#pvFull').onclick = () => $('#preview').classList.toggle('full');
-
-/* ===== หน้าต่างตั้งค่า ===== */
-function openSettings() {
-  $('#fKey').value = settings.apiKey;
-  $('#fSys').value = settings.system; $('#fTemp').value = settings.temperature;
-  $('#fTempVal').textContent = settings.temperature; $('#fTheme').value = settings.theme;
-  $('#fBase').value = settings.baseUrl; $('#fHint').checked = !!settings.fileHint;
-  $('#balanceText').textContent = 'ยอดเงิน: —';
-  syncModelSheetState();
-  closeSide(); dlg.showModal();
-}
-$('#setBtn').onclick = openSettings;
-$('#balRefresh').onclick = fetchBalance;
-$('#fTemp').oninput = e => $('#fTempVal').textContent = e.target.value;
-$('#cancelBtn').onclick = () => dlg.close();
-dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
-$('#saveBtn').onclick = () => {
-  settings.apiKey = $('#fKey').value.trim();
-  settings.system = $('#fSys').value;
-  settings.temperature = Number($('#fTemp').value);
-  settings.theme = $('#fTheme').value;
-  settings.baseUrl = $('#fBase').value.trim() || DEFAULTS.baseUrl;
-  settings.fileHint = $('#fHint').checked;
-  save(K.set, settings); applyTheme(); updatePill(); syncModelSheetState();
-  dlg.close(); toast('บันทึกแล้ว');
-  if (!cur()) renderMessages();
+$('#settingsBtn').onclick=()=>{ fillSettings(); $('#settingsModal').classList.add('on'); };
+$('#closeSettings').onclick=()=>$('#settingsModal').classList.remove('on');
+$('#setProvider').onchange=showKey;
+$('#saveKeyBtn').onclick=()=>{
+  const p=$('#setProvider').value, v=$('#setKey').value.trim();
+  if(v) keys[p]=v; else delete keys[p];
+  store.set('byok_keys',keys);
+  toast(v?'บันทึก Key แล้ว 🔒':'ลบ Key แล้ว');
+};
+$('#delKeyBtn').onclick=()=>{
+  const p=$('#setProvider').value; delete keys[p];
+  store.set('byok_keys',keys); showKey(); toast('ลบ Key ของ '+PROVIDERS[p].name+' แล้ว');
+};
+$('#clearAllBtn').onclick=()=>{
+  if(!confirm('ลบ API Key ของทุก provider?')) return;
+  keys={}; store.set('byok_keys',keys); showKey(); toast('ลบ Key ทั้งหมดแล้ว');
+};
+$('#testKeyBtn').onclick=async()=>{
+  const p=$('#setProvider').value, k=($('#setKey').value.trim()||keys[p]||'');
+  const res=$('#testResult');
+  if(!k){ res.textContent='⚠️ ยังไม่ได้ใส่ Key'; return; }
+  res.textContent='⏳ กำลังทดสอบ…';
+  const headers={};
+  if(p==='anthropic'){ headers['x-api-key']=k; headers['anthropic-version']='2023-06-01'; }
+  else if(p==='gemini'){}
+  else headers['Authorization']='Bearer '+k;
+  const url = p==='gemini' ? TEST_URLS[p]+'?key='+encodeURIComponent(k) : TEST_URLS[p];
+  try{
+    const r=await fetch(url,{headers});
+    if(r.ok) res.textContent='✅ Key ใช้ได้!';
+    else res.textContent='❌ ใช้ไม่ได้ (HTTP '+r.status+') — ตรวจสอบ Key หรือยังไม่เปิด billing';
+  }catch(e){ res.textContent='❌ เชื่อมต่อไม่สำเร็จ (CORS/เครือข่าย)'; }
 };
 
-/* ===== ส่งออก / นำเข้า / ลบทั้งหมด ===== */
-$('#expBtn').onclick = () => {
-  const blob = new Blob([JSON.stringify({ app: 'deepseek-chat', chats }, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'deepseek-chats-' + new Date().toISOString().slice(0, 10) + '.json';
-  document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-};
-$('#impBtn').onclick = () => $('#impFile').click();
-$('#impFile').onchange = async e => {
-  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  try {
-    const data = JSON.parse(await f.text());
-    const list = Array.isArray(data) ? data : data.chats;
-    if (!Array.isArray(list)) throw new Error('bad');
-    let n = 0;
-    for (const c of list) {
-      if (!c || !c.id || deletedIds.has(c.id) || !Array.isArray(c.messages) || chats.some(x => x.id === c.id)) continue;
-      chats.push({ id: String(c.id), title: String(c.title || 'แชท'), updated: Number(c.updated) || Date.now(),
-        messages: c.messages.filter(m => m && (m.role === 'user' || m.role === 'assistant')).map(m => {
-          const out = { role: m.role, content: String(m.content || ''), reasoning: String(m.reasoning || '') };
-          if (m.displayText != null) out.displayText = String(m.displayText);
-          if (m.model) out.model = String(m.model);
-          if (m.usage) out.usage = m.usage;
-          if (Array.isArray(m.attachments)) out.attachments = m.attachments.filter(a => a && a.name).map(a =>
-            a.type === 'image' && a.dataUrl ? { name: String(a.name), type: 'image', dataUrl: String(a.dataUrl) } : { name: String(a.name), type: 'text', content: String(a.content || '') });
-          return out;
-        }) });
-      n++;
-    }
-    persist(); renderList(); toast('นำเข้า ' + n + ' แชท');
-  } catch { toast('ไฟล์ไม่ถูกต้อง'); }
-};
-$('#clrBtn').onclick = () => {
-  if (!confirm('ลบแชททั้งหมดในเครื่องนี้ ?')) return;
-  stopMic();
-  if (streaming) stop();
-  deletedIds = new Set([...deletedIds, ...chats.map(c => c.id)]);
-  saveDeleted();
-  chats = []; currentId = null; persist(); renderList(); renderMessages(); dlg.close();
-};
-
-/* ===== เริ่มต้น ===== */
-applyTheme(); updatePill(); fillModelDlg(); setBusy(false);
-if (!cur()) currentId = null;
-renderList(); renderMessages(); autosize();
-
-/* แท็บในหน้าตั้งค่า */
-function syncThemeSeg() {
-  document.querySelectorAll('#themeSeg button').forEach(b => {
-    const on = b.dataset.v === settings.theme;
-    b.classList.toggle('active', on); b.setAttribute('aria-pressed', on);
-  });
-}
-syncThemeSeg();
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.tabs button').forEach(x => { x.classList.toggle('active', x === b); x.setAttribute('aria-selected', String(x === b)); });
-  document.querySelectorAll('.tab-p').forEach(p => p.hidden = p.id !== 'tab-' + b.dataset.tab);
+/* ================= Events & init ================= */
+$('#menuBtn').onclick=openSidebar;
+$('#backdrop').onclick=closeSidebar;
+$('#newChatBtn').onclick=()=>newChat();
+[$('#settingsModal'),$('#previewModal')].forEach(m=>{
+  m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('on'); });
 });
-document.querySelectorAll('#themeSeg button').forEach(b => b.onclick = () => {
-  settings.theme = b.dataset.v; $('#fTheme').value = b.dataset.v;
-  save(K.set, settings); applyTheme(); syncThemeSeg();   // เปลี่ยนธีมเห็นผลทันที
-});
-$('#openModelSheet').onclick = () => { dlg.close(); modelDlg.showModal(); fillModelDlg(); fetchModels().then(() => fillModelDlg()); };
-$('#modelDlgX').onclick = () => modelDlg.close();
-
-/* thinking switch + custom model (บันทึกทันที เห็นผลทันที) */
-$('#fThink').onchange = e => { settings.thinking = e.target.checked; save(K.set, settings); updatePill(); syncModelSheetState(); };
-$('#fCustom').addEventListener('input', e => {
-  settings.customModel = e.target.value.trim();
-  save(K.set, settings); updatePill(); renderCustomState();
-  if (!cur()) renderMessages();
-});
-})();
+fillHeader(); renderSidebar(); renderMessages();
 </script>
 </body>
 </html>
