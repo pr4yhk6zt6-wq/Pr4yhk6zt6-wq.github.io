@@ -282,8 +282,10 @@ footer{border-top:1px solid var(--rule);background:var(--paper);padding:10px 14p
 .fld input[type=password],.fld input[type=text],.fld textarea{
   width:100%;background:var(--surface);border:1px solid var(--rule-2);border-radius:3px;padding:11px 12px;
   outline:none;font-family:var(--mono);font-size:13.5px}
+.fld input[type=url],.fld select{width:100%;background:var(--surface);border:1px solid var(--rule-2);border-radius:3px;padding:11px 12px;
+  outline:none;font-family:var(--sans);font-size:14px;color:var(--ink)}
 .fld textarea{font-family:var(--sans);font-size:14.5px;resize:vertical}
-.fld input:focus,.fld textarea:focus{border-color:var(--ink)}
+.fld input:focus,.fld textarea:focus,.fld select:focus{border-color:var(--ink)}
 .btnrow{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
 .b{flex:1;min-width:92px;padding:11px;border:1px solid var(--rule-2);border-radius:3px;font-size:12.5px;
   display:inline-flex;align-items:center;justify-content:center;gap:6px;color:var(--ink-2);white-space:nowrap}
@@ -413,23 +415,41 @@ html[data-theme="dark"] .trow .st.p{background:#22301a;color:#a3c47c}
   <div class="grab"></div>
   <div class="sheet-h"><h2>ตั้งค่า</h2><button class="ibtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
   <div class="sheet-b">
-    <div class="sec" style="margin-top:14px"><span class="lbl">กุญแจของคุณ</span><span class="line"></span></div>
-    <p class="note">กุญแจถูกเก็บไว้ใน localStorage ของเครื่องนี้เท่านั้น และถูกส่งตรงจากเบราว์เซอร์ไปยังผู้ให้บริการโมเดล — ไม่ผ่านเซิร์ฟเวอร์ตัวกลางใด ๆ</p>
-    <div class="pv-tabs" id="setTabs"></div>
+    <div class="sec" style="margin-top:14px"><span class="lbl">โมเดลที่ใช้</span><span class="line"></span></div>
+    <button class="opt" id="btnPickModel">
+      <span class="t"><b id="curModelName">—</b><span id="curModelId">—</span></span>
+      <span class="tick" style="opacity:1;color:var(--ink-3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m9 18 6-6-6-6"/></svg></span>
+    </button>
+
+    <div class="sec"><span class="lbl">กุญแจของผู้ให้บริการ</span><span class="line"></span></div>
+    <p class="note">เลือกเจ้าที่ต้องการด้านล่าง แล้วกรอกกุญแจเฉพาะเจ้านั้นได้เลย ระบบจำแยกให้ทุกเจ้า จึงสลับกลับมาใช้ภายหลังได้โดยไม่ต้องวางใหม่</p>
+    <div class="fld">
+      <label><span class="lbl">ผู้ให้บริการ</span></label>
+      <select id="providerPicker"></select>
+      <p class="note" id="providerHint" style="margin-top:7px"></p>
+    </div>
+    <div class="fld" id="compatFields" hidden>
+      <label><span class="lbl">ชื่อค่าย / Connection</span></label>
+      <input type="text" id="setCompatName" placeholder="เช่น Groq, xAI, Mistral" autocomplete="off">
+      <label style="margin-top:12px"><span class="lbl">API Base URL</span></label>
+      <input type="url" id="setCompatBase" placeholder="https://api.example.com/v1" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label style="margin-top:12px"><span class="lbl">Model ID</span></label>
+      <input type="text" id="setCompatModel" placeholder="เช่น llama-3.3-70b-versatile" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <p class="note" style="margin-top:8px">ใช้กับ API ที่รองรับรูปแบบ OpenAI Chat Completions เช่น Groq, xAI, Mistral, Together, Fireworks, DeepInfra, Cerebras และ Perplexity</p>
+    </div>
     <div class="fld" style="margin-top:2px">
       <label><span class="lbl">API Key</span><span class="lbl" id="keyState" style="margin-left:auto"></span></label>
-      <input type="password" id="setKey" placeholder="paste key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <input type="password" id="setKey" placeholder="วาง API Key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
       <div class="btnrow">
         <button class="b" id="btnEye">แสดง</button>
         <button class="b" id="btnPaste">วาง</button>
         <button class="b solid" id="btnSaveKey">บันทึก</button>
       </div>
       <div class="btnrow">
-        <button class="b" id="btnTest">ทดสอบกุญแจ</button>
+        <button class="b" id="btnTest">ทดสอบกุญแจนี้</button>
         <button class="b warn" id="btnDelKey">ลบกุญแจนี้</button>
       </div>
       <div class="status" id="testOut"></div>
-      <p class="note" id="keyHint" style="margin-top:10px"></p>
     </div>
 
     <div class="sec"><span class="lbl">พฤติกรรม</span><span class="line"></span></div>
@@ -440,6 +460,7 @@ html[data-theme="dark"] .trow .st.p{background:#22301a;color:#a3c47c}
     <div class="fld">
       <label><span class="lbl">Temperature</span><span class="lbl" id="tempVal" style="margin-left:auto;color:var(--ink)">0.7</span></label>
       <input type="range" id="setTemp" min="0" max="2" step="0.1">
+      <p class="note" id="tempNote" style="margin-top:6px"></p>
     </div>
     <div class="sw"><div class="t"><b>ส่งด้วยปุ่ม Enter</b><span>ปิดไว้จะขึ้นบรรทัดใหม่แทน (แนะนำบนมือถือ)</span></div><div class="toggle" id="swEnter"><i></i></div></div>
     <div class="sw"><div class="t"><b>ค้นจากอินเทอร์เน็ต</b><span>โมเดลจะค้นเว็บก่อนตอบคำถามที่ต้องใช้ข้อมูลปัจจุบัน</span></div><div class="toggle" id="swSearch"><i></i></div></div>
@@ -468,7 +489,7 @@ html[data-theme="dark"] .trow .st.p{background:#22301a;color:#a3c47c}
       <button class="b warn" id="btnWipeKeys">ล้างกุญแจทั้งหมด</button>
     </div>
     <div class="btnrow"><button class="b warn" id="btnWipeAll" style="flex:1 0 100%">ลบทุกอย่างในเครื่องนี้</button></div>
-    <p class="note" style="margin-top:20px">Kiln · เวอร์ชัน 2.1 · ไฟล์เดียว ไม่มีเซิร์ฟเวอร์ ไม่มีการเก็บสถิติ<br><span id="usageNote"></span></p>
+    <p class="note" style="margin-top:20px">Kiln · เวอร์ชัน 2.2 · ไฟล์เดียว ไม่มีเซิร์ฟเวอร์ ไม่มีการเก็บสถิติ<br><span id="usageNote"></span></p>
   </div>
 </div></div>
 
@@ -544,7 +565,7 @@ const PROVIDERS = {
     name: 'Gemini', wire: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta',
     prefix: 'AIza…', help: 'aistudio.google.com/apikey — มีโควตาฟรี',
     models: [
-      { id:'gemini-3-pro-preview',  label:'Gemini 3 Pro',        note:'บริบทยาว',  vision:true, think:'opt' },
+      { id:'gemini-3-pro-preview',  label:'Gemini 3 Pro',        note:'บริบทยาว',  vision:true, think:'opt', tlevel:true },
       { id:'gemini-2.5-pro',        label:'Gemini 2.5 Pro',      note:'',          vision:true, think:'opt' },
       { id:'gemini-2.5-flash',      label:'Gemini 2.5 Flash',    note:'เร็ว',      vision:true, think:'opt', off:true },
       { id:'gemini-2.5-flash-lite', label:'Gemini 2.5 Flash Lite', note:'ถูกสุด',  vision:true, think:'opt', off:true },
@@ -576,6 +597,11 @@ const PROVIDERS = {
       { id:'moonshotai/kimi-k2',         label:'Kimi K2',           note:'', vision:false, think:false },
       { id:'meta-llama/llama-4-maverick',label:'Llama 4 Maverick',  note:'', vision:true,  think:false }
     ]
+  },
+  compatible: {
+    name: 'ค่ายอื่น (OpenAI-compatible)', wire: 'compat', base: '',
+    prefix: 'API key ของค่ายนั้น', help: 'ตั้งชื่อค่าย, API Base URL และ Model ID ของคุณเอง',
+    models: [{ id:'', label:'กำหนด Model ID เอง', note:'ตั้งค่า URL ด้านล่าง', vision:true, think:false }]
   }
 };
 const LEVELS = [
@@ -595,8 +621,11 @@ const jget = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSO
 const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { toast('พื้นที่เก็บข้อมูลเต็ม'); return false; } };
 
 let keys  = jget(K.keys, {});
-let cfg   = Object.assign({ provider:'openai', model:{}, level:'auto', sys:'', temp:0.7, enter:false, theme:null, search:false }, jget(K.cfg, {}));
+let cfg   = Object.assign({ provider:'openai', model:{}, level:'auto', sys:'', temp:0.7, enter:false, theme:null, search:false,
+  compatible:{ name:'', base:'', model:'' } }, jget(K.cfg, {}));
 cfg.model = cfg.model || {};
+cfg.compatible = Object.assign({ name:'', base:'', model:'' }, cfg.compatible || {});
+if (!PROVIDERS[cfg.provider]) cfg.provider = 'openai';
 let chats = jget(K.chats, []);
 let curId = chats[0]?.id || null;
 let pending = [];        // attachments awaiting send
@@ -604,8 +633,17 @@ let ctrl = null, busy = false, pvSource = '';
 
 const saveCfg   = () => jset(K.cfg, cfg);
 const saveChats = () => jset(K.chats, chats);
-const P    = () => PROVIDERS[cfg.provider] || PROVIDERS.openai;
-const mId  = () => cfg.model[cfg.provider] || P().models[0].id;
+function compatBase(base) {
+  return String(base || '').trim().replace(/\/$/, '').replace(/\/chat\/completions$/i, '');
+}
+const P = () => {
+  if (cfg.provider !== 'compatible') return PROVIDERS[cfg.provider] || PROVIDERS.openai;
+  const c = cfg.compatible;
+  const id = c.model || cfg.model.compatible || '';
+  return { ...PROVIDERS.compatible, name:c.name.trim() || PROVIDERS.compatible.name, base:compatBase(c.base),
+    models:[{ id, label:id || 'กำหนด Model ID เอง', note:'กำหนดเอง', vision:true, think:false }] };
+};
+const mId  = () => cfg.provider === 'compatible' ? (cfg.compatible.model || cfg.model.compatible || '') : (cfg.model[cfg.provider] || P().models[0].id);
 const M    = () => P().models.find(m => m.id === mId()) || P().models[0];
 const chat = () => chats.find(c => c.id === curId);
 
@@ -905,7 +943,7 @@ function flatten(m) {
   if (files.length) t += '\n\n' + files.map(a => `<file name="${a.name}">\n${a.text}\n</file>`).join('\n\n');
   return t.trim() || '(ไฟล์แนบ)';
 }
-function buildOpenAI(msgs, vision, sys) {
+function buildOpenAI(msgs, vision, sys, wire) {
   const out = [];
   if (sys) out.push({ role:'system', content: sys });
   for (const m of msgs) {
@@ -914,7 +952,13 @@ function buildOpenAI(msgs, vision, sys) {
       const imgs = (m.attachments || []).filter(a => a.type === 'image');
       if (imgs.length && vision) out.push({ role:'user', content: [{ type:'text', text: flatten(m) }, ...imgs.map(a => ({ type:'image_url', image_url:{ url:a.dataUrl } }))] });
       else out.push({ role:'user', content: flatten(m) });
-    } else out.push({ role:'assistant', content: m.content || '' });
+    } else {
+      const a = { role:'assistant', content: m.content || '' };
+      /* DeepSeek V4 โหมดคิดบังคับให้ส่ง reasoning_content กลับทุกครั้ง ไม่งั้นตอบ 400
+         (แม้จะเป็นสตริงว่าง) — อ้างอิง api-docs.deepseek.com/guides/thinking_mode */
+      if (wire === 'deepseek') a.reasoning_content = m.reasoning || '';
+      out.push(a);
+    }
   }
   return out;
 }
@@ -958,6 +1002,12 @@ function reasonParams(wire, model, level) {
       if (level === 'auto' || level === 'off') return {};
       return { thinking:{ type:'enabled', budget_tokens: ANTHROPIC_BUDGET[level] } };
     case 'gemini': {
+      /* Gemini 3 ใช้ thinkingLevel (low/high) แทน budget และปิดการคิดไม่ได้สนิท */
+      if (model.tlevel) {
+        if (level === 'auto') return {};
+        if (level === 'off') return { thinkingConfig:{ thinkingLevel:'low' } };
+        return { thinkingConfig:{ thinkingLevel: level === 'low' ? 'low' : 'high' } };
+      }
       if (level === 'auto') return { thinkingConfig:{ includeThoughts:true, thinkingBudget:-1 } };
       if (level === 'off') return { thinkingConfig:{ includeThoughts:false, thinkingBudget:0 } };
       return { thinkingConfig:{ includeThoughts:true, thinkingBudget: GEMINI_BUDGET[level] } };
@@ -1137,10 +1187,12 @@ function buildResponsesInput(msgs, vision) {
 
 /* ─────────── callProvider — the single network seam ─────────── */
 async function callProvider({ provider, model, messages, level, signal, search, onText, onThink, onSearch, onSource }) {
-  const prov = PROVIDERS[provider];
+  const prov = provider === cfg.provider ? P() : PROVIDERS[provider];
   const mdef = prov.models.find(m => m.id === model) || { vision:false, think:false };
   const key = keys[provider];
   if (!key) throw new Error(`ยังไม่ได้ใส่กุญแจของ ${prov.name} — เปิดหน้าตั้งค่าก่อน`);
+  if (prov.wire === 'compat' && !prov.base) throw new Error('ยังไม่ได้ใส่ API Base URL ของค่ายนี้ — เปิดหน้าตั้งค่า');
+  if (prov.wire === 'compat' && !model) throw new Error('ยังไม่ได้ใส่ Model ID ของค่ายนี้ — เปิดหน้าตั้งค่า');
   const extra = reasonParams(prov.wire, mdef, level);
   onText = onText || noop; onThink = onThink || noop; onSearch = onSearch || noop; onSource = onSource || noop;
 
@@ -1156,7 +1208,7 @@ async function callProvider({ provider, model, messages, level, signal, search, 
   }
 
   /* ── OpenAI-compatible wire: openai / deepseek / openrouter ── */
-  if (prov.wire === 'openai' || prov.wire === 'deepseek' || prov.wire === 'openrouter') {
+  if (prov.wire === 'openai' || prov.wire === 'deepseek' || prov.wire === 'openrouter' || prov.wire === 'compat') {
     const headers = { 'Content-Type':'application/json', Authorization: 'Bearer ' + key };
     if (prov.wire === 'openrouter') {
       headers['HTTP-Referer'] = location.origin && location.origin !== 'null' ? location.origin : 'https://kiln.local';
@@ -1165,6 +1217,10 @@ async function callProvider({ provider, model, messages, level, signal, search, 
     /* DeepSeek ไม่มีค้นเว็บในตัว — ค้นในเบราว์เซอร์แล้วแนบผลให้โมเดล
        OpenAI (ถ้า Responses ใช้ไม่ได้) ใช้ function calling แล้วค่อย fallback แบบเดียวกัน */
     if (search && prov.wire === 'deepseek') {
+      await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource });
+      return;
+    }
+    if (search && prov.wire === 'compat') {
       await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource });
       return;
     }
@@ -1177,7 +1233,7 @@ async function callProvider({ provider, model, messages, level, signal, search, 
       }
       return;
     }
-    const body = { model, messages: buildOpenAI(messages, mdef.vision, cfg.sys), stream:true, ...extra };
+    const body = { model, messages: buildOpenAI(messages, mdef.vision, cfg.sys, prov.wire), stream:true, ...extra };
     if (!(prov.wire === 'openai' && mdef.think === 'opt')) body.temperature = cfg.temp;
     if (search && prov.wire === 'openrouter') {
       body.tools = [{ type:'openrouter:web_search' }, { type:'openrouter:web_fetch' }];
@@ -1243,7 +1299,8 @@ async function callProvider({ provider, model, messages, level, signal, search, 
 
   /* ── Gemini ── */
   if (prov.wire === 'gemini') {
-    const gen = { temperature: cfg.temp };
+    /* Gemini 3: เอกสารแนะนำให้คง temperature ไว้ที่ 1.0 — ค่าต่ำกว่านั้นทำให้คิดวนลูป/คุณภาพตก */
+    const gen = mdef.tlevel ? {} : { temperature: cfg.temp };
     if (extra.thinkingConfig) gen.thinkingConfig = extra.thinkingConfig;
     const body = { contents: buildGemini(messages, mdef.vision), generationConfig: gen };
     if (cfg.sys) body.systemInstruction = { parts:[{ text: cfg.sys }] };
@@ -1321,12 +1378,12 @@ async function searchThenStream({ url, headers, model, messages, extra, vision, 
   const copy = messages.map(m => ({ ...m, content: m.content, attachments: m.attachments }));
   const u = [...copy].reverse().find(m => m.role === 'user');
   if (u) u.content = (u.content || '') + '\n\n<search_results>\n' + result.text + '\n</search_results>\nอ้างอิงแหล่งที่มาเป็นลิงก์ markdown เมื่อใช้ข้อมูลจากผลการค้น';
-  const body = { model, messages: buildOpenAI(copy, vision, cfg.sys), stream:true, ...extra };
+  const body = { model, messages: buildOpenAI(copy, vision, cfg.sys, wire), stream:true, ...extra };
   if (!(wire === 'openai' && extra.reasoning_effort)) body.temperature = cfg.temp;
   await streamChat({ url, headers, body, signal, onText, onThink, onSource });
 }
 async function callCompatToolLoop({ url, headers, model, messages, extra, vision, wire, signal, onText, onThink, onSearch, onSource }) {
-  let msgs = buildOpenAI(messages, vision, (cfg.sys || '') + '\n\nYou have a web_search tool. Use it for current events, prices, news, or anything that may have changed after your knowledge cutoff. Cite sources with markdown links.');
+  let msgs = buildOpenAI(messages, vision, (cfg.sys || '') + '\n\nYou have a web_search tool. Use it for current events, prices, news, or anything that may have changed after your knowledge cutoff. Cite sources with markdown links.', wire);
   for (let round = 0; round < 4; round++) {
     const body = { model, messages: msgs, stream:true, tools:[SEARCH_TOOL], tool_choice: round === 0 ? 'auto' : 'auto', ...extra };
     if (!(wire === 'openai' && extra.reasoning_effort)) body.temperature = cfg.temp;
@@ -1360,7 +1417,9 @@ async function callCompatToolLoop({ url, headers, model, messages, extra, vision
       type: 'function',
       function: { name: t.name, arguments: t.arguments || '{}' }
     }));
-    msgs.push({ role:'assistant', content: null, tool_calls: packed });
+    const asst = { role:'assistant', content: null, tool_calls: packed };
+    if (wire === 'deepseek') asst.reasoning_content = '';   // V4 บังคับให้มีฟิลด์นี้ในลูป tool
+    msgs.push(asst);
     for (let i = 0; i < packed.length; i++) {
       const args = parseToolArgs(packed[i].function.arguments);
       const q = args.query || args.q || Object.values(args)[0] || '';
@@ -1514,12 +1573,17 @@ function drawModelSheet() {
   });
   const add = h('button', 'opt');
   const at = h('div', 't');
-  at.append(h('b', null, '+  เพิ่มโมเดลเอง'), h('span', null, 'พิมพ์ model id ตรงจากเอกสารผู้ให้บริการ'));
   add.append(at);
-  add.onclick = () => {
-    const id = prompt(`Model ID ของ ${P().name}\nตัวอย่าง: ${P().models[0].id}`, '');
-    if (id && id.trim()) { addCustomModel(cfg.provider, id.trim()); drawModelSheet(); head(); }
-  };
+  if (cfg.provider === 'compatible') {
+    at.append(h('b', null, 'กำหนด Model ID ในตั้งค่า'), h('span', null, 'ใส่ชื่อค่าย, Base URL และ Model ID ของคุณเอง'));
+    add.onclick = () => { close$('#shModel'); openSettings(); setTimeout(() => $('#setCompatModel').focus(), 250); };
+  } else {
+    at.append(h('b', null, '+  เพิ่มโมเดลเอง'), h('span', null, 'พิมพ์ model id ตรงจากเอกสารผู้ให้บริการ'));
+    add.onclick = () => {
+      const id = prompt(`Model ID ของ ${P().name}\nตัวอย่าง: ${P().models[0].id}`, '');
+      if (id && id.trim()) { addCustomModel(cfg.provider, id.trim()); drawModelSheet(); head(); }
+    };
+  }
   list.append(add);
   $('#noKeyNote').textContent = keys[cfg.provider]
     ? `กุญแจ ${P().name} พร้อมใช้งานแล้ว`
@@ -1573,24 +1637,36 @@ function drawReasonSheet() {
 function openSettings() { drawSettings(); open$('#shSet'); railClose(); }
 $('#btnSettings').onclick = openSettings;
 $('#btnSettings2').onclick = openSettings;
+function selectProvider(id) {
+  cfg.provider = id;
+  saveCfg(); drawSettings(); head(); drawThread();
+}
 function drawSettings() {
-  const tabs = $('#setTabs'); tabs.innerHTML = '';
+  const picker = $('#providerPicker'); picker.innerHTML = '';
   Object.entries(PROVIDERS).forEach(([id, p]) => {
-    const t = h('button', 'pv-tab' + (id === cfg.provider ? ' on' : ''));
-    t.innerHTML = `<span class="k${keys[id] ? ' has' : ''}"></span>${p.name}`;
-    t.onclick = () => { cfg.provider = id; saveCfg(); drawSettings(); head(); };
-    tabs.append(t);
+    const o = h('option'); o.value = id; o.textContent = p.name;
+    picker.append(o);
   });
+  picker.value = cfg.provider;
+  const p = P();
+  $('#curModelName').textContent = p.name + ' · ' + M().label;
+  $('#curModelId').textContent = (mId() || 'ยังไม่ได้ระบุ Model ID') + (cfg.search ? ' · ค้นเว็บเปิด' : '');
+  $('#providerHint').textContent = p.help;
+  $('#compatFields').hidden = cfg.provider !== 'compatible';
+  $('#setCompatName').value = cfg.compatible.name || '';
+  $('#setCompatBase').value = cfg.compatible.base || '';
+  $('#setCompatModel').value = cfg.compatible.model || '';
   $('#setKey').value = keys[cfg.provider] || '';
-  $('#setKey').placeholder = P().prefix;
-  $('#setKey').type = 'password';
-  $('#btnEye').textContent = 'แสดง';
+  $('#setKey').placeholder = p.prefix;
+  $('#setKey').type = 'password'; $('#btnEye').textContent = 'แสดง';
   $('#keyState').textContent = keys[cfg.provider] ? 'บันทึกแล้ว' : 'ว่าง';
   $('#keyState').style.color = keys[cfg.provider] ? 'var(--accent)' : '';
-  $('#keyHint').textContent = 'ขอกุญแจได้ที่ ' + P().help;
   $('#testOut').textContent = ''; $('#testOut').className = 'status';
   $('#setSys').value = cfg.sys || '';
   $('#setTemp').value = cfg.temp; $('#tempVal').textContent = Number(cfg.temp).toFixed(1);
+  $('#tempNote').textContent = M().tlevel
+    ? 'Gemini 3 แนะนำให้คงไว้ที่ 1.0 (ค่าต่ำกว่าทำให้คิดวนลูป) — จึงข้ามค่านี้ให้อัตโนมัติ'
+    : (cfg.provider === 'openai' && M().think === 'opt' ? 'โมเดลตระกูล GPT-5/o-series ใช้ค่าเริ่มต้นของตัวเอง — จึงข้ามค่านี้ให้อัตโนมัติ' : '');
   $('#swEnter').classList.toggle('on', !!cfg.enter);
   $('#swSearch').classList.toggle('on', !!cfg.search);
   $('#swTheme').classList.toggle('on', document.documentElement.dataset.theme === 'dark');
@@ -1599,21 +1675,34 @@ function drawSettings() {
   const bytes = new Blob([JSON.stringify(chats)]).size;
   $('#usageNote').textContent = `บทสนทนา ${chats.length} รายการ · ใช้พื้นที่ราว ${(bytes / 1024).toFixed(0)} KB`;
 }
-$('#btnEye').onclick = () => { const i = $('#setKey'); const s = i.type === 'password'; i.type = s ? 'text' : 'password'; $('#btnEye').textContent = s ? 'ซ่อน' : 'แสดง'; };
+$('#providerPicker').onchange = e => selectProvider(e.target.value);
+$('#btnPickModel').onclick = () => { close$('#shSet'); drawModelSheet(); open$('#shModel'); };
+$('#btnEye').onclick = () => { const i = $('#setKey'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; $('#btnEye').textContent = show ? 'ซ่อน' : 'แสดง'; };
 $('#btnPaste').onclick = async () => {
-  try { const t = await navigator.clipboard.readText(); $('#setKey').value = t.trim(); toast('วางแล้ว'); }
+  try { $('#setKey').value = (await navigator.clipboard.readText()).trim(); toast('วางแล้ว'); }
   catch { toast('แตะค้างในช่องแล้วเลือก Paste'); }
 };
 $('#btnSaveKey').onclick = () => {
   const v = $('#setKey').value.trim();
   if (!v) { toast('ยังไม่ได้ใส่กุญแจ'); return; }
-  keys[cfg.provider] = v; jset(K.keys, keys); drawSettings(); head(); drawThread(); toast('บันทึกกุญแจแล้ว');
+  keys[cfg.provider] = v; jset(K.keys, keys); drawSettings(); head(); drawThread(); toast('บันทึกกุญแจ ' + P().name + ' แล้ว');
 };
 $('#btnDelKey').onclick = () => {
   if (!keys[cfg.provider] || !confirm('ลบกุญแจของ ' + P().name + ' ?')) return;
-  delete keys[cfg.provider]; jset(K.keys, keys); drawSettings(); head(); toast('ลบแล้ว');
+  delete keys[cfg.provider]; jset(K.keys, keys); drawSettings(); head(); drawThread(); toast('ลบแล้ว');
 };
-$('#btnWipeKeys').onclick = () => { if (!confirm('ลบกุญแจของทุกผู้ให้บริการ ?')) return; keys = {}; jset(K.keys, keys); drawSettings(); head(); toast('ล้างกุญแจแล้ว'); };
+function saveCompatibleFields() {
+  cfg.compatible.name = $('#setCompatName').value.trim();
+  cfg.compatible.base = compatBase($('#setCompatBase').value);
+  cfg.compatible.model = $('#setCompatModel').value.trim();
+  cfg.model.compatible = cfg.compatible.model;
+  saveCfg(); head();
+}
+['#setCompatName', '#setCompatBase', '#setCompatModel'].forEach(s => $(s).addEventListener('input', saveCompatibleFields));
+$('#btnWipeKeys').onclick = () => {
+  if (!confirm('ลบกุญแจของทุกผู้ให้บริการ (รวม Jina / Tavily) ?')) return;
+  keys = {}; jset(K.keys, keys); drawSettings(); head(); drawThread(); toast('ล้างกุญแจทั้งหมดแล้ว');
+};
 $('#btnWipeAll').onclick = () => {
   if (!confirm('ลบบทสนทนาและกุญแจทั้งหมดในเครื่องนี้ ? ย้อนกลับไม่ได้')) return;
   [K.keys, K.cfg, K.chats].forEach(k => localStorage.removeItem(k)); location.reload();
@@ -1627,31 +1716,44 @@ $('#setJina').oninput = e => { const v = e.target.value.trim(); if (v) keys.jina
 $('#setTavily').oninput = e => { const v = e.target.value.trim(); if (v) keys.tavily = v; else delete keys.tavily; jset(K.keys, keys); };
 $('#btnSearch').onclick = () => { cfg.search = !cfg.search; saveCfg(); head(); };
 
-/* test key — cheap, no generation where possible */
-$('#btnTest').onclick = async () => {
-  const out = $('#testOut'), id = cfg.provider, p = P();
-  const key = $('#setKey').value.trim() || keys[id];
-  if (!key) { out.className = 'status bad'; out.textContent = 'ยังไม่ได้ใส่กุญแจ'; return; }
-  out.className = 'status'; out.textContent = 'กำลังทดสอบ…';
-  try {
-    let res;
-    if (id === 'openai')          res = await fetch(p.base + '/models', { headers:{ Authorization:'Bearer ' + key } });
-    else if (id === 'openrouter') res = await fetch(p.base + '/key',    { headers:{ Authorization:'Bearer ' + key } });
-    else if (id === 'google')     res = await fetch(p.base + '/models', { headers:{ 'x-goog-api-key': key } });
-    else if (id === 'deepseek')   res = await fetch(p.base + '/models', { headers:{ Authorization:'Bearer ' + key } });
-    else res = await fetch(p.base + '/messages', { method:'POST', headers:{
-        'Content-Type':'application/json', 'x-api-key': key, 'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true' },
-        body: JSON.stringify({ model: mId(), max_tokens:1, messages:[{ role:'user', content:'hi' }] }) });
-    if (res.ok) {
-      out.className = 'status ok'; out.textContent = '✓ กุญแจใช้งานได้';
-      keys[id] = key; jset(K.keys, keys); drawSettings(); head(); drawThread();
-    } else { out.className = 'status bad'; out.textContent = await apiError(res); }
-  } catch (e) {
-    out.className = 'status bad';
-    out.textContent = 'เชื่อมต่อไม่ได้ — ' + (e.message || e) + ' (อาจเป็นเน็ตหลุดหรือ CORS)';
+/* ทดสอบกุญแจ — ยิง endpoint ที่ไม่สร้างโทเคนก่อน ถ้า custom ไม่รองรับจึงยิง chat สั้นที่สุด */
+async function probeKey(pid, key) {
+  const p = pid === 'compatible' ? P() : PROVIDERS[pid];
+  if (!p?.base) return { ok:false, msg:'กรอก API Base URL ก่อนทดสอบ' };
+  let res;
+  if (pid === 'openai')          res = await fetch(p.base + '/models', { headers:{ Authorization:'Bearer ' + key } });
+  else if (pid === 'openrouter') res = await fetch(p.base + '/key',    { headers:{ Authorization:'Bearer ' + key } });
+  else if (pid === 'google')     res = await fetch(p.base + '/models', { headers:{ 'x-goog-api-key': key } });
+  else if (pid === 'deepseek')   res = await fetch(p.base + '/models', { headers:{ Authorization:'Bearer ' + key } });
+  else if (pid === 'compatible') {
+    res = await fetch(p.base + '/models', { headers:{ Authorization:'Bearer ' + key } });
+    if ((res.status === 404 || res.status === 405) && mId()) {
+      res = await fetch(p.base + '/chat/completions', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + key },
+        body:JSON.stringify({ model:mId(), max_tokens:1, messages:[{ role:'user', content:'ping' }] }) });
+    }
   }
-};
+  else res = await fetch(p.base + '/messages', { method:'POST', headers:{
+      'Content-Type':'application/json', 'x-api-key': key, 'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model: p.models[0].id, max_tokens: 1, messages:[{ role:'user', content:'hi' }] }) });
+  return res.ok ? { ok:true } : { ok:false, msg: await apiError(res) };
+}
+async function runKeyTest(pid, key) {
+  const st = $('#testOut');
+  if (!key) { st.className = 'status bad'; st.textContent = 'ยังไม่ได้ใส่กุญแจ'; return false; }
+  st.className = 'status'; st.textContent = 'กำลังทดสอบ…';
+  try {
+    const r = await probeKey(pid, key);
+    if (r.ok) { keys[pid] = key; jset(K.keys, keys); head(); }
+    st.textContent = r.ok ? 'กุญแจใช้งานได้ — พร้อมคุยได้เลย' : r.msg;
+    st.className = 'status ' + (r.ok ? 'ok' : 'bad');
+    return r.ok;
+  } catch (err) {
+    st.textContent = 'เชื่อมต่อไม่ได้ — ' + (err.message || err) + ' (เน็ตหลุดหรือ CORS)'; st.className = 'status bad';
+    return false;
+  }
+}
+$('#btnTest').onclick = () => runKeyTest(cfg.provider, $('#setKey').value.trim() || keys[cfg.provider]);
 
 /* backup / restore */
 $('#btnExport').onclick = () => save(JSON.stringify({ app:'kiln', v:2, at:new Date().toISOString(), keys, cfg, chats }, null, 2),
@@ -1663,6 +1765,8 @@ $('#importFile').onchange = async e => {
     const d = JSON.parse(await f.text());
     if (d.keys) keys = d.keys;
     if (d.cfg) cfg = Object.assign(cfg, d.cfg);
+    cfg.model = cfg.model || {};
+    cfg.compatible = Object.assign({ name:'', base:'', model:'' }, cfg.compatible || {});
     if (Array.isArray(d.chats)) chats = d.chats;
     curId = chats[0]?.id || null;
     jset(K.keys, keys); saveCfg(); saveChats();
@@ -1720,16 +1824,48 @@ function runTests() {
   t('reasoning → OpenAI', () => { eq(reasonParams('openai', { think:'opt', off:true }, 'high'), { reasoning_effort:'high' }); eq(reasonParams('openai', { think:'opt' }, 'auto'), {}); return 'ok'; });
   t('reasoning → Anthropic budget', () => { eq(reasonParams('anthropic', { think:'opt' }, 'medium'), { thinking:{ type:'enabled', budget_tokens:8000 } }); return '8000 tokens'; });
   t('reasoning → Gemini thinkingConfig', () => { eq(reasonParams('gemini', { think:'opt' }, 'low').thinkingConfig.thinkingBudget, 1024); eq(reasonParams('gemini', { think:'opt', off:true }, 'off').thinkingConfig.thinkingBudget, 0); return 'ok'; });
+  t('reasoning → Gemini 3 ใช้ thinkingLevel', () => {
+    eq(reasonParams('gemini', { think:'opt', tlevel:true }, 'high'), { thinkingConfig:{ thinkingLevel:'high' } });
+    eq(reasonParams('gemini', { think:'opt', tlevel:true }, 'medium'), { thinkingConfig:{ thinkingLevel:'high' } });
+    eq(reasonParams('gemini', { think:'opt', tlevel:true }, 'off'), { thinkingConfig:{ thinkingLevel:'low' } });
+    eq(reasonParams('gemini', { think:'opt', tlevel:true }, 'auto'), {});
+    return 'low/high (Gemini 3 ปิดคิดไม่ได้สนิท)';
+  });
+  t('DeepSeek V4 ส่ง reasoning_content กลับ', () => {
+    const o = buildOpenAI([{ role:'assistant', content:'ตอบแล้ว', reasoning:'คิดอะไรมา' }], false, '', 'deepseek');
+    eq(o[0].reasoning_content, 'คิดอะไรมา');
+    const e = buildOpenAI([{ role:'assistant', content:'ไม่มีเหตุผล' }], false, '', 'deepseek');
+    eq(e[0].reasoning_content, '');
+    return 'มี/ไม่มี ต้องมีฟิลด์เสมอ';
+  });
+  t('เจ้าอื่นไม่ส่ง reasoning_content', () => {
+    const o = buildOpenAI([{ role:'assistant', content:'x', reasoning:'y' }], false, '', 'openai');
+    eq('reasoning_content' in o[0], false); return 'ok';
+  });
+  t('รายการผู้ให้บริการในตัวเลือก', () => {
+    drawSettings();
+    const values = [...document.querySelectorAll('#providerPicker option')].map(o => o.value);
+    eq(values.length, Object.keys(PROVIDERS).length);
+    if (!values.includes('compatible')) throw new Error('ไม่พบ OpenAI-compatible');
+    return values.length + ' ตัวเลือก + custom endpoint';
+  });
+  t('สร้าง connection OpenAI-compatible', () => {
+    const before = { ...cfg.compatible }, old = cfg.provider;
+    cfg.provider = 'compatible'; cfg.compatible = { name:'Groq', base:'https://api.groq.com/openai/v1/', model:'llama-3.3-70b-versatile' };
+    eq(P().name, 'Groq'); eq(P().base, 'https://api.groq.com/openai/v1'); eq(mId(), 'llama-3.3-70b-versatile');
+    cfg.compatible = before; cfg.provider = old;
+    return 'ชื่อ / URL / model แยกได้';
+  });
   t('reasoning → DeepSeek V4', () => { eq(reasonParams('deepseek', { think:'opt', off:true }, 'high'), { thinking:{ type:'enabled' }, reasoning_effort:'max' }); eq(reasonParams('deepseek', { think:'opt', off:true }, 'off'), { thinking:{ type:'disabled' } }); return 'max / disabled'; });
   t('reasoning → โมเดลที่ไม่รองรับ', () => { eq(reasonParams('openai', { think:false }, 'high'), {}); return 'ไม่ส่งพารามิเตอร์'; });
   t('ปิดการคิดในโมเดลที่ปิดไม่ได้', () => { eq(reasonParams('gemini', { think:'opt' }, 'off').thinkingConfig.thinkingBudget, -1); return 'ถอยไปใช้ auto'; });
   t('รายการโมเดลครบถ้วน', () => {
     let n = 0;
     for (const [id, p] of Object.entries(PROVIDERS)) {
-      if (!p.base || !p.wire || !p.models.length) throw new Error(id + ' ข้อมูลไม่ครบ');
-      p.models.forEach(m => { if (!m.id || !m.label) throw new Error(id + ' มีโมเดลที่ข้อมูลไม่ครบ'); n++; });
+      if ((!p.base && id !== 'compatible') || !p.wire || !p.models.length) throw new Error(id + ' ข้อมูลไม่ครบ');
+      p.models.forEach(m => { if ((!m.id && id !== 'compatible') || !m.label) throw new Error(id + ' มีโมเดลที่ข้อมูลไม่ครบ'); n++; });
     }
-    return n + ' โมเดล / ' + Object.keys(PROVIDERS).length + ' ผู้ให้บริการ';
+    return n + ' โมเดล / ' + Object.keys(PROVIDERS).length + ' ตัวเลือก (รวม custom endpoint)';
   });
   t('Blob + ดาวน์โหลดไฟล์ได้', () => { const u = URL.createObjectURL(new Blob(['x'])); URL.revokeObjectURL(u); if (!('download' in document.createElement('a'))) throw new Error('เบราว์เซอร์ไม่รองรับ download'); return 'ok'; });
   t('fetch + AbortController + stream', () => { if (!window.fetch || !window.AbortController || !window.ReadableStream) throw new Error('เบราว์เซอร์เก่าเกินไป'); return 'ok'; });
