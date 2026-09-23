@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kiln">
+<meta name="description" content="Kiln — a local-first chat workspace. Your keys, your device.">
+<title>Kiln — บทสนทนา</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231a1a18'/><circle cx='16' cy='16' r='6' fill='none' stroke='%23c2603c' stroke-width='2'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Noto+Serif+Thai:wght@400;500&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app">
+  <!-- ══ rail ══ -->
+  <aside id="rail">
+    <div class="rail-top">
+      <div class="wordmark">Kiln<i>.</i></div>
+      <span class="ver">local&nbsp;first</span>
+    </div>
+    <button class="new-btn" id="btnNew"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg>บทสนทนาใหม่</button>
+    <div class="rail-sec"><span class="lbl">บทสนทนา</span><span class="line"></span><span class="lbl" id="convCount">0</span></div>
+    <nav id="chatList"></nav>
+    <div class="rail-foot">
+      <button id="btnSettings2"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>ตั้งค่า</button>
+      <button id="btnTheme2"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span id="themeLbl">มืด</span></button>
+    </div>
+  </aside>
+  <div id="scrim"></div>
+
+  <!-- ══ main ══ -->
+  <main>
+    <header>
+      <button class="ibtn" id="btnMenu" aria-label="เมนู"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="head-mid">
+        <h1 id="hTitle">บทสนทนาใหม่</h1>
+        <button id="modelBtn"><span class="st"></span><span class="nm">เลือกโมเดล</span><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg></button>
+      </div>
+      <button class="ibtn" id="btnSettings" aria-label="ตั้งค่า"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    </header>
+
+    <div id="scroller"><div id="msgs"></div></div>
+
+    <footer>
+      <div class="cwrap">
+        <div id="attRow"></div>
+        <div class="editor" id="editor">
+          <textarea id="ta" rows="1" placeholder="เขียนข้อความ…"></textarea>
+          <div class="ebar">
+            <button class="tbtn" id="btnAtt" aria-label="แนบไฟล์"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+            <button class="tbtn" id="btnSearch" aria-label="ค้นจากเว็บ" title="ค้นจากอินเทอร์เน็ต"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span class="v" id="searchVal">เว็บ</span></button>
+            <button class="tbtn" id="btnReason"><span>คิด</span><span class="v" id="reasonVal">อัตโนมัติ</span></button>
+            <span class="sp"></span>
+            <span class="hintkey" id="hintKey"></span>
+            <button id="btnSend" disabled aria-label="ส่ง"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+            <button id="btnStop" aria-label="หยุด"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="fileIn" multiple accept="image/*,text/*,.zip,.pdf,.pptx,.docx,.xlsx,application/zip,application/x-zip-compressed,.txt,.md,.markdown,.js,.mjs,.cjs,.ts,.tsx,.jsx,.py,.json,.csv,.tsv,.html,.htm,.css,.scss,.less,.xml,.yml,.yaml,.toml,.ini,.env,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.php,.rb,.sql,.sh,.bash,.zsh,.swift,.kt,.dart,.lua,.r,.vue,.svelte,.astro,.log,.srt,.vtt,.svg,.gitignore,.dockerfile,.makefile,.conf,.cfg,.txt" hidden>
+    </footer>
+  </main>
+</div>
+
+<!-- ══ model sheet ══ -->
+<div class="sheet-wrap" id="shModel"><div class="bg" data-close></div><div class="sheet">
+  <div class="grab"></div>
+  <div class="sheet-h"><h2>โมเดล</h2><button class="ibtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="sheet-b"><div class="pv-tabs" id="pvTabs"></div><div id="modelList"></div>
+    <p class="note" id="noKeyNote" style="margin-top:16px"></p></div>
+</div></div>
+
+<!-- ══ reasoning sheet ══ -->
+<div class="sheet-wrap" id="shReason"><div class="bg" data-close></div><div class="sheet">
+  <div class="grab"></div>
+  <div class="sheet-h"><h2>ระดับการคิด</h2><button class="ibtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="sheet-b"><div id="reasonList"></div>
+    <p class="note" style="margin-top:14px" id="reasonNote"></p></div>
+</div></div>
+
+<!-- ══ settings sheet ══ -->
+<div class="sheet-wrap" id="shSet"><div class="bg" data-close></div><div class="sheet">
+  <div class="grab"></div>
+  <div class="sheet-h"><h2>ตั้งค่า</h2><button class="ibtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="sheet-b">
+    <div class="sec" style="margin-top:14px"><span class="lbl">โมเดลที่ใช้</span><span class="line"></span></div>
+    <button class="opt" id="btnPickModel">
+      <span class="t"><b id="curModelName">—</b><span id="curModelId">—</span></span>
+      <span class="tick" style="opacity:1;color:var(--ink-3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m9 18 6-6-6-6"/></svg></span>
+    </button>
+
+    <div class="sec"><span class="lbl" id="providerSectionTitle">กุญแจของผู้ให้บริการ</span><span class="line"></span></div>
+    <p class="note" id="providerSectionNote">เลือกเจ้าที่ต้องการด้านล่าง แล้วกรอกกุญแจเฉพาะเจ้านั้นได้เลย ระบบจำแยกให้ทุกเจ้า จึงสลับกลับมาใช้ภายหลังได้โดยไม่ต้องวางใหม่</p>
+    <div class="fld">
+      <label><span class="lbl">ผู้ให้บริการ</span></label>
+      <select id="providerPicker"></select>
+      <p class="note" id="providerHint" style="margin-top:7px"></p>
+    </div>
+    <div class="fld" id="compatFields" hidden>
+      <label><span class="lbl">ชื่อค่าย / Connection</span></label>
+      <input type="text" id="setCompatName" placeholder="เช่น Groq, xAI, Mistral" autocomplete="off">
+      <label style="margin-top:12px"><span class="lbl">API Base URL</span></label>
+      <input type="url" id="setCompatBase" placeholder="https://api.example.com/v1" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label style="margin-top:12px"><span class="lbl">Model ID</span></label>
+      <input type="text" id="setCompatModel" placeholder="เช่น llama-3.3-70b-versatile" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <p class="note" style="margin-top:8px">ใช้กับ API ที่รองรับรูปแบบ OpenAI Chat Completions เช่น Groq, xAI, Mistral, Together, Fireworks, DeepInfra, Cerebras และ Perplexity</p>
+    </div>
+    <div class="fld" id="providerKeyField" style="margin-top:2px">
+      <label><span class="lbl">API Key</span><span class="lbl" id="keyState" style="margin-left:auto"></span></label>
+      <input type="password" id="setKey" placeholder="วาง API Key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div class="btnrow">
+        <button class="b" id="btnEye">แสดง</button>
+        <button class="b" id="btnPaste">วาง</button>
+        <button class="b solid" id="btnSaveKey">บันทึก</button>
+      </div>
+      <div class="btnrow">
+        <button class="b" id="btnTest">ทดสอบกุญแจนี้</button>
+        <button class="b warn" id="btnDelKey">ลบกุญแจนี้</button>
+      </div>
+      <div class="status" id="testOut"></div>
+    </div>
+
+    <div class="sec"><span class="lbl">พฤติกรรม</span><span class="line"></span></div>
+    <div class="fld">
+      <label><span class="lbl">System prompt</span></label>
+      <textarea id="setSys" rows="3" placeholder="เช่น ตอบเป็นภาษาไทยเสมอ กระชับ ตรงประเด็น"></textarea>
+    </div>
+    <div class="fld">
+      <label><span class="lbl">Temperature</span><span class="lbl" id="tempVal" style="margin-left:auto;color:var(--ink)">0.7</span></label>
+      <input type="range" id="setTemp" min="0" max="2" step="0.1">
+      <p class="note" id="tempNote" style="margin-top:6px"></p>
+    </div>
+    <div class="sw"><div class="t"><b>ส่งด้วยปุ่ม Enter</b><span>ปิดไว้จะขึ้นบรรทัดใหม่แทน (แนะนำบนมือถือ)</span></div><div class="toggle" id="swEnter"><i></i></div></div>
+    <div class="sw"><div class="t"><b>ค้นจากอินเทอร์เน็ต</b><span>โมเดลจะค้นเว็บก่อนตอบคำถามที่ต้องใช้ข้อมูลปัจจุบัน</span></div><div class="toggle" id="swSearch"><i></i></div></div>
+    <div class="sw"><div class="t"><b>ธีมมืด</b><span>สลับโทนกระดาษ</span></div><div class="toggle" id="swTheme"><i></i></div></div>
+
+    <div class="sec"><span class="lbl">ค้นเว็บ</span><span class="line"></span></div>
+    <p class="note">Gemini · Claude · OpenAI · OpenRouter ใช้กุญแจเดิมของโมเดล — <b>ไม่ต้องซื้อ API เพิ่ม</b><br>
+    DeepSeek ไม่มีค้นเว็บในตัว จึงใช้วิกิพีเดีย + อ่านหน้าเว็บฟรี (ใส่กุญแจ Jina หรือ Tavily ด้านล่างถ้าอยากได้ผลลัพธ์กว้างขึ้น)</p>
+    <div class="fld">
+      <label><span class="lbl">Jina API Key</span><span class="lbl" style="margin-left:auto">ไม่บังคับ</span></label>
+      <input type="password" id="setJina" placeholder="jina_…" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="fld">
+      <label><span class="lbl">Tavily API Key</span><span class="lbl" style="margin-left:auto">ไม่บังคับ</span></label>
+      <input type="password" id="setTavily" placeholder="tvly-…" autocomplete="off" spellcheck="false">
+    </div>
+    <p class="note">รับกุญแจฟรีที่ jina.ai และ tavily.com — เก็บในเครื่องคุณเหมือนกุญแจอื่น</p>
+
+    <div class="sec"><span class="lbl">พร็อกซี (แก้ CORS)</span><span class="line"></span></div>
+    <p class="note">ถ้าเจอ <b>Load failed / Failed to fetch</b> ให้ใส่ URL ของ Cloudflare Worker ที่ deploy จาก <b>proxy/worker.js</b> — แอปจะลองยิงตรงก่อน ถ้าพังจึงส่งผ่านพร็อกซีให้อัตโนมัติ</p>
+    <div class="fld">
+      <label><span class="lbl">Proxy URL</span><span class="lbl" style="margin-left:auto">ไม่บังคับ</span></label>
+      <input type="url" id="setProxy" placeholder="https://kiln-proxy.your-name.workers.dev" autocomplete="off" spellcheck="false" autocapitalize="off">
+    </div>
+    <div class="sw"><div class="t"><b>ส่งผ่านพร็อกซีทุกครั้ง</b><span>ปิดไว้ = ยิงตรงก่อน แล้วค่อยถอยมาใช้พร็อกซีเมื่อพัง</span></div><div class="toggle" id="swProxyAll"><i></i></div></div>
+    <div class="btnrow"><button class="b" id="btnProxyTest">ทดสอบพร็อกซี</button></div>
+    <div class="status" id="proxyOut"></div>
+
+    <div class="sec"><span class="lbl">ข้อมูล</span><span class="line"></span></div>
+    <div class="btnrow">
+      <button class="b" id="btnExport">สำรองข้อมูล</button>
+      <button class="b" id="btnImport">กู้คืน</button>
+    </div>
+    <div class="btnrow">
+      <button class="b" id="btnDiag">ตรวจสอบระบบ</button>
+      <button class="b warn" id="btnWipeKeys">ล้างกุญแจทั้งหมด</button>
+    </div>
+    <div class="btnrow"><button class="b warn" id="btnWipeAll" style="flex:1 0 100%">ลบทุกอย่างในเครื่องนี้</button></div>
+    <p class="note" style="margin-top:20px">Kiln · เวอร์ชัน 2.5 · ไฟล์เดียว ไม่มีเซิร์ฟเวอร์ ไม่มีการเก็บสถิติ<br><span id="usageNote"></span></p>
+  </div>
+</div></div>
+
+<!-- ══ diagnostics sheet ══ -->
+<div class="sheet-wrap" id="shDiag"><div class="bg" data-close></div><div class="sheet">
+  <div class="grab"></div>
+  <div class="sheet-h"><h2>ตรวจสอบระบบ</h2><button class="ibtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="sheet-b"><p class="note" style="margin-bottom:10px">ทดสอบส่วนประกอบภายในของแอปโดยไม่ใช้เครดิต API</p>
+    <div id="diagList"></div><div class="btnrow"><button class="b solid" id="btnRerun">ทดสอบอีกครั้ง</button></div>
+    <div class="sec"><span class="lbl">ตรวจไฟล์จริง</span><span class="line"></span></div>
+    <p class="note">ตรวจส่วนหัว PDF/PNG/JPG และโครงสร้างไฟล์ Office/ZIP ที่สร้างจริง อาจต้องต่อเน็ตเพื่อโหลดตัวสร้าง PowerPoint ครั้งแรก</p>
+    <button class="b" id="btnVerifyFiles" style="width:100%">สร้างและตรวจไฟล์ทดสอบ</button>
+    <div id="verifyFileResults"></div>
+  </div>
+</div></div>
+
+<!-- ══ zip contents ══ -->
+<div class="sheet-wrap" id="shZip"><div class="bg" data-close></div><div class="sheet">
+  <div class="grab"></div>
+  <div class="sheet-h"><h2 id="zipTitle" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ไฟล์ใน ZIP</h2><button class="ibtn" data-close aria-label="ปิด"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="sheet-b"><p class="note" id="zipSummary" style="margin:12px 0 6px"></p><div id="zipList"></div>
+    <p class="note" style="margin-top:14px">แตะไฟล์เพื่อดูโค้ด — ถ้าเป็นหน้าเว็บจะรันให้ดูพร้อม CSS/JS ใน ZIP เดียวกัน</p></div>
+</div></div>
+
+<!-- ══ preview ══ -->
+<div class="sheet-wrap" id="pvWrap"><div class="bg" data-close></div><div class="frame">
+  <div class="top">
+    <span class="lbl" id="pvTitle" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">พรีวิว</span>
+    <div class="pv-mode" id="pvMode" hidden>
+      <button class="run on" id="pvModeRun">รัน</button>
+      <button class="src" id="pvModeCode">โค้ด</button>
+    </div>
+    <button class="b" style="flex:0 0 auto;min-width:0;padding:6px 10px" id="pvDl">ดาวน์โหลด</button>
+    <button class="b" style="flex:0 0 auto;min-width:0;padding:6px 10px" id="pvNew">แท็บใหม่</button>
+    <button class="ibtn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <iframe id="pvFrame" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>
+  <pre id="pvCode"></pre>
+</div></div>
+
+<div id="toast"></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script src="js/app.js"></script>
+</body>
+</html>
