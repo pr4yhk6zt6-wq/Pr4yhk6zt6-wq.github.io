@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Kiln">
 <meta name="description" content="Kiln — a local-first chat workspace. Your keys, your device.">
-<meta name="long-paste-txt" content="Long paste >= 1200 chars becomes TXT attachment; supports iOS insertFromPaste">
+<meta name="long-paste-txt" content="Long paste >= 1200 chars becomes TXT attachment; supports iOS insertFromPaste. Assistant media URLs are previewable/downloadable.">
   <title>Kiln — บทสนทนา</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231a1a18'/><circle cx='16' cy='16' r='6' fill='none' stroke='%23c2603c' stroke-width='2'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -403,6 +403,20 @@ html[data-theme="dark"] .trow .st.p{background:#22301a;color:#a3c47c}
   #pvWrap .top #pvDl,#pvWrap .top #pvNew{order:3}
 }
 
+
+/* AI media outputs: image/video preview + download */
+.media-set{display:grid;gap:12px;margin:12px 0 4px;max-width:min(760px,100%)}
+.media-card{border:1px solid var(--rule);background:var(--surface);overflow:hidden;border-radius:4px}
+.media-preview{display:block;width:100%;background:var(--sunk);max-height:520px;object-fit:contain}
+.media-card video.media-preview{min-height:180px}
+.media-meta{display:flex;align-items:center;gap:8px;padding:9px 10px;border-top:1px solid var(--rule);font-size:11.5px}
+.media-meta .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
+.media-meta .media-actions{display:flex;gap:6px;flex:0 0 auto}
+.media-meta a,.media-meta button{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);text-decoration:none;border-radius:3px;font-size:11px;cursor:pointer}
+.media-meta a:hover,.media-meta button:hover{border-color:var(--accent);color:var(--accent)}
+.media-note{font-size:10px;color:var(--ink-4);padding:0 10px 9px}
+html[data-theme="dark"] .media-preview{background:#181715}
+
 /* toast */
 #toast{position:fixed;left:50%;transform:translateX(-50%) translateY(8px);bottom:calc(var(--sab) + 84px);
   background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:3px;font-size:12.5px;z-index:9998;
@@ -638,7 +652,7 @@ table.adm-t{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
           </div>
         </div>
       </div>
-      <input type="file" id="fileIn" multiple accept="image/*,text/*,.zip,.pdf,.pptx,.docx,.xlsx,application/zip,application/x-zip-compressed,.txt,.md,.markdown,.js,.mjs,.cjs,.ts,.tsx,.jsx,.py,.json,.csv,.tsv,.html,.htm,.css,.scss,.less,.xml,.yml,.yaml,.toml,.ini,.env,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.php,.rb,.sql,.sh,.bash,.zsh,.swift,.kt,.dart,.lua,.r,.vue,.svelte,.astro,.log,.srt,.vtt,.svg,.gitignore,.dockerfile,.makefile,.conf,.cfg,.txt" hidden>
+      <input type="file" id="fileIn" multiple accept="image/*,video/*,text/*,.zip,.pdf,.pptx,.docx,.xlsx,application/zip,application/x-zip-compressed,.txt,.md,.markdown,.js,.mjs,.cjs,.ts,.tsx,.jsx,.py,.json,.csv,.tsv,.html,.htm,.css,.scss,.less,.xml,.yml,.yaml,.toml,.ini,.env,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.php,.rb,.sql,.sh,.bash,.zsh,.swift,.kt,.dart,.lua,.r,.vue,.svelte,.astro,.log,.srt,.vtt,.svg,.gitignore,.dockerfile,.makefile,.conf,.cfg,.txt" hidden>
     </footer>
   </main>
 </div>
@@ -1157,13 +1171,98 @@ function decorateCode(root) {
     pre.replaceWith(wrap); wrap.append(bar, pre);
   });
 }
+function mediaKindFromUrl(url, hint='') {
+  const u = String(url || '').trim();
+  const hnt = String(hint || '').toLowerCase();
+  if (/^data:image\//i.test(u) || /\.(png|jpe?g|gif|webp|avif|bmp)(?:[?#].*)?$/i.test(u) || /image/i.test(hnt)) return 'image';
+  if (/^data:video\//i.test(u) || /\.(mp4|webm|mov|m4v|ogv|avi)(?:[?#].*)?$/i.test(u) || /video/i.test(hnt)) return 'video';
+  return '';
+}
+function mediaFileName(url, kind, hint='') {
+  let h = String(hint || '').trim();
+  if (h && !/^(image|video)$/i.test(h) && !/^https?:\/\//i.test(h)) return h.replace(/[<>:"/\\|?*\u0000-\u001F]/g,' ').trim().slice(0,120) || (kind === 'video' ? 'video.mp4' : 'image');
+  try {
+    const path = new URL(url, location.href).pathname.split('/').pop() || '';
+    if (path && /\.[a-z0-9]{2,6}$/i.test(path)) return decodeURIComponent(path);
+  } catch {}
+  return kind === 'video' ? 'video.mp4' : 'image';
+}
+function extractMedia(content) {
+  const items = [], seen = new Set();
+  let text = String(content || '');
+  const add = (url, hint='') => {
+    url = String(url || '').trim().replace(/^<|>$/g,'');
+    if (!url || /^(javascript|vbscript):/i.test(url)) return;
+    const kind = mediaKindFromUrl(url, hint);
+    if (!kind || seen.has(url)) return;
+    seen.add(url); items.push({ url, kind, name: mediaFileName(url, kind, hint) });
+  };
+  // Standard Markdown images and explicit video links.
+  text = text.replace(/!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+[^)]*)?\)/g, (_, alt, url) => { add(url, alt); return ''; });
+  text = text.replace(/\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+[^)]*)?\)/g, (full, label, url) => {
+    const kind = mediaKindFromUrl(url, label);
+    if (kind) { add(url, label); return ''; }
+    return full;
+  });
+  // Raw HTML media emitted by some models.
+  text = text.replace(/<img\b[^>]*?src=[\"']([^\"']+)[\"'][^>]*>/gi, (_, url) => { add(url, 'image'); return ''; });
+  text = text.replace(/<video\b[^>]*?src=[\"']([^\"']+)[\"'][^>]*>[\s\S]*?<\/video>/gi, (_, url) => { add(url, 'video'); return ''; });
+  // Standalone direct media URLs.
+  text = text.replace(/(^|\n)\s*((?:https?:\/\/|data:image\/|data:video\/)[^\s<>]+)\s*(?=\n|$)/gi, (full, pre, url) => {
+    const clean = url.replace(/[),.;]+$/,'');
+    const kind = mediaKindFromUrl(clean);
+    if (!kind) return full;
+    add(clean, ''); return pre;
+  });
+  return { text: text.replace(/\n{3,}/g,'\n\n').trim(), items };
+}
+async function downloadRemoteMedia(url, name, card) {
+  try {
+    if (/^data:/i.test(url)) {
+      const a = h('a'); a.href = url; a.download = name; a.rel='noopener'; document.body.append(a); a.click(); a.remove(); toast('บันทึก ' + name); return;
+    }
+    const r = await fetch(url, { mode:'cors' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob();
+    downloadBlob(blob, name, blob.type || undefined);
+  } catch {
+    // Cross-origin media may block fetch. Browser download/open still works when the host permits it.
+    const a = h('a'); a.href = url; a.download = name; a.target='_blank'; a.rel='noopener noreferrer';
+    document.body.append(a); a.click(); a.remove();
+    toast('เปิดไฟล์เพื่อดาวน์โหลด — เซิร์ฟเวอร์ปลายทางไม่อนุญาตให้เว็บดึงไฟล์โดยตรง');
+  }
+}
+function renderMediaSet(container, items) {
+  if (!items?.length) return;
+  const set = h('div','media-set');
+  items.forEach(item => {
+    const card = h('div','media-card');
+    if (item.kind === 'image') {
+      const im = h('img','media-preview'); im.src=item.url; im.alt=item.name; im.loading='lazy'; im.referrerPolicy='no-referrer';
+      im.onerror=()=>{ card.classList.add('broken'); }; card.append(im);
+    } else {
+      const v = h('video','media-preview'); v.src=item.url; v.controls=true; v.preload='metadata'; v.playsInline=true; v.setAttribute('aria-label',item.name); card.append(v);
+    }
+    const meta = h('div','media-meta');
+    meta.append(h('span','name',item.name));
+    const acts = h('div','media-actions');
+    const open = h('a'); open.href=item.url; open.target='_blank'; open.rel='noopener noreferrer'; open.textContent='เปิด';
+    const dl = h('button'); dl.textContent='ดาวน์โหลด'; dl.onclick=()=>downloadRemoteMedia(item.url,item.name,card);
+    acts.append(open,dl); meta.append(acts); card.append(meta);
+    if (/^https?:/i.test(item.url)) card.append(h('div','media-note','ไฟล์จากลิงก์ภายนอก · ถ้าปุ่มดาวน์โหลดถูกบล็อก ระบบจะเปิดไฟล์ให้แทน'));
+    set.append(card);
+  });
+  container.append(set);
+}
 function renderAssistantBody(container, content) {
   const files = extractArtifacts(content);
   const proseText = files.length ? stripCodeFences(content, files) : content;
-  const clean = proseText.replace(/«file:([^»]+)»/g, (_, name) => `\n**ไฟล์:** \`${name}\`\n`);
+  const media = extractMedia(proseText);
+  const clean = media.text.replace(/«file:([^»]+)»/g, (_, name) => `\n**ไฟล์:** \`${name}\`\n`);
   if (clean.trim()) {
     const p = h('div', 'prose'); p.innerHTML = md(clean); decorateCode(p); container.append(p);
   }
+  renderMediaSet(container, media.items);
   if (files.length) container.append(buildFileSet(files));
   return files;
 }
@@ -2965,7 +3064,7 @@ async function searchThenStream({ url, headers, model, messages, extra, vision, 
   const copy = messages.map(m => ({ ...m, content: m.content, attachments: m.attachments }));
   const u = [...copy].reverse().find(m => m.role === 'user');
   if (u) u.content = (u.content || '') + '\n\n<search_results>\n' + result.text + '\n</search_results>\nอ้างอิงแหล่งที่มาเป็นลิงก์ markdown เมื่อใช้ข้อมูลจากผลการค้น';
-  const body = { model, messages: buildOpenAI(copy, vision, [cfg.sys, 'When delivering multiple files, put EACH file in its own markdown fence with a filename.'].filter(Boolean).join('\n\n'), wire), stream:true, ...extra };
+  const body = { model, messages: buildOpenAI(copy, vision, [cfg.sys, 'When delivering multiple files, put EACH file in its own markdown fence with a filename. If you have an actual image or video file/URL available to return, include it as standard Markdown media (image: ![filename](URL); video: [filename](URL)) so the client can preview and download it. Do not invent media URLs.'].filter(Boolean).join('\n\n'), wire), stream:true, ...extra };
   if (!(wire === 'openai' && extra.reasoning_effort)) body.temperature = cfg.temp;
   await streamChat({ url, headers, body, signal, onText, onThink, onSource });
 }
