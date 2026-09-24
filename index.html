@@ -7,7 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Kiln">
 <meta name="description" content="Kiln — a local-first chat workspace. Your keys, your device.">
-<title>Kiln — บทสนทนา</title>
+<meta name="long-paste-txt" content="Long paste >= 1200 chars becomes TXT attachment; supports iOS insertFromPaste">
+  <title>Kiln — บทสนทนา</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231a1a18'/><circle cx='16' cy='16' r='6' fill='none' stroke='%23c2603c' stroke-width='2'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3264,11 +3265,19 @@ const ta = $('#ta');
 function grow() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, window.innerHeight * 0.34) + 'px'; }
 ta.addEventListener('input', () => { grow(); syncSend(); });
 
-/* ── วางข้อความยาว → เปลี่ยนเป็นไฟล์ TXT อัตโนมัติ ──
-   ข้อความสั้นยังวางลงช่องแชทตามปกติ
-   แต่ prompt / code / ข้อความยาวจะถูกเก็บเป็นไฟล์ .txt เพื่อไม่ให้ composer
-   กลายเป็นกล่องข้อความยาวจนใช้งานยาก และให้โมเดลเห็นเป็นไฟล์แนบโดยตรง */
-const LONG_PASTE_LIMIT = 2500;
+/* ── วางข้อความยาว / Paste บน iPhone → เปลี่ยนเป็นไฟล์ TXT อัตโนมัติ ──
+   รองรับทั้ง Safari/iOS ที่ส่ง paste event และกรณีที่ native editor ส่ง
+   beforeinput/input (insertFromPaste) แทน ซึ่งเป็นสาเหตุที่บางเครื่อง
+   วางข้อความยาวแล้วมันยังค้างอยู่ในช่องแชทแบบใน iPhone
+
+   กติกา:
+   - ข้อความสั้น: วางลงช่องแชทตามปกติ
+   - Prompt / code / ข้อความยาวตั้งแต่ 1,200 ตัวอักษร: สร้างเป็น .txt แนบให้ทันที
+   - ไม่แปลงข้อความที่ผู้ใช้พิมพ์ทีละตัวเป็นไฟล์โดยอัตโนมัติ
+*/
+const LONG_PASTE_LIMIT = 1200;
+let convertingPastedText = false;
+
 function pastedTextLooksLikeCode(text) {
   return /```|^\s*(from |import |def |class |function |const |let |var |#include |<\?php|<!doctype|<html|<script|SELECT\s|CREATE\s+TABLE)/im.test(text);
 }
@@ -3280,29 +3289,71 @@ function nextPastedName(isCode) {
   while (used.has(name)) name = `${base}_${++n}.txt`;
   return name;
 }
-ta.addEventListener('paste', e => {
-  const text = e.clipboardData?.getData('text/plain') || '';
-  if (text.length < LONG_PASTE_LIMIT) return;
-  e.preventDefault();
-  if (pending.length >= MAX_ATT) { toast('แนบได้สูงสุด ' + MAX_ATT + ' ชิ้น'); return; }
-  const isCode = pastedTextLooksLikeCode(text);
+function attachPastedText(text) {
+  if (convertingPastedText) return true;
+  text = String(text || '');
+  if (text.length < LONG_PASTE_LIMIT) return false;
+  if (pending.length >= MAX_ATT) {
+    toast('แนบได้สูงสุด ' + MAX_ATT + ' ชิ้น');
+    return true;
+  }
+
+  convertingPastedText = true;
   try {
+    const isCode = pastedTextLooksLikeCode(text);
     const att = withText({
       type:'text',
       name:nextPastedName(isCode),
       pasted:true,
       office:false
     }, text);
-    if (att) {
-      pending.push(att);
-      drawAtt();
-      syncSend();
-      toast(`วางข้อความยาวเป็นไฟล์ ${att.name} แล้ว`);
-    }
+    if (!att) throw new Error('สร้างไฟล์ TXT ไม่สำเร็จ');
+    pending.push(att);
+    drawAtt();
+    syncSend();
+    toast(`วางข้อความยาวเป็นไฟล์ ${att.name} แล้ว`);
+    return true;
   } catch (err) {
     toast(thaiMsg(err, 'เปลี่ยนข้อความเป็นไฟล์ TXT ไม่สำเร็จ'));
+    return true;
+  } finally {
+    convertingPastedText = false;
+  }
+}
+
+// Chrome / Safari / desktop paste event
+ ta.addEventListener('paste', e => {
+  const text = e.clipboardData?.getData('text/plain') || '';
+  if (text.length < LONG_PASTE_LIMIT) return;
+  e.preventDefault();
+  attachPastedText(text);
+});
+
+// iOS Safari / native keyboard: บางครั้ง paste event ไม่ถูกส่งมาที่ textarea
+// แต่ beforeinput จะมี inputType = insertFromPaste
+ ta.addEventListener('beforeinput', e => {
+  if (e.inputType !== 'insertFromPaste') return;
+  const text = e.data || '';
+  if (text && text.length >= LONG_PASTE_LIMIT) {
+    e.preventDefault();
+    attachPastedText(text);
   }
 });
+
+// Fallback สำหรับ iOS บางเวอร์ชันที่ beforeinput ไม่มี e.data แต่ input event
+// ระบุว่าเป็น insertFromPaste: ถ้าข้อมูลที่ถูกแทรกยาว ให้เปลี่ยนค่าทั้งหมด
+// ใน composer เป็นไฟล์ TXT แล้วล้างช่องแชท
+ ta.addEventListener('input', e => {
+  if (e.inputType !== 'insertFromPaste' || convertingPastedText) return;
+  const text = ta.value || '';
+  if (text.length < LONG_PASTE_LIMIT) return;
+  if (attachPastedText(text)) {
+    ta.value = '';
+    grow();
+    syncSend();
+  }
+});
+
 ta.addEventListener('focus', () => { $('#editor').classList.add('focus'); setTimeout(() => jump(true), 320); });
 ta.addEventListener('blur',  () => $('#editor').classList.remove('focus'));
 ta.addEventListener('keydown', e => {
