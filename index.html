@@ -1545,12 +1545,38 @@ function pullStrings(chunk) {
   }
   return out;
 }
-/* python-pptx / pptxgenjs → รายการสไลด์ [{title, bullets[]}] */
+/* สี: ดึงค่าคงที่สี python (NAME = RGBColor(r,g,b)) แล้วจับสี bg/accent/text ต่อสไลด์ ไม่ให้พรีวิวจืดเป็นตัวหนังสือล้วน */
+function parseColorConsts(src) {
+  const map = {}, re = /\b([A-Za-z][A-Za-z0-9_]*)\s*=\s*RGBColor\(\s*(0[xX][0-9A-Fa-f]{1,2}|\d{1,3})\s*,\s*(0[xX][0-9A-Fa-f]{1,2}|\d{1,3})\s*,\s*(0[xX][0-9A-Fa-f]{1,2}|\d{1,3})\s*\)/g;
+  const toHex = v => Math.max(0, Math.min(255, v.slice(0, 2).toLowerCase() === '0x' ? parseInt(v, 16) : parseInt(v, 10))).toString(16).padStart(2, '0');
+  let m;
+  while ((m = re.exec(src)) !== null) map[m[1]] = (toHex(m[2]) + toHex(m[3]) + toHex(m[4])).toUpperCase();
+  return map;
+}
+const colorLuminance = hex => {
+  const c = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4));
+  return .2126 * c[0] + .7152 * c[1] + .0722 * c[2];
+};
+function slideStyle(chunk, colorMap) {
+  const resolve = name => colorMap[name] || (/^[0-9A-Fa-f]{6}$/.test(name) ? name.toUpperCase() : null);
+  let bg = null;
+  const bgM = chunk.match(/set_bg\s*\(\s*slide\s*,\s*([A-Za-z0-9_]+)\s*\)/)
+    || chunk.match(/background\s*=\s*\{\s*color\s*:\s*["']?#?([0-9A-Fa-f]{6})["']?/)
+    || chunk.match(/\bbackground[\s\S]{0,60}?fore_color\.rgb\s*=\s*([A-Za-z0-9_]+)/);
+  if (bgM) bg = resolve(bgM[1]);
+  const refs = [...chunk.matchAll(/\bcolor\s*[:=]\s*["']?#?([0-9A-Fa-f]{6}|[A-Za-z][A-Za-z0-9_]*)["']?/g)].map(m => resolve(m[1])).filter(Boolean);
+  const distinct = [...new Set(refs)].filter(c => c !== bg);
+  return { bg, accent: distinct[0] || null, text: distinct[1] || distinct[0] || null };
+}
+/* python-pptx / pptxgenjs → รายการสไลด์ [{title, bullets[], bg, accent, text}] */
 function slidesFromCode(src, splitter) {
+  const colorMap = parseColorConsts(src);
   const chunks = String(src).split(splitter).slice(1);
   return chunks.map(c => {
-    const strs = pullStrings(c.slice(0, 4000));
-    return strs.length ? { title: strs[0].slice(0, 120), bullets: strs.slice(1, 9).map(s => s.slice(0, 200)) } : null;
+    const scope = c.slice(0, 4000);
+    const strs = pullStrings(scope);
+    if (!strs.length) return null;
+    return { title: strs[0].slice(0, 120), bullets: strs.slice(1, 9).map(s => s.slice(0, 200)), ...slideStyle(scope, colorMap) };
   }).filter(Boolean).slice(0, 30);
 }
 const pySlides = src => slidesFromCode(src, /\.add_slide\s*\(/);
@@ -1630,10 +1656,14 @@ async function makePptxFromSlides(slides, title) {
   pptx.layout = 'LAYOUT_WIDE'; pptx.title = title || 'Kiln';
   slides.forEach(s => {
     const slide = pptx.addSlide();
-    slide.background = { color:'F3F1EC' };
-    if (s.title) slide.addText(s.title, { x:.7, y:.55, w:11.9, h:1, fontFace:'Georgia', fontSize:32, color:'1A1A18', bold:true });
+    const bg = s.bg || 'F3F1EC', dark = colorLuminance(bg) < .45;
+    const titleColor = s.accent || (dark ? 'FFFFFF' : '1A1A18');
+    const bodyColor = s.text || (dark ? 'E7E2D8' : '4A4740');
+    slide.background = { color: bg };
+    if (s.accent) slide.addShape('rect', { x:0, y:0, w:'100%', h:.14, fill:{ color:s.accent }, line:{ type:'none' } });
+    if (s.title) slide.addText(s.title, { x:.7, y:.7, w:11.9, h:1, fontFace:'Georgia', fontSize:32, color:titleColor, bold:true });
     if (s.bullets.length) slide.addText(s.bullets.map(text => ({ text, options:{ bullet:true, breakLine:true } })),
-      { x:.85, y:1.8, w:11.5, h:5, fontSize:18, color:'4A4740', lineSpacingMultiple:1.25 });
+      { x:.85, y:1.9, w:11.5, h:5, fontSize:18, color:bodyColor, lineSpacingMultiple:1.25 });
   });
   const blob = await pptx.write({ outputType:'blob' });
   return blob instanceof Blob ? blob : new Blob([blob], { type: DEMO_BY_ID.pptx.mime });
@@ -1734,8 +1764,16 @@ function assemblePdf(jpegs, w, h) {
 }
 /* พรีวิว HTML จำลองสำหรับไฟล์ที่เปิดใน iframe ไม่ได้ */
 function slidesPreviewHtml(slides) {
-  const body = slides.map((s, i) => `<section><small>${i + 1} / ${slides.length}</small><h1>${escapeHTML(s.title || 'ไม่มีชื่อสไลด์')}</h1><ul>${s.bullets.map(b => `<li>${escapeHTML(b)}</li>`).join('')}</ul></section>`).join('');
-  return `<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#e7e2d8;font-family:-apple-system,'IBM Plex Sans Thai',sans-serif}section{aspect-ratio:16/9;background:#f3f1ec;margin:14px;padding:7% 8%;box-sizing:border-box;border:1px solid #d5cfc2;position:relative;overflow:hidden}small{position:absolute;top:4%;right:5%;color:#8b857a;font-size:11px}h1{font:600 5.2vw Georgia,'Noto Serif Thai',serif;margin:0 0 4%;color:#1a1a18}ul{margin:0;padding-left:6%;color:#4a4740;font-size:3.4vw;line-height:1.7}</style>${body}<p style="text-align:center;color:#8b857a;font-size:12px;padding:8px">ภาพจำลอง — ไฟล์ .pptx จริงเปิดใน Keynote/PowerPoint</p>`;
+  const body = slides.map((s, i) => {
+    const bg = s.bg ? '#' + s.bg : '#f3f1ec';
+    const dark = s.bg ? colorLuminance(s.bg) < .45 : false;
+    const titleColor = s.accent ? '#' + s.accent : (dark ? '#fff' : '#1a1a18');
+    const bodyColor = s.text ? '#' + s.text : (dark ? '#e7e2d8' : '#4a4740');
+    const numColor = dark ? 'rgba(255,255,255,.55)' : '#8b857a';
+    const accentBar = s.accent ? `<i style="position:absolute;top:0;left:0;right:0;height:6px;background:#${s.accent}"></i>` : '';
+    return `<section style="background:${bg}">${accentBar}<small style="color:${numColor}">${i + 1} / ${slides.length}</small><h1 style="color:${titleColor}">${escapeHTML(s.title || 'ไม่มีชื่อสไลด์')}</h1><ul style="color:${bodyColor}">${s.bullets.map(b => `<li>${escapeHTML(b)}</li>`).join('')}</ul></section>`;
+  }).join('');
+  return `<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#e7e2d8;font-family:-apple-system,'IBM Plex Sans Thai',sans-serif}section{aspect-ratio:16/9;margin:14px;padding:7% 8%;box-sizing:border-box;border:1px solid #d5cfc2;position:relative;overflow:hidden}small{position:absolute;top:4%;right:5%;font-size:11px}h1{font:600 5.2vw Georgia,'Noto Serif Thai',serif;margin:0 0 4%}ul{margin:0;padding-left:6%;font-size:3.4vw;line-height:1.7}</style>${body}<p style="text-align:center;color:#8b857a;font-size:12px;padding:8px">ภาพจำลอง — ไฟล์ .pptx จริงเปิดใน Keynote/PowerPoint</p>`;
 }
 function tableToHtml(rows) {
   const body = rows.slice(0, 200).map((r, i) => `<tr>${r.map(c => i === 0 ? `<th>${escapeHTML(String(c))}</th>` : `<td>${escapeHTML(String(c))}</td>`).join('')}</tr>`).join('');
