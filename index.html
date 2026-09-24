@@ -1171,44 +1171,125 @@ function decorateCode(root) {
     pre.replaceWith(wrap); wrap.append(bar, pre);
   });
 }
+function mediaMime(kind) {
+  return kind === 'video' ? 'video/mp4' : 'image/png';
+}
+function mediaKindFromMime(mime='') {
+  const m = String(mime || '').toLowerCase().split(';')[0].trim();
+  if (m.startsWith('image/')) return 'image';
+  if (m.startsWith('video/')) return 'video';
+  return '';
+}
+function extFromMime(mime='') {
+  const m = String(mime || '').toLowerCase().split(';')[0].trim();
+  const map = {
+    'image/png':'png','image/jpeg':'jpg','image/jpg':'jpg','image/webp':'webp','image/gif':'gif','image/avif':'avif','image/bmp':'bmp','image/svg+xml':'svg',
+    'video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov','video/x-m4v':'m4v','video/ogg':'ogv','video/avi':'avi'
+  };
+  return map[m] || '';
+}
 function mediaKindFromUrl(url, hint='') {
   const u = String(url || '').trim();
   const hnt = String(hint || '').toLowerCase();
-  if (/^data:image\//i.test(u) || /\.(png|jpe?g|gif|webp|avif|bmp)(?:[?#].*)?$/i.test(u) || /image/i.test(hnt)) return 'image';
-  if (/^data:video\//i.test(u) || /\.(mp4|webm|mov|m4v|ogv|avi)(?:[?#].*)?$/i.test(u) || /video/i.test(hnt)) return 'video';
+  if (/^data:(?:image)\//i.test(u) || /^blob:/i.test(u) && /image/i.test(hnt)) return 'image';
+  if (/^data:(?:video)\//i.test(u) || /^blob:/i.test(u) && /video/i.test(hnt)) return 'video';
+  const fromHint = mediaKindFromMime(hnt) || (/\bvideo\b/i.test(hnt) ? 'video' : /\bimage\b|\bphoto\b|\bpicture\b/i.test(hnt) ? 'image' : '');
+  if (fromHint) return fromHint;
+  const path = u.replace(/[?#].*$/, '').toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(path)) return 'image';
+  if (/\.(mp4|webm|mov|m4v|ogv|avi)$/i.test(path)) return 'video';
   return '';
 }
-function mediaFileName(url, kind, hint='') {
+function dataUrlFromBase64(value, mime='') {
+  const raw = String(value || '').trim().replace(/^\s*data:[^,]+,/i, '');
+  if (!raw || raw.length < 24 || /[^A-Za-z0-9+/=_\-]/.test(raw.slice(0, 200))) return '';
+  const m = String(mime || '').trim() || 'application/octet-stream';
+  if (!/^image\//i.test(m) && !/^video\//i.test(m)) return '';
+  return `data:${m};base64,${raw}`;
+}
+function mediaFileName(url, kind, hint='', mime='') {
   let h = String(hint || '').trim();
-  if (h && !/^(image|video)$/i.test(h) && !/^https?:\/\//i.test(h)) return h.replace(/[<>:"/\\|?*\u0000-\u001F]/g,' ').trim().slice(0,120) || (kind === 'video' ? 'video.mp4' : 'image');
+  if (h && !/^(image|video)$/i.test(h) && !/^https?:\/\//i.test(h) && !/^image\//i.test(h) && !/^video\//i.test(h)) {
+    return h.replace(/[<>:"/\\|?*\u0000-\u001F]/g,' ').trim().slice(0,120) || (kind === 'video' ? 'video.mp4' : 'image.png');
+  }
+  const mimeExt = extFromMime(mime);
+  if (/^data:/i.test(url) && mimeExt) return `${kind}-${stamp()}.${mimeExt}`;
   try {
     const path = new URL(url, location.href).pathname.split('/').pop() || '';
     if (path && /\.[a-z0-9]{2,6}$/i.test(path)) return decodeURIComponent(path);
   } catch {}
-  return kind === 'video' ? 'video.mp4' : 'image';
+  return kind === 'video' ? 'video.' + (mimeExt || 'mp4') : 'image.' + (mimeExt || 'png');
+}
+function walkMediaJson(value, add, inheritedHint='') {
+  if (value == null) return;
+  if (Array.isArray(value)) { value.forEach(v => walkMediaJson(v, add, inheritedHint)); return; }
+  if (typeof value !== 'object') return;
+  const localType = String(value.type || value.kind || value.mime_type || value.mimeType || inheritedHint || '');
+  const localMime = String(value.mime || value.mime_type || value.mimeType || '');
+  const typeHint = mediaKindFromMime(localMime) || localType;
+  const named = value.filename || value.file_name || value.name || value.title || '';
+  const candidates = [
+    ['url', value.url], ['image_url', value.image_url], ['video_url', value.video_url],
+    ['output_url', value.output_url], ['media_url', value.media_url], ['download_url', value.download_url],
+    ['image', value.image], ['video', value.video]
+  ];
+  candidates.forEach(([key, val]) => {
+    if (typeof val === 'string') add(val, named || typeHint || key, localMime);
+    else if (val && typeof val === 'object') walkMediaJson(val, add, named || typeHint || key);
+  });
+  const b64 = value.b64_json || value.base64 || value.data_base64;
+  if (typeof b64 === 'string') {
+    const dataUrl = dataUrlFromBase64(b64, localMime || (/video/i.test(typeHint) ? 'video/mp4' : /image/i.test(typeHint) ? 'image/png' : ''));
+    if (dataUrl) add(dataUrl, named || typeHint, localMime);
+  }
+  ['data','content','media','outputs','images','videos','result','results'].forEach(k => {
+    if (value[k] != null) walkMediaJson(value[k], add, typeHint || k);
+  });
 }
 function extractMedia(content) {
   const items = [], seen = new Set();
   let text = String(content || '');
-  const add = (url, hint='') => {
+  const add = (url, hint='', mime='') => {
     url = String(url || '').trim().replace(/^<|>$/g,'');
     if (!url || /^(javascript|vbscript):/i.test(url)) return;
-    const kind = mediaKindFromUrl(url, hint);
+    const kind = mediaKindFromUrl(url, mime || hint);
     if (!kind || seen.has(url)) return;
-    seen.add(url); items.push({ url, kind, name: mediaFileName(url, kind, hint) });
+    seen.add(url); items.push({ url, kind, mime: mime || '', name: mediaFileName(url, kind, hint, mime) });
   };
-  // Standard Markdown images and explicit video links.
-  text = text.replace(/!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+[^)]*)?\)/g, (_, alt, url) => { add(url, alt); return ''; });
-  text = text.replace(/\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+[^)]*)?\)/g, (full, label, url) => {
+
+  // JSON media protocol. This accepts common image/video API response shapes while
+  // leaving ordinary prose/URLs alone. JSON is removed from the visible prose once parsed.
+  const jsonFence = /```(?:json|javascript|js)?\s*\n([\s\S]*?)```/gi;
+  text = text.replace(jsonFence, (full, body) => {
+    try { const obj = JSON.parse(body.trim()); const before = items.length; walkMediaJson(obj, add); return items.length > before ? '' : full; }
+    catch { return full; }
+  });
+  if (/^\s*[\[{]/.test(text)) {
+    try {
+      const obj = JSON.parse(text.trim()); const before = items.length; walkMediaJson(obj, add);
+      if (items.length > before) text = '';
+    } catch {}
+  }
+
+  // Standard Markdown images and explicit media links.
+  text = text.replace(/!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+["'][^"']*["'])?\)/g, (_, alt, url) => { add(url, alt); return ''; });
+  text = text.replace(/\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+["'][^"']*["'])?\)/g, (full, label, url) => {
     const kind = mediaKindFromUrl(url, label);
     if (kind) { add(url, label); return ''; }
     return full;
   });
   // Raw HTML media emitted by some models.
-  text = text.replace(/<img\b[^>]*?src=[\"']([^\"']+)[\"'][^>]*>/gi, (_, url) => { add(url, 'image'); return ''; });
-  text = text.replace(/<video\b[^>]*?src=[\"']([^\"']+)[\"'][^>]*>[\s\S]*?<\/video>/gi, (_, url) => { add(url, 'video'); return ''; });
-  // Standalone direct media URLs.
-  text = text.replace(/(^|\n)\s*((?:https?:\/\/|data:image\/|data:video\/)[^\s<>]+)\s*(?=\n|$)/gi, (full, pre, url) => {
+  text = text.replace(/<img\b[^>]*?src=["']([^"']+)["'][^>]*>/gi, (_, url) => { add(url, 'image'); return ''; });
+  text = text.replace(/<video\b([^>]*)>[\s\S]*?<\/video>/gi, (full, attrs) => {
+    const src = attrs.match(/\bsrc=["']([^"']+)["']/i)?.[1];
+    if (src) add(src, 'video');
+    const poster = attrs.match(/\bposter=["']([^"']+)["']/i)?.[1];
+    if (poster) add(poster, 'image');
+    return '';
+  });
+  text = text.replace(/<source\b[^>]*?src=["']([^"']+)["'][^>]*>/gi, (_, url) => { add(url, /\.mp4|\.webm|\.mov|\.m4v|video\//i.test(url) ? 'video' : 'image'); return ''; });
+  // Some providers return a raw media URL on its own line.
+  text = text.replace(/(^|\n)\s*((?:https?:\/\/|data:image\/|data:video\/|blob:)[^\s<>]+)\s*(?=\n|$)/gi, (full, pre, url) => {
     const clean = url.replace(/[),.;]+$/,'');
     const kind = mediaKindFromUrl(clean);
     if (!kind) return full;
@@ -1218,18 +1299,19 @@ function extractMedia(content) {
 }
 async function downloadRemoteMedia(url, name, card) {
   try {
-    if (/^data:/i.test(url)) {
+    if (/^(?:data|blob):/i.test(url)) {
       const a = h('a'); a.href = url; a.download = name; a.rel='noopener'; document.body.append(a); a.click(); a.remove(); toast('บันทึก ' + name); return;
     }
-    const r = await fetch(url, { mode:'cors' });
+    const r = await fetch(url, { mode:'cors', credentials:'omit' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const blob = await r.blob();
+    if (!blob.size) throw new Error('empty');
     downloadBlob(blob, name, blob.type || undefined);
   } catch {
-    // Cross-origin media may block fetch. Browser download/open still works when the host permits it.
+    // Cross-origin media may block fetch. Browser open is the most reliable fallback on iOS.
     const a = h('a'); a.href = url; a.download = name; a.target='_blank'; a.rel='noopener noreferrer';
     document.body.append(a); a.click(); a.remove();
-    toast('เปิดไฟล์เพื่อดาวน์โหลด — เซิร์ฟเวอร์ปลายทางไม่อนุญาตให้เว็บดึงไฟล์โดยตรง');
+    toast('เปิดไฟล์เพื่อดาวน์โหลด — โฮสต์ปลายทางไม่อนุญาตให้เว็บดึงไฟล์โดยตรง');
   }
 }
 function renderMediaSet(container, items) {
@@ -1239,9 +1321,14 @@ function renderMediaSet(container, items) {
     const card = h('div','media-card');
     if (item.kind === 'image') {
       const im = h('img','media-preview'); im.src=item.url; im.alt=item.name; im.loading='lazy'; im.referrerPolicy='no-referrer';
-      im.onerror=()=>{ card.classList.add('broken'); }; card.append(im);
+      im.onclick = () => window.open(item.url, '_blank', 'noopener');
+      im.title = 'แตะเพื่อเปิดภาพเต็ม';
+      im.onerror=()=>{ card.classList.add('broken'); };
+      card.append(im);
     } else {
-      const v = h('video','media-preview'); v.src=item.url; v.controls=true; v.preload='metadata'; v.playsInline=true; v.setAttribute('aria-label',item.name); card.append(v);
+      const v = h('video','media-preview'); v.src=item.url; v.controls=true; v.preload='metadata'; v.playsInline=true; v.setAttribute('aria-label',item.name);
+      v.setAttribute('controlsList','nodownload');
+      card.append(v);
     }
     const meta = h('div','media-meta');
     meta.append(h('span','name',item.name));
@@ -1249,12 +1336,13 @@ function renderMediaSet(container, items) {
     const open = h('a'); open.href=item.url; open.target='_blank'; open.rel='noopener noreferrer'; open.textContent='เปิด';
     const dl = h('button'); dl.textContent='ดาวน์โหลด'; dl.onclick=()=>downloadRemoteMedia(item.url,item.name,card);
     acts.append(open,dl); meta.append(acts); card.append(meta);
-    if (/^https?:/i.test(item.url)) card.append(h('div','media-note','ไฟล์จากลิงก์ภายนอก · ถ้าปุ่มดาวน์โหลดถูกบล็อก ระบบจะเปิดไฟล์ให้แทน'));
+    const note = item.kind === 'video' ? 'วิดีโอ · เล่นบนหน้าแชทได้' : 'รูปภาพ · แตะภาพเพื่อเปิดเต็ม';
+    card.append(h('div','media-note',/^https?:/i.test(item.url) ? note + ' · ลิงก์จากโมเดล/โฮสต์ภายนอก' : note));
     set.append(card);
   });
   container.append(set);
 }
-function renderAssistantBody(container, content) {
+function renderAssistantBody(container, content, mediaExtra=[]) {
   const files = extractArtifacts(content);
   const proseText = files.length ? stripCodeFences(content, files) : content;
   const media = extractMedia(proseText);
@@ -1262,7 +1350,13 @@ function renderAssistantBody(container, content) {
   if (clean.trim()) {
     const p = h('div', 'prose'); p.innerHTML = md(clean); decorateCode(p); container.append(p);
   }
-  renderMediaSet(container, media.items);
+  const merged = [...media.items];
+  (mediaExtra || []).forEach(x => {
+    if (!x?.url || merged.some(y => y.url === x.url)) return;
+    const kind = x.kind || mediaKindFromUrl(x.url, x.mime || '');
+    if (kind) merged.push({ ...x, kind, name: x.name || mediaFileName(x.url, kind, '', x.mime || '') });
+  });
+  renderMediaSet(container, merged);
   if (files.length) container.append(buildFileSet(files));
   return files;
 }
@@ -2282,7 +2376,7 @@ function turnEl(m, idx) {
     const f = h('div', 'fail'); f.innerHTML = '<b>ส่งคำขอไม่สำเร็จ</b>';
     f.append(document.createTextNode(m.content)); t.append(f);
   } else {
-    const files = renderAssistantBody(t, m.content || '');
+    const files = renderAssistantBody(t, m.content || '', m.media || []);
     if (m.demoFiles?.length) t.append(buildDemoFileSet(m.demoFiles, !!m.demoZip));
     const acts = h('div', 'turn-acts');
     const mk = (ic, label, fn) => { const b = h('button'); b.innerHTML = ic + '<span>' + label + '</span>'; b.onclick = fn; return b; };
@@ -2809,6 +2903,39 @@ function pullSources(obj, onSource) {
   const anns = obj.annotations || [];
   anns.forEach(a => { const u = a.url || a.url_citation?.url; if (u) onSource({ title: a.title || a.url_citation?.title || u, url: u }); });
 }
+function pullMedia(obj, onMedia) {
+  if (!obj || !onMedia) return;
+  const hit = new Set();
+  const emit = (url, kind, name='', mime='') => {
+    url = String(url || '').trim();
+    if (!url || hit.has(url)) return;
+    if (!kind) kind = mediaKindFromUrl(url, mime || '');
+    if (!kind) return;
+    hit.add(url);
+    onMedia({ url, kind, name: name || mediaFileName(url, kind, '', mime), mime: mime || '' });
+  };
+  const addObject = (v, hint='') => {
+    if (!v) return;
+    if (typeof v === 'string') { emit(v, mediaKindFromUrl(v, hint), '', ''); return; }
+    if (Array.isArray(v)) { v.forEach(x => addObject(x, hint)); return; }
+    if (typeof v !== 'object') return;
+    const mime = v.mime || v.mime_type || v.mimeType || '';
+    const kind = mediaKindFromMime(mime) || (v.type === 'video' || /video/i.test(String(v.type || hint)) ? 'video' : /image|photo|picture/i.test(String(v.type || hint)) ? 'image' : '');
+    const name = v.filename || v.file_name || v.name || v.title || '';
+    const url = v.url || v.uri || v.output_url || v.media_url || v.download_url || '';
+    if (typeof url === 'string') emit(url, kind, name, mime);
+    const data = v.data || v.base64 || v.b64_json || v.data_base64;
+    if (typeof data === 'string' && data.length <= 3000000) {
+      const du = dataUrlFromBase64(data, mime || (kind === 'video' ? 'video/mp4' : kind === 'image' ? 'image/png' : ''));
+      if (du) emit(du, kind, name, mime);
+    }
+  };
+  const keys = ['media','images','videos','image','video','outputs','output','artifacts','files'];
+  keys.forEach(k => { if (obj[k] != null) addObject(obj[k], k); });
+  if (obj.inlineData) addObject({ data: obj.inlineData.data, mime: obj.inlineData.mimeType, type: obj.inlineData.mimeType }, 'inlineData');
+  if (obj.inline_data) addObject({ data: obj.inline_data.data, mime: obj.inline_data.mime_type, type: obj.inline_data.mime_type }, 'inline_data');
+  if (obj.choices?.[0]?.message) pullMedia(obj.choices[0].message, onMedia);
+}
 function buildResponsesInput(msgs, vision) {
   const input = [];
   for (const m of msgs) {
@@ -2824,7 +2951,7 @@ function buildResponsesInput(msgs, vision) {
 }
 
 /* เรียก Backend (/api/chat) — backend แปลงให้ครบทุกค่าย แล้วสตรีม OpenAI-format กลับมา */
-async function callProxy({ provider, model, messages, level, search, signal, onText, onThink, onSearch, onSource, sys }) {
+async function callProxy({ provider, model, messages, level, search, signal, onText, onThink, onSearch, onSource, onMedia, sys }) {
   const prov = PROVIDERS[provider];
   const base = String(cfg.proxy.base || '').trim().replace(/\/+$/, '');
   const secret = String(cfg.proxy.secret || '').trim();
@@ -2850,8 +2977,10 @@ async function callProxy({ provider, model, messages, level, search, signal, onT
   if (!response.ok) throw new Error(await apiError(response));
   await pump(response, j => {
     if (j.error) throw new Error(j.error.message || 'Proxy stream error');
+    pullMedia(j, onMedia);
     const d = j.choices?.[0]?.delta;
     if (!d) return;
+    pullMedia(d, onMedia);
     const reasoning = d.reasoning_content ?? d.reasoning;
     if (typeof reasoning === 'string' && reasoning) onThink(reasoning);
     if (d.content) onText(d.content);
@@ -2861,7 +2990,7 @@ async function callProxy({ provider, model, messages, level, search, signal, onT
 }
 
 /* ─────────── callProvider — the single network seam ─────────── */
-async function callProvider({ provider, model, messages, level, signal, search, onText, onThink, onSearch, onSource }) {
+async function callProvider({ provider, model, messages, level, signal, search, onText, onThink, onSearch, onSource, onMedia }) {
   const prov = provider === cfg.provider ? P() : PROVIDERS[provider];
   const mdef = prov.models.find(m => m.id === model) || { vision:false, think:false };
   const key = keys[provider];
@@ -2870,14 +2999,14 @@ async function callProvider({ provider, model, messages, level, signal, search, 
   if (prov.wire === 'compat' && !prov.base) throw new Error('ยังไม่ได้ใส่ API Base URL ของค่ายนี้ — เปิดหน้าตั้งค่า');
   if (prov.wire === 'compat' && !model) throw new Error('ยังไม่ได้ใส่ Model ID ของค่ายนี้ — เปิดหน้าตั้งค่า');
   const extra = reasonParams(prov.wire, mdef, level);
-  onText = onText || noop; onThink = onThink || noop; onSearch = onSearch || noop; onSource = onSource || noop;
+  onText = onText || noop; onThink = onThink || noop; onSearch = onSearch || noop; onSource = onSource || noop; onMedia = onMedia || noop;
   // โปรโตคอลไฟล์: ถ้าผู้ใช้ขอไฟล์ ให้ส่ง source file ที่แอปจะรัน/แปลงเป็นไฟล์จริงโดยตรง
   const fileHint = 'When the user asks for a file (PDF/PPTX/DOCX/XLSX or another artifact), make the requested file the primary deliverable. Put the complete source code in ONE markdown fenced block and include a filename after the language tag, e.g. ```python create_slides.py. The app may execute supported Python Office-generation code in the browser and then offer the resulting binary file directly; do NOT add a README, slides.md, or extra helper files unless they are genuinely required. Do not wrap a single requested artifact in ZIP. For a real multi-file project, put EACH file in its own fenced code block with its filename and the app may offer a ZIP of the source project.';
   const sys = [cfg.sys, fileHint].filter(Boolean).join('\n\n');
 
   if (usingProxy) {
     if (search) onSearch({ query:'Worker web search', status:'searching' });
-    await callProxy({ provider, model, messages, level, search, signal, onText, onThink, onSearch, onSource, sys });
+    await callProxy({ provider, model, messages, level, search, signal, onText, onThink, onSearch, onSource, onMedia, sys });
     if (search) onSearch({ query:'Worker web search', status:'done' });
     return;
   }
@@ -2885,7 +3014,7 @@ async function callProvider({ provider, model, messages, level, signal, search, 
   /* ── OpenAI hosted web_search via Responses API ── */
   if (search && prov.wire === 'openai') {
     try {
-      await callOpenAIResponses({ key, model, messages, extra, vision: mdef.vision, signal, onText, onThink, onSearch, onSource, sys });
+      await callOpenAIResponses({ key, model, messages, extra, vision: mdef.vision, signal, onText, onThink, onSearch, onSource, onMedia, sys });
       return;
     } catch (e) {
       if (e?.name === 'AbortError') throw e;
@@ -2903,19 +3032,19 @@ async function callProvider({ provider, model, messages, level, signal, search, 
     /* DeepSeek ไม่มีค้นเว็บในตัว — ค้นในเบราว์เซอร์แล้วแนบผลให้โมเดล
        OpenAI (ถ้า Responses ใช้ไม่ได้) ใช้ function calling แล้วค่อย fallback แบบเดียวกัน */
     if (search && prov.wire === 'deepseek') {
-      await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource });
+      await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource, onMedia });
       return;
     }
     if (search && prov.wire === 'compat') {
-      await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource });
+      await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource, onMedia });
       return;
     }
     if (search && prov.wire === 'openai') {
       try {
-        await callCompatToolLoop({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource });
+        await callCompatToolLoop({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource, onMedia });
       } catch (e) {
         if (e?.name === 'AbortError') throw e;
-        await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource });
+        await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource, onMedia });
       }
       return;
     }
@@ -2934,7 +3063,9 @@ async function callProvider({ provider, model, messages, level, signal, search, 
     let stop = null;
     await pump(res, j => {
       if (j.error) { stop = j.error.message || 'stream error'; return; }
+      pullMedia(j, onMedia);
       const d = j.choices?.[0]?.delta; if (!d) return;
+      pullMedia(d, onMedia);
       const r = d.reasoning_content ?? d.reasoning;
       if (typeof r === 'string' && r) onThink(r);
       if (d.content) onText(d.content);
@@ -2963,6 +3094,7 @@ async function callProvider({ provider, model, messages, level, signal, search, 
       if (j.type === 'error') { stop = j.error?.message || 'stream error'; return; }
       if (j.type === 'content_block_start') {
         const b = j.content_block || {};
+        pullMedia(b, onMedia);
         if (b.type === 'server_tool_use' && (b.name === 'web_search' || b.name === 'web_search_tool')) onSearch({ query:'', status:'searching' });
         if (b.type === 'web_search_tool_result') onSearch({ status:'done' });
       }
@@ -3005,7 +3137,10 @@ async function callProvider({ provider, model, messages, level, signal, search, 
       if (j.error) { stop = j.error.message; return; }
       const cand = j.candidates?.[0] || {};
       const parts = cand.content?.parts || [];
-      for (const p of parts) if (typeof p.text === 'string' && p.text) (p.thought ? onThink : onText)(p.text);
+      for (const p of parts) {
+        pullMedia(p, onMedia);
+        if (typeof p.text === 'string' && p.text) (p.thought ? onThink : onText)(p.text);
+      }
       const gm = cand.groundingMetadata || cand.grounding_metadata;
       if (gm) {
         (gm.webSearchQueries || gm.web_search_queries || []).forEach(q => onSearch({ query: q, status:'done' }));
@@ -3017,7 +3152,7 @@ async function callProvider({ provider, model, messages, level, signal, search, 
   }
   throw new Error('ไม่รู้จักผู้ให้บริการนี้');
 }
-async function callOpenAIResponses({ key, model, messages, extra, vision, signal, onText, onThink, onSearch, onSource, sys }) {
+async function callOpenAIResponses({ key, model, messages, extra, vision, signal, onText, onThink, onSearch, onSource, onMedia, sys }) {
   const body = { model, stream:true, tools:[{ type:'web_search' }], input: buildResponsesInput(messages, vision) };
   if (sys) body.instructions = sys;
   if (extra.reasoning_effort && extra.reasoning_effort !== 'none') body.reasoning = { effort: extra.reasoning_effort };
@@ -3035,12 +3170,14 @@ async function callOpenAIResponses({ key, model, messages, extra, vision, signal
       const q = j?.action?.query || j?.query || (Array.isArray(j?.action?.queries) ? j.action.queries[0] : '');
       onSearch({ query: q || 'ค้นเว็บ', status: type.includes('completed') ? 'done' : 'searching' });
     }
-    pullSources(j, onSource);
+    pullMedia(j, onMedia);
     const item = j?.item || j;
-    if (item?.type === 'message') (item.content || []).forEach(c => pullSources(c, onSource));
+    if (j?.item) pullMedia(j.item, onMedia);
+    pullSources(j, onSource);
+    if (item?.type === 'message') (item.content || []).forEach(c => { pullMedia(c, onMedia); pullSources(c, onSource); });
   });
 }
-async function streamChat({ url, headers, body, signal, onText, onThink, onSource }) {
+async function streamChat({ url, headers, body, signal, onText, onThink, onSource, onMedia }) {
   const res = await fetch(url, { method:'POST', headers, body: JSON.stringify(body), signal });
   if (!res.ok) throw new Error(await apiError(res));
   let stop = null;
@@ -3054,7 +3191,7 @@ async function streamChat({ url, headers, body, signal, onText, onThink, onSourc
   });
   if (stop) throw new Error(stop);
 }
-async function searchThenStream({ url, headers, model, messages, extra, vision, wire, signal, onText, onThink, onSearch, onSource }) {
+async function searchThenStream({ url, headers, model, messages, extra, vision, wire, signal, onText, onThink, onSearch, onSource, onMedia }) {
   const last = [...messages].reverse().find(m => m.role === 'user');
   const q = flatten(last || { content:'' }).slice(0, 280);
   onSearch({ query: q, status:'searching' });
@@ -3064,11 +3201,11 @@ async function searchThenStream({ url, headers, model, messages, extra, vision, 
   const copy = messages.map(m => ({ ...m, content: m.content, attachments: m.attachments }));
   const u = [...copy].reverse().find(m => m.role === 'user');
   if (u) u.content = (u.content || '') + '\n\n<search_results>\n' + result.text + '\n</search_results>\nอ้างอิงแหล่งที่มาเป็นลิงก์ markdown เมื่อใช้ข้อมูลจากผลการค้น';
-  const body = { model, messages: buildOpenAI(copy, vision, [cfg.sys, 'When delivering multiple files, put EACH file in its own markdown fence with a filename. If you have an actual image or video file/URL available to return, include it as standard Markdown media (image: ![filename](URL); video: [filename](URL)) so the client can preview and download it. Do not invent media URLs.'].filter(Boolean).join('\n\n'), wire), stream:true, ...extra };
+  const body = { model, messages: buildOpenAI(copy, vision, [cfg.sys, 'When delivering multiple files, put EACH file in its own markdown fence with a filename. If you have an actual image or video file/URL available to return, include it using standard Markdown media (image: ![filename](URL); video: [filename](URL)), or a JSON media object such as {"type":"image","url":"..."} / {"type":"video","url":"..."}; for base64 use {"type":"image","mime":"image/png","b64_json":"..."}. The client previews and offers download for these outputs. Do not invent media URLs or base64 data.'].filter(Boolean).join('\n\n'), wire), stream:true, ...extra };
   if (!(wire === 'openai' && extra.reasoning_effort)) body.temperature = cfg.temp;
-  await streamChat({ url, headers, body, signal, onText, onThink, onSource });
+  await streamChat({ url, headers, body, signal, onText, onThink, onSource, onMedia });
 }
-async function callCompatToolLoop({ url, headers, model, messages, extra, vision, wire, signal, onText, onThink, onSearch, onSource }) {
+async function callCompatToolLoop({ url, headers, model, messages, extra, vision, wire, signal, onText, onThink, onSearch, onSource, onMedia }) {
   let msgs = buildOpenAI(messages, vision, (cfg.sys || '') + '\n\nYou have a web_search tool. Use it for current events, prices, news, or anything that may have changed after your knowledge cutoff. Cite sources with markdown links.', wire);
   for (let round = 0; round < 4; round++) {
     const body = { model, messages: msgs, stream:true, tools:[SEARCH_TOOL], tool_choice: round === 0 ? 'auto' : 'auto', ...extra };
@@ -3079,9 +3216,11 @@ async function callCompatToolLoop({ url, headers, model, messages, extra, vision
     let finish = null, stop = null;
     await pump(res, j => {
       if (j.error) { stop = j.error.message || 'stream error'; return; }
+      pullMedia(j, onMedia);
       const ch = j.choices?.[0]; if (!ch) return;
       if (ch.finish_reason) finish = ch.finish_reason;
       const d = ch.delta; if (!d) return;
+      pullMedia(d, onMedia);
       const r = d.reasoning_content ?? d.reasoning;
       if (typeof r === 'string' && r) onThink(r);
       if (d.content) onText(d.content);
@@ -3227,7 +3366,7 @@ async function run() {
   busy = true; setBusy(true);
   /* จำลองการคิดเฉพาะเมื่อผู้ใช้เลือกระดับเอง — 'อัตโนมัติ' ไม่แอบเพิ่มค่าใช้จ่าย */
   const simulate = M().think !== 'opt' && ['low', 'medium', 'high'].includes(cfg.level);
-  const out = { role:'assistant', content:'', reasoning:'', queries:[], sources:[], model: `${P().name} ${M().label}`, ts: Date.now() };
+  const out = { role:'assistant', content:'', reasoning:'', media:[], queries:[], sources:[], model: `${P().name} ${M().label}`, ts: Date.now() };
   if (simulate) out.simulated = true;
 
   const live = h('div', 'turn a');
@@ -3329,6 +3468,12 @@ async function run() {
       onSource: s => {
         if (!s?.url) return;
         if (!out.sources.some(x => x.url === s.url)) out.sources.push({ title: s.title || s.url, url: s.url });
+      },
+      onMedia: media => {
+        if (!media?.url || out.media.some(x => x.url === media.url)) return;
+        out.media.push({ url: media.url, kind: media.kind || mediaKindFromUrl(media.url, media.mime || ''), name: media.name || '', mime: media.mime || '' });
+        work.setStage('ได้รับสื่อจากโมเดล', `${out.media.length} ไฟล์ · ${out.media.at(-1)?.name || 'media'}`);
+        jump();
       }
     });
     work.setStage('ตรวจความครบถ้วนของคำตอบ');
@@ -3348,6 +3493,7 @@ async function run() {
   if (!out.queries.length) delete out.queries;
   if (!out.sources.length) delete out.sources;
   if (!out.reasoning) delete out.reasoning;
+  if (!out.media.length) delete out.media;
   c.messages.push(out); c.ts = Date.now(); saveChats(); drawRail(); drawThread(); jump(true);
 }
 function setBusy(on) {
