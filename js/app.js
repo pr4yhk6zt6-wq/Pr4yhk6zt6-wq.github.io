@@ -16,7 +16,9 @@ const I = {
   check:svg('<path d="M20 6 9 17l-5-5"/>', 16, 2),
   arrow:svg('<path d="M5 12h14M12 5l7 7-7 7"/>', 13),
   chev: svg('<path d="m9 18 6-6-6-6"/>', 11, 2),
-  x:    svg('<path d="M18 6 6 18M6 6l12 12"/>', 12, 1.8)
+  x:    svg('<path d="M18 6 6 18M6 6l12 12"/>', 12, 1.8),
+  conv: svg('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>', 14),
+  wand: svg('<path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/>', 13)
 };
 
 /* ─────────── provider registry ───────────
@@ -270,6 +272,12 @@ function fileCard(file, all) {
   const b = (html, title, fn) => { const x = h('button'); x.innerHTML = html; x.title = title; x.onclick = e => { e.stopPropagation(); fn(); }; return x; };
   if (file.runnable) acts.append(b(I.eye, 'พรีวิวรัน', () => openFilePreview(file, all, 'run')));
   acts.append(b(svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>', 14), 'ดูโค้ด', () => openFilePreview(file, all, 'code')));
+  const convTarget = detectConvertTarget(file);
+  if (convTarget) {
+    const cbtn = b(I.conv, `ดู/แปลงเป็น .${convTarget.ext}`, () => runConvertClick(file, convTarget, cbtn));
+    cbtn.classList.add('conv-btn');
+    acts.append(cbtn);
+  }
   acts.append(b(I.copy, 'คัดลอก', () => copy(file.content)));
   acts.append(b(I.down, 'ดาวน์โหลด', () => save(file.content, file.name.split('/').pop())));
   row.append(acts);
@@ -288,6 +296,200 @@ function buildFileSet(files) {
   box.append(head_);
   files.forEach(f => box.append(fileCard(f, files)));
   return box;
+}
+/* ─────────── แปลงไฟล์ต้นทาง → ไฟล์จริง (best-effort) ───────────
+   บางครั้งโมเดลตั้งใจจะส่งงาน (เช่นสไลด์) แต่ส่งมาเป็นโค้ด python-pptx / PptxGenJS ฯลฯ
+   แทนที่จะปล่อยเป็นแค่โค้ดเปล่า ๆ เราลองอ่านข้อความ/โครงจากโค้ดนั้นมาประกอบเป็นไฟล์จริงให้กดดูได้เลย
+   นี่คือการเดา "ประมาณ" จากโค้ด ไม่ใช่การรันโค้ดจริง — บอกผู้ใช้ตรง ๆ ในหน้าพรีวิว */
+const CONVERT_TARGETS = [
+  { type:'pptx', ext:'pptx', mime:'application/vnd.openxmlformats-officedocument.presentationml.presentation', label:'PowerPoint',
+    re:/\bpython-pptx\b|\bfrom\s+pptx\b|PptxGenJS|add_slide\s*\(|addSlide\s*\(|slide_layouts|Presentation\s*\(\s*\)/i },
+  { type:'docx', ext:'docx', mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', label:'Word',
+    re:/\bpython-docx\b|\bfrom\s+docx\b|add_heading\s*\(|add_paragraph\s*\(|docx\.Document\s*\(/i },
+  { type:'xlsx', ext:'xlsx', mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', label:'Excel',
+    re:/\bopenpyxl\b|\bxlsxwriter\b|Workbook\s*\(\s*\)|worksheet\s*\(|\.active\b/i },
+  { type:'pdf', ext:'pdf', mime:'application/pdf', label:'PDF',
+    re:/\breportlab\b|\bFPDF\b|canvas\.Canvas\s*\(|\bpdfkit\b|jsPDF/i }
+];
+function detectConvertTarget(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!['py','js','ts','jsx','tsx'].includes(ext)) return null;
+  const body = file.content || '';
+  for (const t of CONVERT_TARGETS) if (t.re.test(body)) return t;
+  return null;
+}
+function looksLikeContent(s) {
+  if (!s || s.length < 2) return false;
+  if (/^[0-9A-Fa-f]{6}$/.test(s)) return false;          // เลขสีฐาน 16
+  if (/^(#|rgb\(|rgba\()/i.test(s)) return false;
+  if (/^-?\d+(\.\d+)?$/.test(s)) return false;             // ตัวเลขล้วน
+  if (/^(utf-8|utf8)$/i.test(s)) return false;
+  if (/\.(pptx|docx|xlsx|pdf|py|js|ts|json|csv|png|jpg|jpeg)$/i.test(s) && s.length < 40) return false;   // ชื่อไฟล์ปลายทาง เช่น output.pptx
+  return true;
+}
+function extractQuotedStrings(code) {
+  const out = [];
+  const re = /"""([\s\S]*?)"""|'''([\s\S]*?)'''|"((?:\\.|[^"\\\n])*)"|'((?:\\.|[^'\\\n])*)'|`((?:\\.|[^`\\])*)`/g;
+  let m;
+  while ((m = re.exec(code || '')) !== null) {
+    let s = m[1] ?? m[2] ?? m[3] ?? m[4] ?? m[5] ?? '';
+    s = s.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\(["'`])/g, '$1').trim();
+    if (looksLikeContent(s)) out.push(s);
+  }
+  return out;
+}
+async function buildPptxFromCode(code, fallbackTitle) {
+  const PptxGenJS = await loadPptx();
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_WIDE';
+  pptx.title = fallbackTitle || 'Slides';
+  const addSlideFromStrings = strs => {
+    if (!strs.length) return false;
+    const slide = pptx.addSlide();
+    slide.addText(strs[0], { x:.6, y:.5, w:'90%', h:1, fontSize:28, bold:true, color:'1A1A18' });
+    const bullets = strs.slice(1, 7);
+    if (bullets.length) slide.addText(bullets.map(t => ({ text:t, options:{ breakLine:true, bullet:true } })),
+      { x:.6, y:1.65, w:'88%', h:4.6, fontSize:16, color:'333333' });
+    return true;
+  };
+  const chunks = (code || '').split(/add_slide\s*\(|addSlide\s*\(/i).slice(1);
+  let made = 0;
+  chunks.forEach(seg => { if (addSlideFromStrings(extractQuotedStrings(seg))) made++; });
+  if (!made) addSlideFromStrings([fallbackTitle || 'Slide', ...extractQuotedStrings(code)]);
+  const data = await pptx.write({ outputType:'blob' });
+  return data instanceof Blob ? data : new Blob([data], { type:CONVERT_TARGETS[0].mime });
+}
+async function buildDocxBlob(code, fallbackTitle) {
+  if (!window.JSZip) throw new Error('ต้องโหลด JSZip ก่อน');
+  const wm = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const re = /add_heading\s*\(\s*(['"`])([\s\S]*?)\1(?:\s*,\s*(?:level\s*=\s*)?(\d+))?|add_paragraph\s*\(\s*(['"`])([\s\S]*?)\4/g;
+  const parts = [];
+  let m;
+  while ((m = re.exec(code || ''))) {
+    if (m[2] != null) parts.push({ heading:true, level:Number(m[3] || 1), text:m[2] });
+    else parts.push({ heading:false, text:m[5] });
+  }
+  if (!parts.length) extractQuotedStrings(code).forEach(s => parts.push({ heading:false, text:s }));
+  if (!parts.length) parts.push({ heading:true, level:1, text:fallbackTitle || 'Document' });
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const body = parts.map(p => p.heading
+    ? `<w:p><w:r><w:rPr><w:b/><w:sz w:val="${p.level === 1 ? 36 : 28}"/></w:rPr><w:t xml:space="preserve">${esc(p.text)}</w:t></w:r></w:p>`
+    : `<w:p><w:r><w:t xml:space="preserve">${esc(p.text)}</w:t></w:r></w:p>`).join('');
+  const z = new JSZip();
+  const ct = 'http://schemas.openxmlformats.org/package/2006/content-types', rel = 'http://schemas.openxmlformats.org/package/2006/relationships', od = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  z.file('[Content_Types].xml', `<Types xmlns="${ct}"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+  z.file('_rels/.rels', `<Relationships xmlns="${rel}"><Relationship Id="rId1" Type="${od}/officeDocument" Target="word/document.xml"/></Relationships>`);
+  z.file('word/document.xml', `<w:document xmlns:w="${wm}"><w:body>${body}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`);
+  return z.generateAsync({ type:'blob', mimeType:CONVERT_TARGETS[1].mime, compression:'DEFLATE' });
+}
+async function buildXlsxBlob(code) {
+  if (!window.JSZip) throw new Error('ต้องโหลด JSZip ก่อน');
+  const colLetterToNum = s => { let n = 0; for (const c of s) n = n * 26 + (c.toUpperCase().charCodeAt(0) - 64); return n; };
+  const colNumToLetter = n => { let s = ''; while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const cells = new Map(); let maxR = 0, maxC = 0;
+  const setCell = (r, c, v) => { if (r < 1 || c < 1) return; cells.set(r + ',' + c, v); maxR = Math.max(maxR, r); maxC = Math.max(maxC, c); };
+  let m;
+  const reA = /\[\s*(['"`])([A-Za-z]+)(\d+)\1\s*\](?:\.value)?\s*=\s*(['"`])([\s\S]*?)\4/g;
+  while ((m = reA.exec(code || ''))) setCell(Number(m[3]), colLetterToNum(m[2]), m[5]);
+  const reB = /\.cell\s*\(\s*row\s*=\s*(\d+)\s*,\s*column\s*=\s*(\d+)\s*(?:,\s*value\s*=\s*(['"`])([\s\S]*?)\3)?\)/g;
+  while ((m = reB.exec(code || ''))) setCell(Number(m[1]), Number(m[2]), m[4] != null ? m[4] : '');
+  const reC = /\.write\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(['"`])([\s\S]*?)\3/g;
+  while ((m = reC.exec(code || ''))) setCell(Number(m[1]) + 1, Number(m[2]) + 1, m[4]);
+  if (!cells.size) extractQuotedStrings(code).forEach((s, i) => setCell(i + 1, 1, s));
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const rows = [];
+  for (let r = 1; r <= maxR; r++) {
+    let rowXml = '';
+    for (let c = 1; c <= maxC; c++) {
+      const v = cells.get(r + ',' + c);
+      if (v == null) continue;
+      const ref = colNumToLetter(c) + r;
+      rowXml += /^-?\d+(\.\d+)?$/.test(String(v)) ? `<c r="${ref}"><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
+    }
+    if (rowXml) rows.push(`<row r="${r}">${rowXml}</row>`);
+  }
+  const sm = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main', ct = 'http://schemas.openxmlformats.org/package/2006/content-types', rel = 'http://schemas.openxmlformats.org/package/2006/relationships', od = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const z = new JSZip();
+  z.file('[Content_Types].xml', `<Types xmlns="${ct}"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
+  z.file('_rels/.rels', `<Relationships xmlns="${rel}"><Relationship Id="rId1" Type="${od}/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  z.file('xl/workbook.xml', `<workbook xmlns="${sm}" xmlns:r="${od}"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  z.file('xl/_rels/workbook.xml.rels', `<Relationships xmlns="${rel}"><Relationship Id="rId1" Type="${od}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`);
+  z.file('xl/worksheets/sheet1.xml', `<worksheet xmlns="${sm}"><sheetData>${rows.join('')}</sheetData></worksheet>`);
+  return z.generateAsync({ type:'blob', mimeType:CONVERT_TARGETS[2].mime, compression:'DEFLATE' });
+}
+function buildPdfBlob(code, fallbackTitle) {
+  const strs = extractQuotedStrings(code);
+  const lines = [fallbackTitle || 'Document', ...strs].slice(0, 40);
+  const esc = s => String(s).replace(/[()\\]/g, c => '\\' + c);
+  let y = 780, body = `BT /F1 20 Tf 48 800 Td (${esc((lines[0] || 'Document').slice(0, 70))}) Tj ET\n`;
+  lines.slice(1).forEach(line => {
+    y -= 22; if (y < 40) return;
+    body += `BT /F1 12 Tf 48 ${y} Td (${esc(String(line).slice(0, 90))}) Tj ET\n`;
+  });
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Length ${body.length} >>\nstream\n${body}endstream`
+  ];
+  let pdf = '%PDF-1.4\n%Kiln\n';
+  const positions = [0];
+  for (let i = 0; i < objects.length; i++) { positions.push(pdf.length); pdf += `${i + 1} 0 obj\n${objects[i]}\nendobj\n`; }
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += positions.slice(1).map(p => `${String(p).padStart(10, '0')} 00000 n \n`).join('');
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return new Blob([pdf], { type:'application/pdf' });
+}
+async function convertSourceFile(file, target) {
+  const code = file.content || '';
+  const baseName = (file.name.split('/').pop() || 'output').replace(/\.[^.]+$/, '') || 'output';
+  const outName = `${baseName}.${target.ext}`;
+  let blob;
+  if (target.type === 'pptx') blob = await buildPptxFromCode(code, baseName);
+  else if (target.type === 'docx') blob = await buildDocxBlob(code, baseName);
+  else if (target.type === 'xlsx') blob = await buildXlsxBlob(code);
+  else blob = buildPdfBlob(code, baseName);
+  return { name:outName, blob, mime:target.mime };
+}
+const convertCache = new Map();
+async function runConvertClick(file, target, btn) {
+  const key = file.name + '::' + target.type + '::' + file.content.length;
+  const prevHtml = btn.innerHTML;
+  try {
+    if (!convertCache.has(key)) {
+      btn.innerHTML = '⋯'; btn.disabled = true;
+      convertCache.set(key, await convertSourceFile(file, target));
+    }
+    openConvertedPreview(convertCache.get(key), file.name);
+  } catch (e) {
+    toast('แปลงเป็น .' + target.ext + ' ไม่สำเร็จ: ' + (e.message || e));
+  } finally {
+    btn.innerHTML = prevHtml; btn.disabled = false;
+  }
+}
+function openConvertedPreview(result, fromName) {
+  previewSeq++;
+  pvFile = { name:result.name, blob:result.blob, converted:true };
+  pvAll = null; pvSource = '';
+  $('#pvTitle').textContent = result.name;
+  $('#pvDl').disabled = false; $('#pvNew').disabled = false;
+  $('#pvMode').hidden = true;
+  $('#pvCode').textContent = '';
+  $('#pvWrap').classList.remove('show-code');
+  const url = URL.createObjectURL(result.blob);
+  demoUrls.set('__conv__' + result.name, url);
+  if (result.mime === 'application/pdf') { $('#pvFrame').removeAttribute('srcdoc'); $('#pvFrame').src = url; }
+  else {
+    $('#pvFrame').removeAttribute('src');
+    $('#pvFrame').srcdoc = `<div style="font:15px/1.7 -apple-system,sans-serif;padding:22px;color:#1a1a18">
+      <p style="margin:0 0 10px"><b>${escapeHTML(result.name)}</b></p>
+      <p style="margin:0 0 8px;color:#625f58">แปลงมาจาก <code>${escapeHTML(fromName || '')}</code> โดยอ่านข้อความ/โครงจากโค้ดแบบประมาณการ — ไม่ได้รันโค้ดจริง ควรเปิดตรวจสอบก่อนใช้งานจริง</p>
+      <p style="margin:0">กด <b>ดาวน์โหลด</b> ด้านบนเพื่อเปิดในแอปที่รองรับ</p>
+    </div>`;
+  }
+  open$('#pvWrap');
 }
 function decorateCode(root) {
   // ใช้เฉพาะตอนไม่มีระบบไฟล์การ์ด (fallback)
@@ -398,6 +600,13 @@ $('#pvDl').onclick = () => {
     document.body.append(a); a.click(); a.remove();
     return;
   }
+  if (pvFile.blob) {
+    const a = h('a'); a.href = URL.createObjectURL(pvFile.blob); a.download = pvFile.name;
+    document.body.append(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+    toast('บันทึก ' + pvFile.name);
+    return;
+  }
   save(pvFile.content || '', (pvFile.name || 'file').split('/').pop());
 };
 $('#pvNew').onclick = () => {
@@ -406,6 +615,7 @@ $('#pvNew').onclick = () => {
       window.open(demoUrls.get(pvFile.demoId) || '#', '_blank', 'noopener');
       return;
     }
+    if (pvFile?.blob) { window.open(URL.createObjectURL(pvFile.blob), '_blank', 'noopener'); return; }
     const type = (pvFile?.runnable || isHtmlish(pvFile?.lang, pvFile?.content, pvFile?.name)) ? 'text/html' : 'text/plain';
     window.open(URL.createObjectURL(new Blob([type === 'text/html' ? pvSource : (pvFile?.content || '')], { type })), '_blank');
   } catch { toast('เบราว์เซอร์บล็อกหน้าต่างใหม่'); }
@@ -921,9 +1131,10 @@ function citeEl(sources) {
 function thinkEl(text, live) {
   const d = h('details', 'think' + (live ? ' live' : ''));
   const s = h('summary');
-  s.innerHTML = (live ? '<span class="dotp"></span>' : '') + `<span>${live ? 'กำลังคิด' : 'กระบวนการคิด'}</span><span class="chev">${I.chev}</span>`;
+  s.innerHTML = (live ? '<span class="dotp"></span>' : '') + `<span class="lbl">${live ? 'กำลังคิด' : 'กระบวนการคิด'}</span><span class="chev">${I.chev}</span>`;
   const inner = h('div', 'inner', text);
-  d.append(s, inner); d.open = live;
+  d.append(s, inner);
+  d.open = false;   // ไม่กางอัตโนมัติแม้กำลังสตรีมอยู่ — กันข้อความวิ่งเต็มจอ กดดูเองได้ที่นี่
   return d;
 }
 function seekEl(queries, live) {
@@ -1691,6 +1902,55 @@ async function apiError(res) {
 }
 
 /* ─────────── send / stream ─────────── */
+/* ─────────── สถานะระหว่างตอบ + จำลองโหมดคิด ───────────
+   โมเดลที่ไม่มีโหมดคิดจริง (think:false) จะได้สถานะจำลองแทน เพื่อให้เห็นว่ากำลังทำอะไรอยู่
+   และไม่ดันข้อความ/โค้ดดิบขึ้นจอสด ๆ ระหว่างสร้างไฟล์ (กันจอกระตุก) — มีปุ่มกดดูสดได้เสมอ */
+const STAGES = [
+  { key:'interpret', label:'กำลังตีความโจทย์' },
+  { key:'analyze',   label:'กำลังวิเคราะห์' },
+  { key:'work',      label:'กำลังลงมือทำ' },
+  { key:'review',    label:'กำลังตรวจสอบ' }
+];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function simThinkSteps(level, userText) {
+  const gist = (userText || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+  const base = {
+    low:    ['สรุปสิ่งที่ผู้ใช้ต้องการแบบสั้น ๆ'],
+    auto:   ['ตีความโจทย์: ' + (gist || '…'), 'วางแนวทางคำตอบคร่าว ๆ'],
+    medium: ['ตีความโจทย์: ' + (gist || '…'), 'พิจารณาเงื่อนไข/รูปแบบที่ต้องส่ง', 'วางโครงคำตอบหรือไฟล์ที่ต้องสร้าง'],
+    high:   ['ตีความโจทย์อย่างละเอียด: ' + (gist || '…'), 'พิจารณาหลายแนวทางที่เป็นไปได้', 'เลือกแนวทางที่เหมาะสมและวางโครง', 'ตรวจทานลำดับขั้นตอนก่อนเริ่มตอบ']
+  };
+  return base[level] || base.auto;
+}
+function liveDisplayText(raw) {
+  const re = /```([^\n`]*)\n([\s\S]*?)```/g;
+  let out = '', last = 0, m, n = 0;
+  while ((m = re.exec(raw)) !== null) {
+    out += raw.slice(last, m.index);
+    n++;
+    const meta = (m[1] || '').trim().split(/\s+/)[0] || '';
+    const nm = meta && (meta.includes('.') || meta.includes('/')) ? meta : `ไฟล์ที่ ${n}`;
+    out += `\n\n📄 **${nm}** — เขียนเสร็จแล้ว จะแสดงเป็นการ์ดไฟล์ด้านล่างเมื่อตอบจบ\n\n`;
+    last = re.lastIndex;
+  }
+  let rest = raw.slice(last);
+  const openM = rest.match(/```([^\n`]*)\n?([\s\S]*)$/);
+  if (openM) {
+    const head = rest.slice(0, openM.index);
+    const meta = (openM[1] || '').trim().split(/\s+/)[0] || '';
+    const nm = meta && (meta.includes('.') || meta.includes('/')) ? meta : 'ไฟล์ใหม่';
+    rest = head + `\n\n📄 **กำลังเขียน ${nm}…** (${byteSize(openM[2].length)})\n`;
+  }
+  return out + rest;
+}
+function statusEl() {
+  const w = h('div', 'status-live');
+  const dot = h('span', 'dotp');
+  const lbl = h('span', 'stage-lbl', STAGES[0].label);
+  const toggle = h('button', 'toggle-raw'); toggle.type = 'button'; toggle.innerHTML = I.eye + '<span>ดูสด</span>';
+  w.append(dot, lbl, toggle);
+  return { el:w, lbl, toggle };
+}
 function syncSend() { $('#btnSend').disabled = busy || (!$('#ta').value.trim() && !pending.length); }
 async function send() {
   if (busy) return;
@@ -1724,35 +1984,69 @@ async function run() {
   }
   busy = true; setBusy(true);
   const out = { role:'assistant', content:'', reasoning:'', queries:[], sources:[], model: `${P().name} ${M().label}`, ts: Date.now() };
+  const modelInfo = M();
+  const lastUserText = [...c.messages].reverse().find(m => m.role === 'user')?.content || '';
 
   const live = h('div', 'turn a');
   const who = h('div', 'who');
   who.innerHTML = `<span class="nm">คำตอบ · <b>${escapeHTML(out.model)}</b></span><span class="line"></span>`;
   const sb = seekEl([], true); sb.style.display = cfg.search ? '' : 'none';
   const tb = thinkEl('', true); tb.style.display = 'none';
+  const status = statusEl();
   const prose = h('div', 'prose');
   const caret = h('span', 'caret');
-  live.append(who, sb, tb, prose); prose.appendChild(caret);
+  live.append(who, sb, status.el, tb, prose); prose.appendChild(caret);
   $('#msgs').append(live); jump(true);
 
-  let last = 0, raf = 0;
+  let stageIdx = 0;
+  const setStage = i => { if (i > stageIdx) { stageIdx = i; status.lbl.textContent = STAGES[i].label; } };
+  let showRaw = false;
+  status.toggle.onclick = () => {
+    showRaw = !showRaw;
+    status.toggle.classList.toggle('on', showRaw);
+    status.toggle.querySelector('span').textContent = showRaw ? 'ซ่อนของดิบ' : 'ดูสด';
+    schedule();
+  };
+
+  let lastPaint = 0, raf = 0;
   const paint = () => {
     raf = 0;
     const now = performance.now();
-    if (now - last < 55) { raf = requestAnimationFrame(paint); return; }   // เว้นจังหวะ แต่ไม่ทิ้งเฟรมสุดท้าย
-    last = now;
-    prose.innerHTML = md(out.content);
+    if (now - lastPaint < 55) { raf = requestAnimationFrame(paint); return; }   // เว้นจังหวะ แต่ไม่ทิ้งเฟรมสุดท้าย
+    lastPaint = now;
+    if (out.content) setStage(2);
+    // ซ่อนโค้ด/ไฟล์ดิบที่กำลังเขียนไว้เป็นป้ายสถานะแทน กันจอกระตุก — กด "ดูสด" เพื่อดูของจริงระหว่างทาง
+    prose.innerHTML = md(showRaw ? out.content : liveDisplayText(out.content));
     (prose.lastElementChild || prose).appendChild(caret);                   // เคอร์เซอร์ต่อท้ายบรรทัดจริง
     jump();
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(paint); };
 
+  // โมเดลนี้ไม่มีโหมดคิดจริง → จำลองขั้นตอนคิดให้เห็น (ไม่ปิดโหมดคิดไว้)
+  let simDone = false;
+  const simulate = cfg.level !== 'off' && modelInfo.think === false;
+  if (simulate) {
+    out.reasoning = '(จำลองขั้นตอนคิด — โมเดลนี้ไม่ส่งกระบวนการคิดจริงออกมา)\n';
+    (async () => {
+      setStage(1);
+      for (const step of simThinkSteps(cfg.level, lastUserText)) {
+        if (simDone) return;
+        out.reasoning += '• ' + step + '\n';
+        tb.style.display = '';
+        tb.querySelector('.inner').textContent = out.reasoning;
+        await sleep(420 + Math.random() * 380);
+      }
+    })();
+  } else if (modelInfo.think !== false && cfg.level !== 'off') {
+    setStage(1);
+  }
+
   ctrl = new AbortController();
   try {
     await callProvider({
       provider: cfg.provider, model: mId(), messages: c.messages, level: cfg.level, signal: ctrl.signal, search: !!cfg.search,
-      onText: t => { out.content += t; schedule(); },
-      onThink: t => { out.reasoning += t; tb.style.display = ''; tb.querySelector('.inner').textContent = out.reasoning; tb.querySelector('.inner').scrollTop = 1e6; jump(); },
+      onText: t => { out.content += t; setStage(2); schedule(); },
+      onThink: t => { out.reasoning += t; setStage(1); tb.style.display = ''; tb.querySelector('.inner').textContent = out.reasoning; },
       onSearch: ({ query }) => {
         if (query && !out.queries.includes(query)) out.queries.push(query);
         sb.style.display = '';
@@ -1764,8 +2058,11 @@ async function run() {
         if (!out.sources.some(x => x.url === s.url)) out.sources.push({ title: s.title || s.url, url: s.url });
       }
     });
+    simDone = true;
     if (!out.content.trim() && !out.reasoning.trim()) out.content = '_(ไม่มีข้อความตอบกลับ)_';
+    else { setStage(3); await sleep(320); }   // ช่วงตรวจสอบสั้น ๆ ก่อนแสดงผลจริง
   } catch (err) {
+    simDone = true;
     if (err?.name === 'AbortError') out.content += (out.content ? '\n\n' : '') + '_— หยุดกลางคัน —_';
     else { out.error = true; out.content = String(err?.message || err); }
   }
