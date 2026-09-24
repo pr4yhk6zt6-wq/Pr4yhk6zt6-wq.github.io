@@ -132,15 +132,6 @@ details.think[open] summary .chev{transform:rotate(90deg)}
 details.think .inner{padding:0 0 14px;font-size:13px;line-height:1.7;color:var(--ink-3);
   white-space:pre-wrap;font-family:var(--mono);max-height:340px;overflow:auto}
 .think.live summary .dotp{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:pulse 1.1s ease-in-out infinite}
-
-/* สถานะจำลองระหว่างตอบ — แทนที่จะดันข้อความ/โค้ดดิบขึ้นจอ ให้เห็นแค่สถานะสั้น ๆ */
-.status-live{display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:12px;color:var(--ink-3)}
-.status-live .dotp{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:0 0 auto;animation:pulse 1.1s ease-in-out infinite}
-.status-live .stage-lbl{flex:1;min-width:0}
-.status-live .toggle-raw{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--rule);
-  border-radius:3px;font-size:11px;color:var(--ink-2);flex:0 0 auto}
-.status-live .toggle-raw:active{background:var(--sunk)}
-.status-live .toggle-raw.on{border-color:var(--accent);color:var(--accent)}
 .cites{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .cites a{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-size:11px;font-family:var(--mono);color:var(--ink-2);border:1px solid var(--rule);padding:4px 8px;
@@ -202,7 +193,6 @@ details.think .inner{padding:0 0 14px;font-size:13px;line-height:1.7;color:var(-
 .fcard .acts a{min-width:30px;height:30px;border-radius:3px;display:grid;place-items:center;color:var(--ink-2);border:1px solid var(--rule);text-decoration:none}
 .fcard .acts a:active{color:var(--accent);background:var(--paper)}
 .fcard .acts a[aria-disabled="true"],.fileset-h a[aria-disabled="true"]{opacity:.5;pointer-events:none}
-.fcard .acts button.conv-btn{color:var(--accent);border-color:var(--rule)}
 .demo-list{margin:0;padding:0 12px 12px;font-family:var(--mono);font-size:11px;line-height:1.8;color:var(--ink-3)}
 .demo-list summary{cursor:pointer;padding:8px 0;list-style:none;color:var(--ink-2)}
 .demo-list summary::-webkit-details-marker{display:none}
