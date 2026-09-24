@@ -1877,24 +1877,50 @@ async function runPythonPptxExact(file, plan, outName) {
   const pyodide = await loadPyodideRuntime();
   await pyodide.loadPackage(['micropip', 'lxml', 'Pillow']);
   await pyodide.runPythonAsync('import micropip; await micropip.install("python-pptx==1.0.2")');
+
   const sourcePath = '/tmp/kiln_generated.py';
-  const targetPath = '/tmp/kiln_output.pptx';
+  const workDir = '/tmp/kiln_pptx_work';
+  const targetPath = workDir + '/kiln_output.pptx';
   pyodide.FS.writeFile(sourcePath, file.content || '');
+  try { pyodide.FS.mkdir(workDir); } catch {}
+
   const passOutput = /add_argument\s*\([^)]*["']--output["']/i.test(file.content || '') || /add_argument\s*\([^)]*["']-o["']/i.test(file.content || '');
-  const argv = passOutput ? `['generated.py','--output',${pyQuote(targetPath)}]` : `['generated.py']`;
+  // If the generated script supports -o/--output, force our target path.
+  // Otherwise run it inside an isolated working directory and locate the PPTX it creates.
+  const argv = passOutput
+    ? `['generated.py','--output',${pyQuote(targetPath)}]`
+    : `['generated.py']`;
+
   const wrapper = `
-import os, sys, runpy
-from pptx.presentation import Presentation as _PptxPresentationClass
-_old_save = _PptxPresentationClass.save
-def _kiln_save(self, path):
-    return _old_save(self, ${pyQuote(targetPath)})
-_PptxPresentationClass.save = _kiln_save
+import os, sys, runpy, glob
+source = ${pyQuote(sourcePath)}
+work = ${pyQuote(workDir)}
+target = ${pyQuote(targetPath)}
+os.makedirs(work, exist_ok=True)
+os.chdir(work)
+sys.path.insert(0, work)
 sys.argv = ${argv}
-runpy.run_path(${pyQuote(sourcePath)}, run_name='__main__')
-if not os.path.exists(${pyQuote(targetPath)}):
-    raise RuntimeError('Python ทำงานเสร็จ แต่ไม่พบไฟล์ .pptx ที่สร้าง')
+runpy.run_path(source, run_name='__main__')
+
+# Locate the real PPTX produced by the user's script.
+if not os.path.exists(target):
+    candidates = []
+    for root, dirs, files in os.walk(work):
+        for name in files:
+            if name.lower().endswith('.pptx'):
+                path = os.path.join(root, name)
+                if os.path.getsize(path) > 0:
+                    candidates.append(path)
+    if not candidates:
+        raise RuntimeError('Python ทำงานเสร็จ แต่ไม่พบไฟล์ .pptx ที่สร้าง')
+    candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    os.replace(candidates[0], target)
 `;
+
   try {
+    // IMPORTANT: do not monkey-patch Presentation.save().
+    // The previous implementation patched the class method repeatedly, which caused
+    // recursive _kiln_save -> _kiln_save calls on persistent Pyodide runtimes.
     pyodide.runPython(wrapper);
     const data = pyodide.FS.readFile(targetPath);
     const copyBuf = new Uint8Array(data).slice().buffer;
@@ -1904,6 +1930,7 @@ if not os.path.exists(${pyQuote(targetPath)}):
   } finally {
     try { pyodide.FS.unlink(sourcePath); } catch {}
     try { pyodide.FS.unlink(targetPath); } catch {}
+    try { pyodide.FS.rmdir(workDir); } catch {}
   }
 }
 async function runJsPptxExact(file, plan, outName) {
