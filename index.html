@@ -3263,6 +3263,46 @@ $('#btnNew').onclick = newChat;
 const ta = $('#ta');
 function grow() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, window.innerHeight * 0.34) + 'px'; }
 ta.addEventListener('input', () => { grow(); syncSend(); });
+
+/* ── วางข้อความยาว → เปลี่ยนเป็นไฟล์ TXT อัตโนมัติ ──
+   ข้อความสั้นยังวางลงช่องแชทตามปกติ
+   แต่ prompt / code / ข้อความยาวจะถูกเก็บเป็นไฟล์ .txt เพื่อไม่ให้ composer
+   กลายเป็นกล่องข้อความยาวจนใช้งานยาก และให้โมเดลเห็นเป็นไฟล์แนบโดยตรง */
+const LONG_PASTE_LIMIT = 2500;
+function pastedTextLooksLikeCode(text) {
+  return /```|^\s*(from |import |def |class |function |const |let |var |#include |<\?php|<!doctype|<html|<script|SELECT\s|CREATE\s+TABLE)/im.test(text);
+}
+function nextPastedName(isCode) {
+  const base = isCode ? 'pasted_code' : 'pasted_text';
+  let n = 1;
+  let name = `${base}.txt`;
+  const used = new Set(pending.map(a => a.name));
+  while (used.has(name)) name = `${base}_${++n}.txt`;
+  return name;
+}
+ta.addEventListener('paste', e => {
+  const text = e.clipboardData?.getData('text/plain') || '';
+  if (text.length < LONG_PASTE_LIMIT) return;
+  e.preventDefault();
+  if (pending.length >= MAX_ATT) { toast('แนบได้สูงสุด ' + MAX_ATT + ' ชิ้น'); return; }
+  const isCode = pastedTextLooksLikeCode(text);
+  try {
+    const att = withText({
+      type:'text',
+      name:nextPastedName(isCode),
+      pasted:true,
+      office:false
+    }, text);
+    if (att) {
+      pending.push(att);
+      drawAtt();
+      syncSend();
+      toast(`วางข้อความยาวเป็นไฟล์ ${att.name} แล้ว`);
+    }
+  } catch (err) {
+    toast(thaiMsg(err, 'เปลี่ยนข้อความเป็นไฟล์ TXT ไม่สำเร็จ'));
+  }
+});
 ta.addEventListener('focus', () => { $('#editor').classList.add('focus'); setTimeout(() => jump(true), 320); });
 ta.addEventListener('blur',  () => $('#editor').classList.remove('focus'));
 ta.addEventListener('keydown', e => {
@@ -3688,6 +3728,7 @@ function runTests() {
     return 'ไม่ส่งไฟล์ลับ / ไฟล์ระบบ';
   });
   t('แนบไฟล์ข้อความเข้า prompt', () => { const s = flatten({ content:'ดูไฟล์นี้', attachments:[{ type:'text', name:'a.py', text:'print(1)' }] }); if (!s.includes('file: a.py') || !s.includes('print(1)')) throw new Error('ไม่พบเนื้อไฟล์'); return 'ok'; });
+  t('ชื่อไฟล์จากข้อความที่วางยาว', () => { const old = pending; pending = []; const a = { type:'text', name:nextPastedName(true), pasted:true }; eq(a.name, 'pasted_code.txt'); pending = old; return 'ok'; });
   t('payload OpenAI (มีรูป + system)', () => {
     const m = [{ role:'user', content:'ดูรูป', attachments:[{ type:'image', name:'i.png', mime:'image/png', dataUrl:'data:image/png;base64,AAA' }] }];
     const o = buildOpenAI(m, true, 'be nice');
