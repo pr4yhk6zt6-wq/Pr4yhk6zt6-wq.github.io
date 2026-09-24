@@ -238,6 +238,8 @@ details.think .inner{padding:0 0 14px;font-size:13px;line-height:1.7;color:var(-
 .fcard .acts a{min-width:30px;height:30px;border-radius:3px;display:grid;place-items:center;color:var(--ink-2);border:1px solid var(--rule);text-decoration:none}
 .fcard .acts a:active{color:var(--accent);background:var(--paper)}
 .fcard .acts a[aria-disabled="true"],.fileset-h a[aria-disabled="true"]{opacity:.5;pointer-events:none}
+.artifact-status{font-size:10px;color:var(--accent);}
+.fcard .acts button:disabled{opacity:.42;pointer-events:none}
 .demo-list{margin:0;padding:0 12px 12px;font-family:var(--mono);font-size:11px;line-height:1.8;color:var(--ink-3)}
 .demo-list summary{cursor:pointer;padding:8px 0;list-style:none;color:var(--ink-2)}
 .demo-list summary::-webkit-details-marker{display:none}
@@ -758,7 +760,7 @@ table.adm-t{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
   <div class="sheet-b"><p class="note" style="margin-bottom:10px">ทดสอบส่วนประกอบภายในของแอปโดยไม่ใช้เครดิต API</p>
     <div id="diagList"></div><div class="btnrow"><button class="b solid" id="btnRerun">ทดสอบอีกครั้ง</button></div>
     <div class="sec"><span class="lbl">ตรวจไฟล์จริง</span><span class="line"></span></div>
-    <p class="note">ตรวจส่วนหัว PDF/PNG/JPG และโครงสร้างไฟล์ Office/ZIP ที่สร้างจริง อาจต้องต่อเน็ตเพื่อโหลดตัวสร้าง PowerPoint ครั้งแรก</p>
+    <p class="note">ตรวจส่วนหัว PDF/PNG/JPG และโครงสร้างไฟล์ Office/ZIP ที่สร้างจริง · PPTX จากโค้ด Python ใช้ Python Runtime ในเบราว์เซอร์ครั้งแรก</p>
     <button class="b" id="btnVerifyFiles" style="width:100%">สร้างและตรวจไฟล์ทดสอบ</button>
     <div id="verifyFileResults"></div>
   </div>
@@ -1037,22 +1039,64 @@ function stripCodeFences(text, files) {
   });
   return out.replace(/\n{3,}/g, '\n\n').trim();
 }
+function artifactLabel(plan) {
+  return plan?.out ? String(plan.out).toUpperCase() : 'ไฟล์จริง';
+}
+function artifactName(file, plan) {
+  const src = file.content || '';
+  const titleM = src.match(/core_properties\.title\s*=\s*["']([^"']+)["']/i);
+  let base = titleM?.[1]?.trim() || '';
+  if (!base) base = String(file.name || '').replace(/\.[^.]+$/, '') || 'generated';
+  base = base.replace(/[<>:\"/\\|?*\u0000-\u001F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 96);
+  return (base || 'generated') + '.' + plan.out;
+}
+function downloadBlob(blob, name, mime) {
+  if (!(blob instanceof Blob)) throw new Error('ไม่พบข้อมูลไฟล์ที่สร้าง');
+  const url = URL.createObjectURL(mime ? new Blob([blob], { type:mime }) : blob);
+  const a = h('a'); a.href = url; a.download = name; a.rel = 'noopener';
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast('บันทึก ' + name);
+}
+async function downloadArtifact(file, plan) {
+  try {
+    const out = await prepareArtifact(file, plan);
+    downloadBlob(out.blob, out.name, out.mime);
+  } catch (e) {
+    toast('สร้าง ' + artifactLabel(plan) + ' ไม่สำเร็จ: ' + (e.message || String(e)));
+  }
+}
+function setArtifactStatus(file, text) {
+  if (file.artifactStatusEl) file.artifactStatusEl.textContent = text;
+}
 function fileCard(file, all) {
   const row = h('button', 'fcard');
   const ext = (file.name.split('.').pop() || file.lang || 'txt').slice(0, 4);
   row.append(h('div', 'ic', ext));
   const meta = h('div', 'meta');
-  meta.append(h('b', null, file.name));
-  meta.append(h('span', null, `${file.lang || 'text'} · ${byteSize((file.content || '').length)}${file.runnable ? ' · รันได้' : ''}`));
+  const plan = filePlan(file);
+  const outputName = plan ? artifactName(file, plan) : file.name;
+  meta.append(h('b', null, outputName));
+  const sub = h('span', null, `${plan ? 'จาก ' + file.name + ' · ' : ''}${file.lang || 'text'} · ${byteSize((file.content || '').length)}`);
+  if (file.runnable) sub.textContent += ' · รันได้';
+  meta.append(sub);
+  if (plan) {
+    const st = h('span', 'artifact-status', 'กำลังสร้างไฟล์จริง…');
+    meta.append(st); file.artifactStatusEl = st;
+  }
   row.append(meta);
   const acts = h('div', 'acts');
   const b = (html, title, fn) => { const x = h('button'); x.innerHTML = html; x.title = title; x.onclick = e => { e.stopPropagation(); fn(); }; return x; };
-  const plan = filePlan(file);
-  if (plan) acts.append(b(svg('<path d="M15 4V2m0 20v-2m5-15 1.5-1.5M3.5 20.5 5 19m10-9 6 6m-8-8 2-2 6 6-2 2zM2 22l7.5-7.5m1.5-9.5 1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>', 14), 'แปลงเป็น ' + plan.label, () => openConverted(file, plan)));
+  if (plan) {
+    const dl = b(I.down, 'ดาวน์โหลด ' + outputName, () => downloadArtifact(file, plan));
+    dl.disabled = true;
+    file.artifactDlEl = dl;
+    acts.append(dl);
+  }
   if (file.runnable) acts.append(b(I.eye, 'พรีวิวรัน', () => openFilePreview(file, all, 'run')));
-  acts.append(b(svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>', 14), 'ดูโค้ด', () => openFilePreview(file, all, 'code')));
+  acts.append(b(svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>', 14), 'ดูโค้ดต้นฉบับ', () => openFilePreview(file, all, 'code')));
   acts.append(b(I.copy, 'คัดลอก', () => copy(file.content)));
-  acts.append(b(I.down, 'ดาวน์โหลด', () => save(file.content, file.name.split('/').pop())));
+  if (!plan) acts.append(b(I.down, 'ดาวน์โหลดต้นฉบับ', () => save(file.content, file.name.split('/').pop())));
   row.append(acts);
   row.onclick = () => {
     if (file.runnable) openFilePreview(file, all, 'run');
@@ -1060,8 +1104,18 @@ function fileCard(file, all) {
     else openFilePreview(file, all, 'code');
   };
   if (plan) {
-    const metaSpan = meta.querySelector('span');
-    if (metaSpan) metaSpan.textContent += ' · แปลงเป็น ' + plan.out + ' ได้';
+    setTimeout(() => {
+      if (!file.artifactPromise) {
+        file.artifactPromise = prepareArtifact(file, plan).then(out => {
+          if (file.artifactDlEl) file.artifactDlEl.disabled = false;
+          setArtifactStatus(file, `ไฟล์จริงพร้อมแล้ว · ${byteSize(out.blob.size)}`);
+          return out;
+        }).catch(e => {
+          setArtifactStatus(file, `สร้างไม่สำเร็จ · ${e?.message || 'ตรวจสอบข้อผิดพลาด'}`);
+          return null;
+        });
+      }
+    }, 0);
   }
   return row;
 }
@@ -1069,8 +1123,15 @@ function buildFileSet(files) {
   const box = h('div', 'fileset');
   const head_ = h('div', 'fileset-h');
   head_.append(h('span', 'ttl', files.length === 1 ? '1 ไฟล์' : files.length + ' ไฟล์'));
+  const artifactFiles = files.filter(f => filePlan(f));
+  if (artifactFiles.length === 1) {
+    const af = artifactFiles[0], plan = filePlan(af);
+    const d = h('button', null, 'ดาวน์โหลด ' + artifactLabel(plan));
+    d.onclick = () => downloadArtifact(af, plan);
+    head_.append(d);
+  }
   if (files.length > 1) {
-    const z = h('button', null, 'ดาวน์โหลด ZIP');
+    const z = h('button', null, 'ZIP ต้นฉบับ');
     z.onclick = () => downloadZip(files, `project-${stamp()}.zip`);
     head_.append(z);
   }
@@ -1182,6 +1243,10 @@ $('#pvModeRun').onclick = () => setPreviewMode('run');
 $('#pvModeCode').onclick = () => setPreviewMode('code');
 $('#pvDl').onclick = () => {
   if (!pvFile) return;
+  if (pvFile.blob) {
+    downloadBlob(pvFile.blob, pvFile.name, pvFile.blob.type);
+    return;
+  }
   const url = pvFile.convUrl || (pvFile.demoId && demoUrls.get(pvFile.demoId));
   if (url) {
     const a = h('a'); a.href = url; a.download = pvFile.name;
@@ -1230,7 +1295,7 @@ function demoGuide() {
   const lines = DEMO_SPECS.map(s => `| \`${s.cmd}\` | ${s.label} | \`.${s.name.split('.').pop()}\` |`);
   return [
     '**Test Lab — พิมพ์เลขแล้วส่งได้เลย**',
-    'ไฟล์ถูกสร้างในเบราว์เซอร์ของคุณ ไม่ใช้ API Key และไม่ส่งข้อมูลไปที่โมเดล (PPTX ต้องต่อเน็ตเพื่อโหลดตัวสร้างไฟล์ครั้งแรก)',
+    'ไฟล์ถูกสร้างในเบราว์เซอร์ของคุณ ไม่ใช้ API Key และไม่ส่งข้อมูลไปที่โมเดล (PPTX จาก Python อาจโหลด Python Runtime ครั้งแรก)',
     '| คำสั่ง | ไฟล์ | นามสกุล |', '|:--|:--|:--|', ...lines,
     '| `2` | ZIP รวมไฟล์ตัวอย่างทั้งหมด | `.zip` |',
     '| `3` | โปรเจกต์เว็บ 3 ไฟล์ + ZIP | `.html` `.css` `.js` |',
@@ -1783,52 +1848,151 @@ function docPreviewHtml(blocks, title) {
   const body = blocks.map(b => b.h ? `<h2>${escapeHTML(b.text)}</h2>` : `<p>${escapeHTML(b.text)}</p>`).join('');
   return `<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,'IBM Plex Sans Thai',sans-serif;max-width:680px;margin:24px auto;padding:0 18px;color:#1a1a18;line-height:1.75}h1,h2{font-family:Georgia,'Noto Serif Thai',serif}</style>${title ? `<h1>${escapeHTML(title)}</h1>` : ''}${body}`;
 }
+/* ═══════════ รันโค้ดสร้าง Office จริง ═══════════
+   Python: รันผ่าน Pyodide + python-pptx ในเบราว์เซอร์ และดึงไฟล์ .pptx ตัวจริง
+   JavaScript: รัน PptxGenJS จริงและดัก write()/writeFile() เพื่อรับ Blob
+*/
+const PYODIDE_INDEX = 'https://cdn.jsdelivr.net/pyodide/v314.0.7/full/';
+let pyodidePromise = null;
+async function loadPyodideRuntime() {
+  if (window.loadPyodide) {
+    if (!pyodidePromise) pyodidePromise = loadPyodide({ indexURL: PYODIDE_INDEX });
+    return pyodidePromise;
+  }
+  if (!window.__kilnPyodideScript) {
+    window.__kilnPyodideScript = new Promise((resolve, reject) => {
+      const s = h('script');
+      s.src = PYODIDE_INDEX + 'pyodide.js';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('โหลด Python Runtime ไม่สำเร็จ — ต้องเชื่อมต่ออินเทอร์เน็ตครั้งแรก'));
+      document.head.append(s);
+    });
+  }
+  await window.__kilnPyodideScript;
+  if (!pyodidePromise) pyodidePromise = loadPyodide({ indexURL: PYODIDE_INDEX });
+  return pyodidePromise;
+}
+function pyQuote(s) { return JSON.stringify(String(s)); }
+async function runPythonPptxExact(file, plan, outName) {
+  const pyodide = await loadPyodideRuntime();
+  await pyodide.loadPackage(['lxml', 'Pillow']);
+  await pyodide.runPythonAsync('import micropip; await micropip.install("python-pptx==1.0.2")');
+  const sourcePath = '/tmp/kiln_generated.py';
+  const targetPath = '/tmp/kiln_output.pptx';
+  pyodide.FS.writeFile(sourcePath, file.content || '');
+  const passOutput = /add_argument\s*\([^)]*["']--output["']/i.test(file.content || '') || /add_argument\s*\([^)]*["']-o["']/i.test(file.content || '');
+  const argv = passOutput ? `['generated.py','--output',${pyQuote(targetPath)}]` : `['generated.py']`;
+  const wrapper = `
+import os, sys, runpy
+from pptx.presentation import Presentation as _PptxPresentationClass
+_old_save = _PptxPresentationClass.save
+def _kiln_save(self, path):
+    return _old_save(self, ${pyQuote(targetPath)})
+_PptxPresentationClass.save = _kiln_save
+sys.argv = ${argv}
+runpy.run_path(${pyQuote(sourcePath)}, run_name='__main__')
+if not os.path.exists(${pyQuote(targetPath)}):
+    raise RuntimeError('Python ทำงานเสร็จ แต่ไม่พบไฟล์ .pptx ที่สร้าง')
+`;
+  try {
+    pyodide.runPython(wrapper);
+    const data = pyodide.FS.readFile(targetPath);
+    const copyBuf = new Uint8Array(data).slice().buffer;
+    return { blob:new Blob([copyBuf], { type:DEMO_BY_ID.pptx.mime }), name:outName, mime:DEMO_BY_ID.pptx.mime, exact:true };
+  } catch (e) {
+    throw new Error('รัน Python สร้าง PPTX ไม่สำเร็จ: ' + (e?.message || String(e)));
+  } finally {
+    try { pyodide.FS.unlink(sourcePath); } catch {}
+    try { pyodide.FS.unlink(targetPath); } catch {}
+  }
+}
+async function runJsPptxExact(file, plan, outName) {
+  const PptxGenJS = await loadPptx();
+  let captured = null;
+  const oldWrite = PptxGenJS.prototype.write;
+  const oldWriteFile = PptxGenJS.prototype.writeFile;
+  PptxGenJS.prototype.write = async function(opts) {
+    captured = await oldWrite.call(this, { ...(opts || {}), outputType:'blob' });
+    return captured;
+  };
+  if (oldWriteFile) PptxGenJS.prototype.writeFile = async function() {
+    return this.write({ outputType:'blob' });
+  };
+  let src = String(file.content || '');
+  src = src.replace(/^\s*import[^\n;]+;?\s*$/gm, '');
+  src = src.replace(/^\s*(?:const|let|var)\s+PptxGenJS\s*=\s*require\([^\n]+\);?\s*$/gm, '');
+  try {
+    const runner = new Function('PptxGenJS', 'JSZip', `"use strict"; return (async()=>{\n${src}\n})()`);
+    await runner(PptxGenJS, window.JSZip);
+    if (!captured) throw new Error('โค้ด JavaScript ไม่ได้เรียก pptx.write()/writeFile()');
+    const blob = captured instanceof Blob ? captured : new Blob([captured], { type:DEMO_BY_ID.pptx.mime });
+    return { blob, name:outName, mime:DEMO_BY_ID.pptx.mime, exact:true };
+  } finally {
+    PptxGenJS.prototype.write = oldWrite;
+    if (oldWriteFile) PptxGenJS.prototype.writeFile = oldWriteFile;
+  }
+}
+async function prepareArtifact(file, plan) {
+  if (file.artifactPromise) return file.artifactPromise;
+  const outName = artifactName(file, plan);
+  file.artifactPromise = (async () => {
+    if (plan.out === 'pptx' && plan.kind === 'py-slides') {
+      return await runPythonPptxExact(file, plan, outName);
+    }
+    if (plan.out === 'pptx' && plan.kind === 'js-slides') {
+      try {
+        return await runJsPptxExact(file, plan, outName);
+      } catch (e) {
+        setArtifactStatus(file, 'รัน JS ตรงไม่สำเร็จ — ใช้ตัวแปลงสำรอง');
+      }
+    }
+    const src = file.content || '';
+    let blob;
+    if (plan.out === 'pptx') {
+      const slides = plan.kind === 'py-slides' ? pySlides(src) : plan.kind === 'js-slides' ? jsSlides(src) : mdSlides(src);
+      if (!slides.length) throw new Error('อ่านโครงสไลด์ไม่ได้');
+      blob = await makePptxFromSlides(slides, outName.replace(/\.[^.]+$/, ''));
+    } else if (plan.out === 'xlsx') {
+      const rows = plan.kind === 'csv' ? csvRows(src) : mdTableRows(src);
+      if (rows.length < 2) throw new Error('ไม่พบตาราง');
+      blob = await makeXlsxFromRows(rows);
+    } else if (plan.out === 'docx') {
+      const blocks = pyDocBlocks(src).length ? pyDocBlocks(src) : mdDocBlocks(src);
+      if (!blocks.length) throw new Error('ไม่พบเนื้อหาเอกสาร');
+      blob = await makeDocxFromBlocks(blocks, outName.replace(/\.[^.]+$/, ''));
+    } else {
+      blob = await makePdfFromText(src, outName.replace(/\.[^.]+$/, ''));
+    }
+    return { blob, name:outName, mime:blob.type || 'application/octet-stream', exact:false };
+  })().catch(e => { file.artifactPromise = null; throw e; });
+  return file.artifactPromise;
+}
+
 /* แปลง + เปิดพรีวิวจริง — ปุ่ม "ดูโค้ด" ยังอยู่ในหน้าต่างเดียวกัน */
 async function openConverted(file, plan) {
   const seq = ++previewSeq;
   pvFile = null; pvAll = null; pvSource = '';
-  $('#pvTitle').textContent = file.name + ' → ' + plan.label;
+  const outName = artifactName(file, plan);
+  $('#pvTitle').textContent = file.name + ' → ' + outName;
   $('#pvMode').hidden = false;
-  $('#pvModeRun').textContent = 'ตัวอย่าง'; $('#pvModeCode').textContent = 'โค้ด';
+  $('#pvModeRun').textContent = 'ไฟล์จริง'; $('#pvModeCode').textContent = 'โค้ดต้นฉบับ';
   $('#pvCode').textContent = file.content || '';
   $('#pvDl').disabled = true; $('#pvNew').disabled = true;
   $('#pvFrame').removeAttribute('src');
-  $('#pvFrame').srcdoc = '<p style="font:15px sans-serif;padding:20px">กำลังแปลงไฟล์…</p>';
+  $('#pvFrame').srcdoc = '<div style="font:16px/1.7 -apple-system,sans-serif;padding:24px;color:#1a1a18"><h2 style="margin:0 0 10px">กำลังสร้าง ' + escapeHTML(outName) + '</h2><p>แอปกำลังแปลงโค้ดเป็นไฟล์จริง โดยไม่บรรจุไฟล์นั้นซ้ำเป็น ZIP</p></div>';
   setPreviewMode('run'); open$('#pvWrap');
   try {
-    const src = file.content || '';
-    const base = file.name.replace(/\.[^.]+$/, '') || 'converted';
-    let blob, preview, outName = base + '.' + plan.out;
-    if (plan.out === 'pptx') {
-      const slides = plan.kind === 'py-slides' ? pySlides(src) : plan.kind === 'js-slides' ? jsSlides(src) : mdSlides(src);
-      if (!slides.length) throw new Error('อ่านโครงสไลด์จากไฟล์นี้ไม่ได้ — ลองให้ AI ส่งเป็น markdown ที่มีหัวข้อ');
-      preview = slidesPreviewHtml(slides);
-      blob = await makePptxFromSlides(slides, base);
-    } else if (plan.out === 'xlsx') {
-      const rows = plan.kind === 'csv' ? csvRows(src) : mdTableRows(src);
-      if (rows.length < 2) throw new Error('ไม่พบตารางในไฟล์นี้');
-      preview = tableToHtml(rows);
-      blob = await makeXlsxFromRows(rows);
-    } else if (plan.out === 'docx') {
-      const blocks = pyDocBlocks(src).length ? pyDocBlocks(src) : mdDocBlocks(src);
-      if (!blocks.length) throw new Error('ไม่พบเนื้อหาเอกสารในไฟล์นี้');
-      preview = docPreviewHtml(blocks, base);
-      blob = await makeDocxFromBlocks(blocks, base);
-    } else {
-      blob = await makePdfFromText(src, base);
-      preview = null; // PDF พรีวิวจากไฟล์จริงโดยตรง
-    }
+    const out = await prepareArtifact(file, plan);
     if (seq !== previewSeq || !$('#pvWrap').classList.contains('on')) return;
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(out.blob);
     convUrls.push(url);
-    pvFile = { name: outName, convUrl: url, content: file.content, lang: file.lang };
-    if (preview) $('#pvFrame').srcdoc = preview;
-    else { $('#pvFrame').removeAttribute('srcdoc'); $('#pvFrame').src = url; }
+    pvFile = { name:out.name, convUrl:url, blob:out.blob, content:file.content, lang:file.lang, artifactExact:!!out.exact };
+    $('#pvFrame').srcdoc = `<div style="font:16px/1.7 -apple-system,sans-serif;padding:24px;color:#1a1a18"><h2 style="margin:0 0 8px">${escapeHTML(out.name)}</h2><p>${out.exact ? 'สร้างจากโค้ดต้นฉบับโดยรันตัวสร้างไฟล์จริงในเบราว์เซอร์' : 'สร้างด้วยตัวแปลงสำรองจากเนื้อหาในโค้ด'}</p><p><b>ขนาด:</b> ${byteSize(out.blob.size)}</p><p>กด <b>ดาวน์โหลด</b> เพื่อบันทึกไฟล์ ${artifactLabel(plan)} โดยตรง</p></div>`;
     $('#pvDl').disabled = false; $('#pvNew').disabled = false;
-    toast('แปลงเป็น ' + outName + ' แล้ว (' + byteSize(blob.size) + ')');
+    toast('สร้าง ' + out.name + ' แล้ว (' + byteSize(out.blob.size) + ')');
   } catch (e) {
     if (seq === previewSeq && $('#pvWrap').classList.contains('on'))
-      $('#pvFrame').srcdoc = `<p style="font:15px sans-serif;padding:20px">แปลงไม่สำเร็จ: ${escapeHTML(e.message || String(e))}</p>`;
+      $('#pvFrame').srcdoc = `<p style="font:15px sans-serif;padding:20px">สร้างไฟล์ไม่สำเร็จ: ${escapeHTML(e.message || String(e))}</p>`;
   }
 }
 const convUrls = [];
@@ -1997,7 +2161,12 @@ function turnEl(m, idx) {
     const mk = (ic, label, fn) => { const b = h('button'); b.innerHTML = ic + '<span>' + label + '</span>'; b.onclick = fn; return b; };
     acts.append(mk(I.copy, 'คัดลอก', () => copy(m.content)));
     acts.append(mk(I.down, 'บันทึก .md', () => save(m.content, `kiln-${stamp()}.md`, 'text/markdown')));
-    if (files.length > 1) acts.append(mk(I.down, 'ZIP ทั้งหมด', () => downloadZip(files, `project-${stamp()}.zip`)));
+    const artifactFiles = files.filter(f => filePlan(f));
+    if (artifactFiles.length === 1) {
+      const af = artifactFiles[0], plan = filePlan(af);
+      acts.append(mk(I.down, 'ดาวน์โหลด ' + artifactLabel(plan), () => downloadArtifact(af, plan)));
+      if (files.length > 1) acts.append(mk(I.down, 'ZIP ต้นฉบับ', () => downloadZip(files, `project-${stamp()}.zip`)));
+    } else if (files.length > 1) acts.append(mk(I.down, 'ZIP ต้นฉบับ', () => downloadZip(files, `project-${stamp()}.zip`)));
     else if (files.length === 1) acts.append(mk(I.down, 'ดาวน์โหลดไฟล์', () => save(files[0].content, files[0].name.split('/').pop())));
     acts.append(mk(I.redo, 'ตอบใหม่', () => regen(idx)));
     t.append(acts);
@@ -2575,8 +2744,8 @@ async function callProvider({ provider, model, messages, level, signal, search, 
   if (prov.wire === 'compat' && !model) throw new Error('ยังไม่ได้ใส่ Model ID ของค่ายนี้ — เปิดหน้าตั้งค่า');
   const extra = reasonParams(prov.wire, mdef, level);
   onText = onText || noop; onThink = onThink || noop; onSearch = onSearch || noop; onSource = onSource || noop;
-  // บอกโมเดลให้ส่งหลายไฟล์เป็น fence แยก พร้อมชื่อไฟล์ — แอปจะแปลงเป็นการ์ด + ZIP
-  const fileHint = 'When delivering multiple files or a small project, put EACH file in its own markdown fenced code block. Prefer a filename after the language tag, e.g. ```html index.html or ```css styles.css or ```javascript app.js. Never pack many files into one fence. Keep surrounding explanation short. For slide decks, documents, or spreadsheets: ALSO include one clean markdown file (```markdown slides.md) using # headings per slide/section and - bullets, or a ```csv file for tables — the app converts these into real .pptx/.pdf/.xlsx locally.';
+  // โปรโตคอลไฟล์: ถ้าผู้ใช้ขอไฟล์ ให้ส่ง source file ที่แอปจะรัน/แปลงเป็นไฟล์จริงโดยตรง
+  const fileHint = 'When the user asks for a file (PDF/PPTX/DOCX/XLSX or another artifact), make the requested file the primary deliverable. Put the complete source code in ONE markdown fenced block and include a filename after the language tag, e.g. ```python create_slides.py. The app may execute supported Python Office-generation code in the browser and then offer the resulting binary file directly; do NOT add a README, slides.md, or extra helper files unless they are genuinely required. Do not wrap a single requested artifact in ZIP. For a real multi-file project, put EACH file in its own fenced code block with its filename and the app may offer a ZIP of the source project.';
   const sys = [cfg.sys, fileHint].filter(Boolean).join('\n\n');
 
   if (usingProxy) {
