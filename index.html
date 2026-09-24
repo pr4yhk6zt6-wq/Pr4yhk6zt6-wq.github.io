@@ -1875,7 +1875,7 @@ async function loadPyodideRuntime() {
 function pyQuote(s) { return JSON.stringify(String(s)); }
 async function runPythonPptxExact(file, plan, outName) {
   const pyodide = await loadPyodideRuntime();
-  await pyodide.loadPackage(['lxml', 'Pillow']);
+  await pyodide.loadPackage(['micropip', 'lxml', 'Pillow']);
   await pyodide.runPythonAsync('import micropip; await micropip.install("python-pptx==1.0.2")');
   const sourcePath = '/tmp/kiln_generated.py';
   const targetPath = '/tmp/kiln_output.pptx';
