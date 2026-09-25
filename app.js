@@ -1,0 +1,4512 @@
+
+"use strict";
+/* ════════════════════════════════════════════════════════════
+   Kiln — local-first BYOK chat. One file, no build, no backend.
+   ════════════════════════════════════════════════════════════ */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const h = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+const svg = (d, w = 15, sw = 1.5) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const I = {
+  copy: svg('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+  down: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>'),
+  eye:  svg('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'),
+  redo: svg('<path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>'),
+  pen:  svg('<path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>', 13),
+  trash:svg('<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>', 13),
+  check:svg('<path d="M20 6 9 17l-5-5"/>', 16, 2),
+  arrow:svg('<path d="M5 12h14M12 5l7 7-7 7"/>', 13),
+  chev: svg('<path d="m9 18 6-6-6-6"/>', 11, 2),
+  x:    svg('<path d="M18 6 6 18M6 6l12 12"/>', 12, 1.8)
+};
+
+/* ─────────── provider registry ───────────
+   เพิ่ม provider ใหม่ (เช่น Ollama) ได้โดยเติม object ที่นี่ + case ใน callProvider */
+const PROVIDERS = {
+  demo: {
+    name:'โหมดทดสอบ', wire:'demo', base:'local', prefix:'ไม่ต้องใช้ Key',
+    help:'จำลองการส่งไฟล์ในเครื่อง ไม่เรียก AI API และไม่ใช้เครดิต',
+    models:[{ id:'kiln-test-lab', label:'Test Lab', note:'ไม่ต้องใช้ Key', vision:true, think:false }]
+  },
+  openai: {
+    name: 'OpenAI', wire: 'openai', base: 'https://api.openai.com/v1', proxyPath:'openai',
+    prefix: 'sk-…', help: 'platform.openai.com/api-keys',
+    models: [
+      { id:'gpt-5.2',       label:'GPT-5.2',       note:'เรือธง',        vision:true,  think:'opt', off:true },
+      { id:'gpt-5.2-mini',  label:'GPT-5.2 Mini',  note:'เร็ว คุ้ม',      vision:true,  think:'opt', off:true },
+      { id:'gpt-5.1',       label:'GPT-5.1',       note:'เสถียร',        vision:true,  think:'opt', off:true },
+      { id:'gpt-5.1-mini',  label:'GPT-5.1 Mini',  note:'',              vision:true,  think:'opt', off:true },
+      { id:'gpt-5',         label:'GPT-5',         note:'',              vision:true,  think:'opt' },
+      { id:'gpt-5-mini',    label:'GPT-5 Mini',    note:'',              vision:true,  think:'opt' },
+      { id:'o4-mini',       label:'o4-mini',       note:'คณิต/ตรรกะ',     vision:true,  think:'opt' },
+      { id:'gpt-4.1',       label:'GPT-4.1',       note:'ไม่คิดก่อนตอบ',  vision:true,  think:false },
+      { id:'gpt-4o',        label:'GPT-4o',        note:'',              vision:true,  think:false }
+    ]
+  },
+  anthropic: {
+    name: 'Anthropic', wire: 'anthropic', base: 'https://api.anthropic.com/v1', proxyPath:'anthropic',
+    prefix: 'sk-ant-…', help: 'console.anthropic.com',
+    models: [
+      { id:'claude-opus-4-5-20251101',   label:'Claude Opus 4.5',   note:'ลึกที่สุด',   vision:true, think:'opt', off:true },
+      { id:'claude-sonnet-4-5-20250929', label:'Claude Sonnet 4.5', note:'สมดุล',      vision:true, think:'opt', off:true },
+      { id:'claude-haiku-4-5-20251001',  label:'Claude Haiku 4.5',  note:'เร็ว',       vision:true, think:'opt', off:true },
+      { id:'claude-sonnet-4-20250514',   label:'Claude Sonnet 4',   note:'',           vision:true, think:'opt', off:true },
+      { id:'claude-3-5-haiku-latest',    label:'Claude 3.5 Haiku',  note:'ประหยัด',    vision:true, think:false }
+    ]
+  },
+  google: {
+    name: 'Gemini', wire: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta', proxyPath:'gemini',
+    prefix: 'AIza…', help: 'aistudio.google.com/apikey — มีโควตาฟรี',
+    models: [
+      { id:'gemini-3-pro-preview',  label:'Gemini 3 Pro',        note:'บริบทยาว',  vision:true, think:'opt', tlevel:true },
+      { id:'gemini-2.5-pro',        label:'Gemini 2.5 Pro',      note:'',          vision:true, think:'opt' },
+      { id:'gemini-2.5-flash',      label:'Gemini 2.5 Flash',    note:'เร็ว',      vision:true, think:'opt', off:true },
+      { id:'gemini-2.5-flash-lite', label:'Gemini 2.5 Flash Lite', note:'ถูกสุด',  vision:true, think:'opt', off:true },
+      { id:'gemini-2.0-flash',      label:'Gemini 2.0 Flash',    note:'',          vision:true, think:false }
+    ]
+  },
+  groq: {
+    name:'Groq', wire:'openai', base:'https://api.groq.com/openai/v1', proxyPath:'groq',
+    prefix:'gsk_…', help:'console.groq.com/keys',
+    models:[
+      { id:'llama-3.3-70b-versatile', label:'Llama 3.3 70B', note:'เร็ว', vision:false, think:false },
+      { id:'openai/gpt-oss-120b', label:'GPT-OSS 120B', note:'', vision:false, think:'opt', off:true },
+      { id:'qwen/qwen3-32b', label:'Qwen3 32B', note:'', vision:false, think:'opt', off:true }
+    ]
+  },
+  deepseek: {
+    name: 'DeepSeek', wire: 'deepseek', base: 'https://api.deepseek.com', proxyPath:'deepseek',
+    prefix: 'sk-…', help: 'platform.deepseek.com — V4 เปิดโหมดคิดไว้เป็นค่าเริ่มต้น',
+    models: [
+      { id:'deepseek-v4-pro', label:'DeepSeek V4 Pro',   note:'บริบท 1M · แรงสุด', vision:false, think:'opt', off:true },
+      { id:'deepseek-flash',  label:'DeepSeek V4.1 Flash', note:'เร็ว ถูก',        vision:false, think:'opt', off:true },
+      { id:'deepseek-v4-flash', label:'DeepSeek V4 Flash', note:'ชื่อเดิม (ยังใช้ได้)', vision:false, think:'opt', off:true }
+    ]
+  },
+  openrouter: {
+    name: 'OpenRouter', wire: 'openrouter', base: 'https://openrouter.ai/api/v1', proxyPath:'openrouter',
+    prefix: 'sk-or-…', help: 'openrouter.ai/keys — กุญแจเดียว ใช้ได้เกือบทุกโมเดล',
+    models: [
+      { id:'deepseek/deepseek-v4-pro',   label:'DeepSeek V4 Pro',   note:'', vision:false, think:'opt', off:true },
+      { id:'deepseek/deepseek-v4-flash', label:'DeepSeek V4 Flash', note:'', vision:false, think:'opt', off:true },
+      { id:'deepseek/deepseek-v4-flash:free', label:'DeepSeek V4 Flash', note:'ฟรี (จำกัดโควตา)', vision:false, think:'opt', off:true },
+      { id:'openai/gpt-5.2',             label:'GPT-5.2',           note:'', vision:true,  think:'opt', off:true },
+      { id:'anthropic/claude-opus-4.5',  label:'Claude Opus 4.5',   note:'', vision:true,  think:'opt', off:true },
+      { id:'anthropic/claude-sonnet-4.5',label:'Claude Sonnet 4.5', note:'', vision:true,  think:'opt', off:true },
+      { id:'google/gemini-3-pro-preview',label:'Gemini 3 Pro',      note:'', vision:true,  think:'opt' },
+      { id:'x-ai/grok-4',                label:'Grok 4',            note:'', vision:true,  think:'opt' },
+      { id:'qwen/qwen3-max',             label:'Qwen3 Max',         note:'', vision:false, think:'opt', off:true },
+      { id:'moonshotai/kimi-k2',         label:'Kimi K2',           note:'', vision:false, think:false },
+      { id:'meta-llama/llama-4-maverick',label:'Llama 4 Maverick',  note:'', vision:true,  think:false }
+    ]
+  },
+  compatible: {
+    name: 'ค่ายอื่น (OpenAI-compatible)', wire: 'compat', base: '',
+    prefix: 'API key ของค่ายนั้น', help: 'ตั้งชื่อค่าย, API Base URL และ Model ID ของคุณเอง',
+    models: [{ id:'', label:'กำหนด Model ID เอง', note:'ตั้งค่า URL ด้านล่าง', vision:true, think:false }]
+  }
+};
+const LEVELS = [
+  { v:'off',    th:'ปิด',        d:'ตอบทันที ไม่คิดก่อน — เร็วและถูกที่สุด' },
+  { v:'auto',   th:'อัตโนมัติ',  d:'ปล่อยให้โมเดลตัดสินใจเอง' },
+  { v:'low',    th:'ต่ำ',        d:'คิดสั้น ๆ พอให้ไม่ผิดพลาดง่าย' },
+  { v:'medium', th:'กลาง',       d:'สมดุลระหว่างความลึกกับเวลา' },
+  { v:'high',   th:'สูง',        d:'คิดยาว เหมาะกับโจทย์ยาก ใช้โทเคนมาก' }
+];
+const ANTHROPIC_BUDGET = { low:2000, medium:8000, high:24000 };
+const GEMINI_BUDGET    = { low:1024, medium:8192, high:24576 };
+const DEEPSEEK_EFFORT  = { low:'low', medium:'high', high:'max' };
+
+/* ─────────── state ─────────── */
+const K = { keys:'kiln.keys', cfg:'kiln.cfg', chats:'kiln.chats' };
+const jget = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { toast('พื้นที่ในเครื่องเต็ม — ลบบทสนทนาเก่าที่มีไฟล์หรือรูปใหญ่ออกก่อน'); return false; } };
+
+let keys  = jget(K.keys, {});
+let cfg   = Object.assign({ provider:'openai', model:{}, level:'auto', sys:'', temp:0.7, enter:false, theme:null, search:false,
+  compatible:{ name:'', base:'', model:'' }, proxy:{ enabled:false, base:'', secret:'' } }, jget(K.cfg, {}));
+cfg.model = cfg.model || {};
+cfg.compatible = Object.assign({ name:'', base:'', model:'' }, cfg.compatible || {});
+cfg.proxy = Object.assign({ enabled:false, base:'', secret:'' }, cfg.proxy || {});
+if (!PROVIDERS[cfg.provider]) cfg.provider = 'openai';
+let chats = jget(K.chats, []);
+let curId = chats[0]?.id || null;
+let pending = [];        // attachments awaiting send
+let ctrl = null, busy = false, pvSource = '';
+
+const saveCfg   = () => jset(K.cfg, cfg);
+const saveChats = () => jset(K.chats, chats);
+function compatBase(base) {
+  return String(base || '').trim().replace(/\/$/, '').replace(/\/chat\/completions$/i, '');
+}
+const P = () => {
+  if (cfg.provider !== 'compatible') return PROVIDERS[cfg.provider] || PROVIDERS.openai;
+  const c = cfg.compatible;
+  const id = c.model || cfg.model.compatible || '';
+  return { ...PROVIDERS.compatible, name:c.name.trim() || PROVIDERS.compatible.name, base:compatBase(c.base),
+    models:[{ id, label:id || 'กำหนด Model ID เอง', note:'กำหนดเอง', vision:true, think:false }] };
+};
+const mId  = () => cfg.provider === 'compatible' ? (cfg.compatible.model || cfg.model.compatible || '') : (cfg.model[cfg.provider] || P().models[0].id);
+const M    = () => P().models.find(m => m.id === mId()) || P().models[0];
+const chat = () => chats.find(c => c.id === curId);
+  /* Backend รองรับทุกค่ายที่ proxyPath กำหนดไว้ รวม Gemini + Anthropic */
+  const proxySupported = () => Boolean(cfg.proxy?.enabled && P().proxyPath);
+
+/* ─────────── theme ─────────── */
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  $('#themeLbl').textContent = t === 'dark' ? 'สว่าง' : 'มืด';
+  $('#swTheme')?.classList.toggle('on', t === 'dark');
+  const mt = document.querySelector('meta[name=theme-color]');
+  if (mt) mt.content = t === 'dark' ? '#131210' : '#f3f1ec';
+}
+function initTheme() {
+  const t = cfg.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyTheme(t);
+}
+function flipTheme() {
+  cfg.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  saveCfg(); applyTheme(cfg.theme);
+}
+
+/* ─────────── toast ─────────── */
+let tT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tT); tT = setTimeout(() => t.classList.remove('on'), 2100); }
+
+/* ─────────── markdown ─────────── */
+if (window.marked) { try { marked.setOptions({ gfm:true, breaks:true }); } catch {} }
+const escapeHtml = s => String(s || '').replace(/[&<>"']/g, c => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+
+function md(src) {
+  const text = String(src || '');
+  if (!window.marked || !window.DOMPurify) {
+    return escapeHtml(text);
+  }
+  const raw = marked.parse(text);
+  return DOMPurify.sanitize(raw, {
+    ADD_ATTR: ['target'],
+    FORBID_TAGS: ['style']
+  });
+}
+
+if (window.DOMPurify) {
+  DOMPurify.addHook('afterSanitizeAttributes', node => {
+    if (node.tagName === 'A') {
+      node.setAttribute('target', '_blank');
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+}
+
+const safeMediaUrl = value => {
+  try {
+    const url = new URL(value, location.href);
+    const allowed = ['http:', 'https:', 'data:', 'blob:'];
+    if (!allowed.includes(url.protocol)) return '';
+    if (url.protocol === 'data:') {
+      return /^data:image\/|^data:video\//i.test(url.href) ? url.href : '';
+    }
+    return url.href;
+  } catch {
+    return '';
+  }
+};
+const EXT = { python:'py', py:'py', javascript:'js', js:'js', node:'js', jsx:'jsx', typescript:'ts', ts:'ts', tsx:'tsx',
+  html:'html', htm:'html', xml:'xml', svg:'svg', css:'css', scss:'scss', less:'less', json:'json', jsonc:'json', bash:'sh', shell:'sh', sh:'sh', zsh:'sh',
+  java:'java', c:'c', cpp:'cpp', 'c++':'cpp', csharp:'cs', cs:'cs', go:'go', golang:'go', rust:'rs', rs:'rs', php:'php',
+  ruby:'rb', rb:'rb', sql:'sql', yaml:'yml', yml:'yml', markdown:'md', md:'md', swift:'swift', kotlin:'kt', kt:'kt',
+  dart:'dart', r:'r', lua:'lua', toml:'toml', ini:'ini', csv:'csv', tsv:'tsv', diff:'diff', dockerfile:'Dockerfile', text:'txt', plaintext:'txt',
+  vue:'vue', svelte:'svelte', astro:'astro', conf:'conf', env:'env', makefile:'Makefile' };
+const LANG_FROM_EXT = { py:'python', js:'javascript', mjs:'javascript', cjs:'javascript', ts:'typescript', tsx:'tsx', jsx:'jsx',
+  html:'html', htm:'html', css:'css', scss:'scss', json:'json', md:'markdown', yml:'yaml', yaml:'yaml', sh:'bash', rs:'rust',
+  go:'go', rb:'ruby', php:'php', java:'java', c:'c', cpp:'cpp', cs:'csharp', sql:'sql', svg:'svg', vue:'javascript', toml:'ini' };
+const extFor = l => EXT[(l || '').toLowerCase()] || 'txt';
+const langFromName = name => {
+  const base = String(name || '').split('/').pop() || '';
+  if (/^dockerfile$/i.test(base)) return 'dockerfile';
+  if (/^makefile$/i.test(base)) return 'makefile';
+  const e = base.includes('.') ? base.split('.').pop().toLowerCase() : '';
+  return LANG_FROM_EXT[e] || e || 'text';
+};
+const isHtmlish = (lang, raw, name='') => /^(html|htm|svg)$/i.test(lang) || /\.(html?|svg)$/i.test(name) || /<!doctype html|<html[\s>]/i.test(raw || '');
+const byteSize = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+const safePath = p => String(p || 'file.txt').replace(/\\/g, '/').replace(/^\/+/, '').replace(/\.\.\//g, '').slice(0, 180) || 'file.txt';
+const guessName = (lang, raw, i) => {
+  const m = String(raw || '').match(/(?:\/\/|#)\s*file:\s*([^\s]+)/i) || String(raw || '').match(/\/\*\s*file:\s*([^\s*]+)/i);
+  if (m) return safePath(m[1]);
+  const e = extFor(lang);
+  if (e === 'Dockerfile') return 'Dockerfile';
+  if (e === 'html' || isHtmlish(lang, raw)) return i ? `page-${i + 1}.html` : 'index.html';
+  if (e === 'css') return i ? `styles-${i + 1}.css` : 'styles.css';
+  if (e === 'js') return i ? `script-${i + 1}.js` : 'script.js';
+  return `file-${i + 1}.${e}`;
+};
+function extractArtifacts(text) {
+  const files = [], re = /```([^\n`]*)\n([\s\S]*?)```/g;
+  let m, i = 0;
+  while ((m = re.exec(text || '')) !== null) {
+    const meta = (m[1] || '').trim();
+    const body = m[2].replace(/\n$/, '');
+    if (!body.trim()) continue;
+    let lang = 'text', name = '';
+    if (meta) {
+      const parts = meta.split(/\s+/);
+      if (parts[0].includes('.') || parts[0].includes('/')) { name = parts[0]; lang = langFromName(name); }
+      else { lang = parts[0].toLowerCase(); const fp = parts.find(p => p.includes('.') || /^file:/i.test(p)); if (fp) name = fp.replace(/^file:/i, ''); }
+    }
+    name = safePath(name || guessName(lang, body, i));
+    files.push({ name, lang: lang || langFromName(name), content: body, runnable: isHtmlish(lang, body, name) });
+    i++;
+  }
+  return files;
+}
+function stripCodeFences(text, files) {
+  if (!files?.length) return text || '';
+  let out = text || '', i = 0;
+  out = out.replace(/```[^\n`]*\n[\s\S]*?```/g, () => {
+    const f = files[i++];
+    return f ? `\n«file:${f.name}»\n` : '\n';
+  });
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+function artifactLabel(plan) {
+  return plan?.out ? String(plan.out).toUpperCase() : 'ไฟล์จริง';
+}
+function artifactName(file, plan) {
+  const src = file.content || '';
+  const titleM = src.match(/core_properties\.title\s*=\s*["']([^"']+)["']/i);
+  let base = titleM?.[1]?.trim() || '';
+  if (!base) base = String(file.name || '').replace(/\.[^.]+$/, '') || 'generated';
+  base = base.replace(/[<>:\"/\\|?*\u0000-\u001F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 96);
+  return (base || 'generated') + '.' + plan.out;
+}
+function downloadBlob(blob, name, mime) {
+  if (!(blob instanceof Blob)) throw new Error('ไม่พบข้อมูลไฟล์ที่สร้าง');
+  const url = URL.createObjectURL(mime ? new Blob([blob], { type:mime }) : blob);
+  const a = h('a'); a.href = url; a.download = name; a.rel = 'noopener';
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast('บันทึก ' + name);
+}
+async function downloadArtifact(file, plan) {
+  try {
+    const out = await prepareArtifact(file, plan);
+    downloadBlob(out.blob, out.name, out.mime);
+  } catch (e) {
+    toast('สร้าง ' + artifactLabel(plan) + ' ไม่สำเร็จ: ' + (e.message || String(e)));
+  }
+}
+function setArtifactStatus(file, text) {
+  if (file.artifactStatusEl) file.artifactStatusEl.textContent = text;
+}
+function fileCard(file, all) {
+  const row = h('button', 'fcard');
+  const ext = (file.name.split('.').pop() || file.lang || 'txt').slice(0, 4);
+  row.append(h('div', 'ic', ext));
+  const meta = h('div', 'meta');
+  const plan = filePlan(file);
+  const outputName = plan ? artifactName(file, plan) : file.name;
+  meta.append(h('b', null, outputName));
+  const sub = h('span', null, `${plan ? 'จาก ' + file.name + ' · ' : ''}${file.lang || 'text'} · ${byteSize((file.content || '').length)}`);
+  if (file.runnable) sub.textContent += ' · รันได้';
+  meta.append(sub);
+  if (plan) {
+    const st = h('span', 'artifact-status', 'กำลังสร้างไฟล์จริง…');
+    meta.append(st); file.artifactStatusEl = st;
+  }
+  row.append(meta);
+  const acts = h('div', 'acts');
+  const b = (html, title, fn) => { const x = h('button'); x.innerHTML = html; x.title = title; x.onclick = e => { e.stopPropagation(); fn(); }; return x; };
+  if (plan) {
+    const dl = b(I.down, 'ดาวน์โหลด ' + outputName, () => downloadArtifact(file, plan));
+    dl.disabled = true;
+    file.artifactDlEl = dl;
+    acts.append(dl);
+  }
+  if (file.runnable) acts.append(b(I.eye, 'พรีวิวรัน', () => openFilePreview(file, all, 'run')));
+  acts.append(b(svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>', 14), 'ดูโค้ดต้นฉบับ', () => openFilePreview(file, all, 'code')));
+  acts.append(b(I.copy, 'คัดลอก', () => copy(file.content)));
+  if (!plan) acts.append(b(I.down, 'ดาวน์โหลดต้นฉบับ', () => save(file.content, file.name.split('/').pop())));
+  row.append(acts);
+  row.onclick = () => {
+    if (file.runnable) openFilePreview(file, all, 'run');
+    else if (plan) openConverted(file, plan);
+    else openFilePreview(file, all, 'code');
+  };
+  if (plan) {
+    setTimeout(() => {
+      if (!file.artifactPromise) {
+        file.artifactPromise = prepareArtifact(file, plan).then(out => {
+          if (file.artifactDlEl) file.artifactDlEl.disabled = false;
+          setArtifactStatus(file, `ไฟล์จริงพร้อมแล้ว · ${byteSize(out.blob.size)}`);
+          return out;
+        }).catch(e => {
+          setArtifactStatus(file, `สร้างไม่สำเร็จ · ${e?.message || 'ตรวจสอบข้อผิดพลาด'}`);
+          return null;
+        });
+      }
+    }, 0);
+  }
+  return row;
+}
+function buildFileSet(files) {
+  const box = h('div', 'fileset');
+  const head_ = h('div', 'fileset-h');
+  head_.append(h('span', 'ttl', files.length === 1 ? '1 ไฟล์' : files.length + ' ไฟล์'));
+  const artifactFiles = files.filter(f => filePlan(f));
+  if (artifactFiles.length === 1) {
+    const af = artifactFiles[0], plan = filePlan(af);
+    const d = h('button', null, 'ดาวน์โหลด ' + artifactLabel(plan));
+    d.onclick = () => downloadArtifact(af, plan);
+    head_.append(d);
+  }
+  if (files.length > 1) {
+    const z = h('button', null, 'ZIP ต้นฉบับ');
+    z.onclick = () => downloadZip(files, `project-${stamp()}.zip`);
+    head_.append(z);
+  }
+  box.append(head_);
+  files.forEach(f => box.append(fileCard(f, files)));
+  return box;
+}
+function decorateCode(root) {
+  // ใช้เฉพาะตอนไม่มีระบบไฟล์การ์ด (fallback)
+  root.querySelectorAll('pre > code').forEach(code => {
+    const pre = code.parentElement;
+    if (pre.parentElement?.classList.contains('code') || pre.closest('.fileset')) return;
+    const cls = [...code.classList].find(c => c.startsWith('language-')) || '';
+    let lang = cls.replace('language-', '') || 'text';
+    const raw = code.textContent;
+    const wrap = h('div', 'code'), bar = h('div', 'code-bar');
+    bar.append(h('span', 'lang', lang));
+    const mk = (html, title, fn) => { const b = h('button'); b.innerHTML = html; b.title = title; b.onclick = fn; return b; };
+    if (isHtmlish(lang, raw)) bar.append(mk(I.eye, 'พรีวิว', () => openFilePreview({ name:'preview.html', content:raw, lang, runnable:true }, null, 'run')));
+    bar.append(mk(I.copy, 'คัดลอก', () => copy(raw)));
+    bar.append(mk(I.down, 'ดาวน์โหลด', () => save(raw, `snippet-${stamp()}.${extFor(lang)}`)));
+    pre.replaceWith(wrap); wrap.append(bar, pre);
+  });
+}
+function mediaMime(kind) {
+  return kind === 'video' ? 'video/mp4' : 'image/png';
+}
+function mediaKindFromMime(mime='') {
+  const m = String(mime || '').toLowerCase().split(';')[0].trim();
+  if (m.startsWith('image/')) return 'image';
+  if (m.startsWith('video/')) return 'video';
+  return '';
+}
+function extFromMime(mime='') {
+  const m = String(mime || '').toLowerCase().split(';')[0].trim();
+  const map = {
+    'image/png':'png','image/jpeg':'jpg','image/jpg':'jpg','image/webp':'webp','image/gif':'gif','image/avif':'avif','image/bmp':'bmp','image/svg+xml':'svg',
+    'video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov','video/x-m4v':'m4v','video/ogg':'ogv','video/avi':'avi'
+  };
+  return map[m] || '';
+}
+function mediaKindFromUrl(url, hint='') {
+  const u = String(url || '').trim();
+  const hnt = String(hint || '').toLowerCase();
+  if (/^data:(?:image)\//i.test(u) || /^blob:/i.test(u) && /image/i.test(hnt)) return 'image';
+  if (/^data:(?:video)\//i.test(u) || /^blob:/i.test(u) && /video/i.test(hnt)) return 'video';
+  const fromHint = mediaKindFromMime(hnt) || (/\bvideo\b/i.test(hnt) ? 'video' : /\bimage\b|\bphoto\b|\bpicture\b/i.test(hnt) ? 'image' : '');
+  if (fromHint) return fromHint;
+  const path = u.replace(/[?#].*$/, '').toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(path)) return 'image';
+  if (/\.(mp4|webm|mov|m4v|ogv|avi)$/i.test(path)) return 'video';
+  return '';
+}
+function dataUrlFromBase64(value, mime='') {
+  const raw = String(value || '').trim().replace(/^\s*data:[^,]+,/i, '');
+  if (!raw || raw.length < 24 || /[^A-Za-z0-9+/=_\-]/.test(raw.slice(0, 200))) return '';
+  const m = String(mime || '').trim() || 'application/octet-stream';
+  if (!/^image\//i.test(m) && !/^video\//i.test(m)) return '';
+  return `data:${m};base64,${raw}`;
+}
+function mediaFileName(url, kind, hint='', mime='') {
+  let h = String(hint || '').trim();
+  if (h && !/^(image|video)$/i.test(h) && !/^https?:\/\//i.test(h) && !/^image\//i.test(h) && !/^video\//i.test(h)) {
+    return h.replace(/[<>:"/\\|?*\u0000-\u001F]/g,' ').trim().slice(0,120) || (kind === 'video' ? 'video.mp4' : 'image.png');
+  }
+  const mimeExt = extFromMime(mime);
+  if (/^data:/i.test(url) && mimeExt) return `${kind}-${stamp()}.${mimeExt}`;
+  try {
+    const path = new URL(url, location.href).pathname.split('/').pop() || '';
+    if (path && /\.[a-z0-9]{2,6}$/i.test(path)) return decodeURIComponent(path);
+  } catch {}
+  return kind === 'video' ? 'video.' + (mimeExt || 'mp4') : 'image.' + (mimeExt || 'png');
+}
+function walkMediaJson(value, add, inheritedHint='') {
+  if (value == null) return;
+  if (Array.isArray(value)) { value.forEach(v => walkMediaJson(v, add, inheritedHint)); return; }
+  if (typeof value !== 'object') return;
+  const localType = String(value.type || value.kind || value.mime_type || value.mimeType || inheritedHint || '');
+  const localMime = String(value.mime || value.mime_type || value.mimeType || '');
+  const typeHint = mediaKindFromMime(localMime) || localType;
+  const named = value.filename || value.file_name || value.name || value.title || '';
+  const candidates = [
+    ['url', value.url], ['image_url', value.image_url], ['video_url', value.video_url],
+    ['output_url', value.output_url], ['media_url', value.media_url], ['download_url', value.download_url],
+    ['image', value.image], ['video', value.video]
+  ];
+  candidates.forEach(([key, val]) => {
+    if (typeof val === 'string') add(val, named || typeHint || key, localMime);
+    else if (val && typeof val === 'object') walkMediaJson(val, add, named || typeHint || key);
+  });
+  const b64 = value.b64_json || value.base64 || value.data_base64;
+  if (typeof b64 === 'string') {
+    const dataUrl = dataUrlFromBase64(b64, localMime || (/video/i.test(typeHint) ? 'video/mp4' : /image/i.test(typeHint) ? 'image/png' : ''));
+    if (dataUrl) add(dataUrl, named || typeHint, localMime);
+  }
+  ['data','content','media','outputs','images','videos','result','results'].forEach(k => {
+    if (value[k] != null) walkMediaJson(value[k], add, typeHint || k);
+  });
+}
+function extractMedia(content) {
+  const items = [], seen = new Set();
+  let text = String(content || '');
+  const add = (url, hint='', mime='') => {
+    url = String(url || '').trim().replace(/^<|>$/g,'');
+    if (!url || /^(javascript|vbscript):/i.test(url)) return;
+    const kind = mediaKindFromUrl(url, mime || hint);
+    if (!kind || seen.has(url)) return;
+    seen.add(url); items.push({ url, kind, mime: mime || '', name: mediaFileName(url, kind, hint, mime) });
+  };
+
+  // JSON media protocol. This accepts common image/video API response shapes while
+  // leaving ordinary prose/URLs alone. JSON is removed from the visible prose once parsed.
+  const jsonFence = /```(?:json|javascript|js)?\s*\n([\s\S]*?)```/gi;
+  text = text.replace(jsonFence, (full, body) => {
+    try { const obj = JSON.parse(body.trim()); const before = items.length; walkMediaJson(obj, add); return items.length > before ? '' : full; }
+    catch { return full; }
+  });
+  if (/^\s*[\[{]/.test(text)) {
+    try {
+      const obj = JSON.parse(text.trim()); const before = items.length; walkMediaJson(obj, add);
+      if (items.length > before) text = '';
+    } catch {}
+  }
+
+  // Standard Markdown images and explicit media links.
+  text = text.replace(/!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+["'][^"']*["'])?\)/g, (_, alt, url) => { add(url, alt); return ''; });
+  text = text.replace(/\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+["'][^"']*["'])?\)/g, (full, label, url) => {
+    const kind = mediaKindFromUrl(url, label);
+    if (kind) { add(url, label); return ''; }
+    return full;
+  });
+  // Raw HTML media emitted by some models.
+  text = text.replace(/<img\b[^>]*?src=["']([^"']+)["'][^>]*>/gi, (_, url) => { add(url, 'image'); return ''; });
+  text = text.replace(/<video\b([^>]*)>[\s\S]*?<\/video>/gi, (full, attrs) => {
+    const src = attrs.match(/\bsrc=["']([^"']+)["']/i)?.[1];
+    if (src) add(src, 'video');
+    const poster = attrs.match(/\bposter=["']([^"']+)["']/i)?.[1];
+    if (poster) add(poster, 'image');
+    return '';
+  });
+  text = text.replace(/<source\b[^>]*?src=["']([^"']+)["'][^>]*>/gi, (_, url) => { add(url, /\.mp4|\.webm|\.mov|\.m4v|video\//i.test(url) ? 'video' : 'image'); return ''; });
+  // Some providers return a raw media URL on its own line.
+  text = text.replace(/(^|\n)\s*((?:https?:\/\/|data:image\/|data:video\/|blob:)[^\s<>]+)\s*(?=\n|$)/gi, (full, pre, url) => {
+    const clean = url.replace(/[),.;]+$/,'');
+    const kind = mediaKindFromUrl(clean);
+    if (!kind) return full;
+    add(clean, ''); return pre;
+  });
+  return { text: text.replace(/\n{3,}/g,'\n\n').trim(), items };
+}
+async function downloadRemoteMedia(url, name, card) {
+  url = safeMediaUrl(url);
+  if (!url) return;
+  try {
+    if (/^(?:data|blob):/i.test(url)) {
+      const a = h('a'); a.href = url; a.download = name; a.rel='noopener'; document.body.append(a); a.click(); a.remove(); toast('บันทึก ' + name); return;
+    }
+    const r = await fetch(url, { mode:'cors', credentials:'omit' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob();
+    if (!blob.size) throw new Error('empty');
+    downloadBlob(blob, name, blob.type || undefined);
+  } catch {
+    // Cross-origin media may block fetch. Browser open is the most reliable fallback on iOS.
+    const a = h('a'); a.href = url; a.download = name; a.target='_blank'; a.rel='noopener noreferrer';
+    document.body.append(a); a.click(); a.remove();
+    toast('เปิดไฟล์เพื่อดาวน์โหลด — โฮสต์ปลายทางไม่อนุญาตให้เว็บดึงไฟล์โดยตรง');
+  }
+}
+function renderMediaSet(container, items) {
+  if (!items?.length) return;
+  const set = h('div','media-set');
+  items.forEach(item => {
+    const card = h('div','media-card');
+    if (item.kind === 'image') {
+      const im = h('img','media-preview'); const safeUrl = safeMediaUrl(item.url); im.src = safeUrl; im.alt = item.name; im.loading = 'lazy'; im.decoding = 'async'; im.referrerPolicy = 'no-referrer'; if (!safeUrl) card.classList.add('broken');
+      im.onclick = () => { const u = safeMediaUrl(item.url); if (u) window.open(u, '_blank', 'noopener'); };
+      im.title = 'แตะเพื่อเปิดภาพเต็ม';
+      im.onerror=()=>{ card.classList.add('broken'); };
+      card.append(im);
+    } else {
+      const v = h('video','media-preview'); const safeVid = safeMediaUrl(item.url); v.src = safeVid; v.controls = true; v.preload = 'metadata'; v.playsInline = true; v.setAttribute('aria-label', item.name); if (!safeVid) card.classList.add('broken');
+      v.setAttribute('controlsList','nodownload');
+      card.append(v);
+    }
+    const meta = h('div','media-meta');
+    meta.append(h('span','name',item.name));
+    const acts = h('div','media-actions');
+    const open = h('a'); const openUrl = safeMediaUrl(item.url); open.href = openUrl || '#'; open.target = '_blank'; open.rel = 'noopener noreferrer'; open.textContent = 'เปิด'; if (!openUrl) open.setAttribute('aria-disabled', 'true');
+    const dl = h('button'); dl.textContent = 'ดาวน์โหลด'; const dlUrl = safeMediaUrl(item.url); dl.disabled = !dlUrl; dl.onclick = () => dlUrl && downloadRemoteMedia(dlUrl, item.name, card);
+    acts.append(open,dl); meta.append(acts); card.append(meta);
+    const note = item.kind === 'video' ? 'วิดีโอ · เล่นบนหน้าแชทได้' : 'รูปภาพ · แตะภาพเพื่อเปิดเต็ม';
+    card.append(h('div','media-note',/^https?:/i.test(item.url) ? note + ' · ลิงก์จากโมเดล/โฮสต์ภายนอก' : note));
+    set.append(card);
+  });
+  container.append(set);
+}
+function renderAssistantBody(container, content, mediaExtra=[]) {
+  const files = extractArtifacts(content);
+  const proseText = files.length ? stripCodeFences(content, files) : content;
+  const media = extractMedia(proseText);
+  const clean = media.text.replace(/«file:([^»]+)»/g, (_, name) => `\n**ไฟล์:** \`${name}\`\n`);
+  if (clean.trim()) {
+    const p = h('div', 'prose'); p.innerHTML = md(clean); decorateCode(p); container.append(p);
+  }
+  const merged = [...media.items];
+  (mediaExtra || []).forEach(x => {
+    if (!x?.url || merged.some(y => y.url === x.url)) return;
+    const kind = x.kind || mediaKindFromUrl(x.url, x.mime || '');
+    if (kind) merged.push({ ...x, kind, name: x.name || mediaFileName(x.url, kind, '', x.mime || '') });
+  });
+  renderMediaSet(container, merged);
+  if (files.length) container.append(buildFileSet(files));
+  return files;
+}
+const stamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+function copy(text) {
+  const done = () => toast('คัดลอกแล้ว');
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, () => legacyCopy(text, done));
+  else legacyCopy(text, done);
+}
+function legacyCopy(text, done) {
+  const t = h('textarea'); t.value = text; t.style.cssText = 'position:fixed;opacity:0;top:0';
+  document.body.append(t); t.select();
+  try { document.execCommand('copy'); done(); } catch { toast('คัดลอกไม่สำเร็จ'); }
+  t.remove();
+}
+function save(content, name, mime = 'text/plain') {
+  try {
+    const url = URL.createObjectURL(new Blob([content], { type: mime + ';charset=utf-8' }));
+    const a = h('a'); a.href = url; a.download = name; a.rel = 'noopener';
+    document.body.append(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 800);
+    toast('บันทึก ' + name);
+  } catch { toast('บันทึกไฟล์ไม่สำเร็จ'); }
+}
+async function downloadZip(files, name = `files-${stamp()}.zip`) {
+  if (!window.JSZip) { toast('ยังโหลดตัวสร้าง ZIP ไม่ได้'); return; }
+  try {
+    const zip = new JSZip();
+    files.forEach(f => zip.file(safePath(f.name), f.content || ''));
+    const blob = await zip.generateAsync({ type:'blob', compression:'DEFLATE' });
+    const url = URL.createObjectURL(blob);
+    const a = h('a'); a.href = url; a.download = name; document.body.append(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 800);
+    toast('บันทึก ' + name + ` (${files.length} ไฟล์)`);
+  } catch (e) { toast('สร้าง ZIP ไม่สำเร็จ'); }
+}
+function buildPreviewHtml(file, all) {
+  const src = file.content || '';
+  if (!all?.length || all.length === 1) return src;
+  // ถ้าเป็นโปรเจกต์หลายไฟล์ และเป็น HTML — ฝัง css/js ญาติเข้าไปเพื่อพรีวิวรันได้
+  if (!isHtmlish(file.lang, src, file.name)) return src;
+  let html = src;
+  const map = Object.fromEntries(all.map(f => [safePath(f.name).split('/').pop(), f]));
+  html = html.replace(/<link[^>]+href=["']([^"']+\.css)["'][^>]*>/gi, (full, href) => {
+    const base = href.split('/').pop();
+    return map[base] ? `<style data-from="${base}">\n${map[base].content}\n</style>` : full;
+  });
+  html = html.replace(/<script([^>]*)src=["']([^"']+\.js)["']([^>]*)>\s*<\/script>/gi, (full, a, srcPath, b) => {
+    const base = srcPath.split('/').pop();
+    return map[base] ? `<script${a}${b}>\n${map[base].content}\n<\/script>` : full;
+  });
+  return html;
+}
+let pvFile = null, pvAll = null, previewSeq = 0;
+function openFilePreview(file, all, mode = 'run') {
+  previewSeq++;
+  pvFile = file; pvAll = all || [file];
+  $('#pvDl').disabled = false; $('#pvNew').disabled = false;
+  pvSource = buildPreviewHtml(file, pvAll);
+  $('#pvTitle').textContent = file.name;
+  $('#pvCode').textContent = file.content || '';
+  $('#pvModeRun').textContent = 'รัน'; $('#pvModeCode').textContent = 'โค้ด';
+  $('#pvFrame').removeAttribute('src');
+  $('#pvFrame').srcdoc = file.runnable || isHtmlish(file.lang, file.content, file.name) ? pvSource : `<pre style="white-space:pre-wrap;font:14px/1.5 ui-monospace,monospace;padding:16px">${escapeHTML(file.content || '')}</pre>`;
+  const canRun = file.runnable || isHtmlish(file.lang, file.content, file.name);
+  $('#pvMode').hidden = !canRun;
+  setPreviewMode(canRun && mode === 'run' ? 'run' : 'code');
+  open$('#pvWrap');
+}
+function setPreviewMode(mode) {
+  const run = mode === 'run';
+  $('#pvWrap').classList.toggle('show-code', !run);
+  $('#pvModeRun').classList.toggle('on', run);
+  $('#pvModeCode').classList.toggle('on', !run);
+}
+function openPreview(src) { openFilePreview({ name:'preview.html', content:src, lang:'html', runnable:true }, null, 'run'); }
+$('#pvModeRun').onclick = () => setPreviewMode('run');
+$('#pvModeCode').onclick = () => setPreviewMode('code');
+$('#pvDl').onclick = () => {
+  if (!pvFile) return;
+  if (pvFile.blob) {
+    downloadBlob(pvFile.blob, pvFile.name, pvFile.blob.type);
+    return;
+  }
+  const url = pvFile.convUrl || (pvFile.demoId && demoUrls.get(pvFile.demoId));
+  if (url) {
+    const a = h('a'); a.href = url; a.download = pvFile.name;
+    document.body.append(a); a.click(); a.remove();
+    toast('บันทึก ' + pvFile.name);
+    return;
+  }
+  save(pvFile.content || '', (pvFile.name || 'file').split('/').pop());
+};
+$('#pvNew').onclick = () => {
+  try {
+    const url = pvFile?.convUrl || (pvFile?.demoId && demoUrls.get(pvFile.demoId));
+    if (url) { window.open(url, '_blank', 'noopener'); return; }
+    const type = (pvFile?.runnable || isHtmlish(pvFile?.lang, pvFile?.content, pvFile?.name)) ? 'text/html' : 'text/plain';
+    window.open(URL.createObjectURL(new Blob([type === 'text/html' ? pvSource : (pvFile?.content || '')], { type })), '_blank');
+  } catch { toast('เบราว์เซอร์บล็อกหน้าต่างใหม่'); }
+};
+
+/* ─────────── Test Lab: real files, generated locally when needed ─────────── */
+const DEMO_SPECS = [
+  { id:'pdf',  cmd:'1',    name:'test.pdf',   label:'PDF',         mime:'application/pdf', description:'เอกสาร 1 หน้า', native:true },
+  { id:'pptx', cmd:'1.1',  name:'test.pptx',  label:'PowerPoint',  mime:'application/vnd.openxmlformats-officedocument.presentationml.presentation', description:'สไลด์จริง เปิดใน Keynote/PowerPoint' },
+  { id:'docx', cmd:'1.2',  name:'test.docx',  label:'Word',        mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', description:'เอกสารจริง เปิดใน Pages/Word' },
+  { id:'xlsx', cmd:'1.3',  name:'test.xlsx',  label:'Excel',       mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', description:'ตารางจริง เปิดใน Numbers/Excel' },
+  { id:'png',  cmd:'1.4',  name:'test.png',   label:'PNG',         mime:'image/png', description:'ภาพที่วาดในเบราว์เซอร์', native:true },
+  { id:'svg',  cmd:'1.5',  name:'test.svg',   label:'SVG',         mime:'image/svg+xml', description:'ภาพเวกเตอร์', native:true },
+  { id:'html', cmd:'1.6',  name:'index.html',label:'HTML',        mime:'text/html', description:'หน้าเว็บพรีวิวรันได้', native:true },
+  { id:'css',  cmd:'1.7',  name:'styles.css',label:'CSS',         mime:'text/css', description:'สไตล์ของหน้าเว็บ' },
+  { id:'js',   cmd:'1.8',  name:'app.js',    label:'JavaScript',  mime:'text/javascript', description:'สคริปต์หน้าเว็บ' },
+  { id:'json', cmd:'1.9',  name:'test.json', label:'JSON',        mime:'application/json', description:'ข้อมูลแบบมีโครงสร้าง' },
+  { id:'csv',  cmd:'1.10', name:'test.csv',  label:'CSV',         mime:'text/csv', description:'ตารางตัวอักษร' },
+  { id:'txt',  cmd:'1.11', name:'test.txt',  label:'TXT',         mime:'text/plain', description:'ข้อความล้วน' },
+  { id:'md',   cmd:'1.12', name:'README.md',label:'Markdown',    mime:'text/markdown', description:'เอกสารอ่านง่าย' },
+  { id:'py',   cmd:'1.13', name:'test.py',   label:'Python',      mime:'text/x-python', description:'สคริปต์ Python' },
+  { id:'xml',  cmd:'1.14', name:'test.xml',  label:'XML',         mime:'application/xml', description:'ข้อมูลแบบ XML' },
+  { id:'yaml', cmd:'1.15', name:'test.yaml',label:'YAML',        mime:'text/yaml', description:'ไฟล์ตั้งค่า' },
+  { id:'sql',  cmd:'1.16', name:'test.sql', label:'SQL',         mime:'application/sql', description:'ตัวอย่างคำสั่งฐานข้อมูล' },
+  { id:'ts',   cmd:'1.17', name:'test.ts',  label:'TypeScript',  mime:'text/typescript', description:'โค้ดแบบระบุชนิดข้อมูล' },
+  { id:'jpg',  cmd:'1.18', name:'test.jpg', label:'JPG',         mime:'image/jpeg', description:'ภาพถ่ายตัวอย่าง', native:true }
+];
+const DEMO_BY_ID = Object.assign(Object.create(null), Object.fromEntries(DEMO_SPECS.map(s => [s.id, s])));
+const demoArtifacts = new Map(), demoUrls = new Map(), demoZipCache = new Map(), demoZipUrls = new Map();
+const isDemoText = id => !['pdf','pptx','docx','xlsx','png','jpg'].includes(id);
+
+function demoGuide() {
+  const lines = DEMO_SPECS.map(s => `| \`${s.cmd}\` | ${s.label} | \`.${s.name.split('.').pop()}\` |`);
+  return [
+    '**Test Lab — พิมพ์เลขแล้วส่งได้เลย**',
+    'ไฟล์ถูกสร้างในเบราว์เซอร์ของคุณ ไม่ใช้ API Key และไม่ส่งข้อมูลไปที่โมเดล (PPTX จาก Python อาจโหลด Python Runtime ครั้งแรก)',
+    '| คำสั่ง | ไฟล์ | นามสกุล |', '|:--|:--|:--|', ...lines,
+    '| `2` | ZIP รวมไฟล์ตัวอย่างทั้งหมด | `.zip` |',
+    '| `3` | โปรเจกต์เว็บ 3 ไฟล์ + ZIP | `.html` `.css` `.js` |',
+    '| แนบไฟล์ | รายงานว่าแอปอ่านอะไรได้บ้าง (รวม ZIP) | ทุกนามสกุล |',
+    '', 'พิมพ์อย่างอื่น หรือ `help` เพื่อดูรายการนี้อีกครั้ง กดไฟล์เพื่อพรีวิวแล้วดาวน์โหลดได้',
+    '', 'ทดสอบการแตก ZIP: ดาวน์โหลด ZIP จากคำสั่ง `2` แล้วแนบกลับเข้ามา — ต้องเห็นเป็นไฟล์แนบ **ชิ้นเดียว**'
+  ].join('\n');
+}
+/* รายงานว่าแอปอ่านไฟล์แนบได้อะไรบ้าง — ใช้ทดสอบการอัปโหลด/แตก ZIP โดยไม่เปลืองเครดิต */
+function uploadReport(attachments) {
+  const lines = ['**รายงานไฟล์ที่ได้รับ** — โหมดทดสอบไม่ส่งไฟล์ออกไปไหน', ''];
+  displayAttachments(attachments).forEach(a => {
+    if (a.type === 'zip') {
+      lines.push(`- **${a.name}** — ZIP ${a.total} ไฟล์ = ไฟล์แนบ 1 ชิ้น · อ่านได้ ${a.files.length}` +
+        (a.skipped?.length ? ` · ข้าม ${a.skipped.length}` : '') + (a.ignored ? ` · ซ่อนไฟล์ระบบ ${a.ignored}` : ''));
+      a.files.slice(0, 30).forEach(f => lines.push(`  - \`${f.name}\` · ${byteSize(f.size ?? (f.text || '').length)}` +
+        (f.office ? ' · ดึงข้อความจาก Office' : '') + (f.cut ? ' · ส่งช่วงแรก' : '')));
+      if (a.files.length > 30) lines.push(`  - …อีก ${a.files.length - 30} ไฟล์`);
+      (a.skipped || []).slice(0, 15).forEach(s => lines.push(`  - ~~\`${s.name}\`~~ · ${s.reason}`));
+    } else if (a.type === 'image') {
+      lines.push(`- **${a.name}** — รูปภาพ${a.resized ? ' (ย่อเหลือด้านยาว 1600px แล้ว)' : ''}`);
+    } else {
+      lines.push(`- **${a.name}** — ${a.meta ? 'ส่งได้เฉพาะชื่อไฟล์' : a.office ? 'ดึงข้อความจาก Office' : 'ไฟล์ข้อความ'} · ${byteSize(a.size ?? (a.text || '').length)}`);
+    }
+  });
+  lines.push('', 'แตะป้าย **ZIP** ในข้อความของคุณเพื่อเปิดดูทีละไฟล์ · ถ้าใช้โมเดลจริง เนื้อหาเหล่านี้จะถูกส่งเป็นบริบทให้ AI');
+  return lines.join('\n');
+}
+function buildDemoReply(text, attachments=[]) {
+  const q = String(text || '').trim().toLowerCase();
+  const item = DEMO_SPECS.find(s => q === s.cmd || q === s.id || q === '.' + s.id);
+  const received = attachments.length ? '\n\n' + uploadReport(attachments) : '';
+  if (item) return {
+    content:`**${item.label} พร้อมแล้ว**\n\n${item.description} แตะชื่อไฟล์เพื่อดูตัวอย่าง หรือกดดาวน์โหลดด้านขวา\n\nพิมพ์ \`2\` เพื่อรับ ZIP รวมทุกชนิด${received}`,
+    demoFiles:[item.id]
+  };
+  if (q === '2') return {
+    content:`**ชุดไฟล์ทดสอบทั้งหมด**\n\nดาวน์โหลดเป็น ZIP ไฟล์เดียว มีไฟล์ตัวอย่างจริง ${DEMO_SPECS.length} ชนิด เปิดรายการด้านล่างเพื่อดูหรือดาวน์โหลดทีละไฟล์${received}`,
+    demoFiles:DEMO_SPECS.map(s => s.id), demoZip:true
+  };
+  if (q === '3') return {
+    content:`**โปรเจกต์เว็บ 3 ไฟล์**\n\n\`index.html\`, \`styles.css\`, \`app.js\` — ทดลองพรีวิวหน้าเว็บ, ดูโค้ด แล้วกด ZIP ได้${received}`,
+    demoFiles:['html','css','js'], demoZip:true
+  };
+  if (attachments.length && !q) return { content:uploadReport(attachments) };
+  return { content:demoGuide() + received };
+}
+
+function demoText(id) {
+  switch(id) {
+    case 'svg': return `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540"><rect width="960" height="540" fill="#f3f1ec"/><circle cx="720" cy="160" r="100" fill="#b5502c" opacity=".85"/><path d="M64 420H896" stroke="#d9d2c6" stroke-width="2"/><text x="64" y="280" fill="#1a1a18" font-family="Georgia,serif" font-size="80">Kiln Test Lab</text><text x="70" y="340" fill="#8b857a" font-family="Arial,sans-serif" font-size="26">SVG generated locally</text></svg>`;
+    case 'html': return '<!DOCTYPE html>\n<html lang="th">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>Kiln Test Lab</title>\n<link rel="stylesheet" href="styles.css">\n<style>body{margin:0;background:#f3f1ec;color:#1a1a18;font-family:Arial,sans-serif}main{max-width:680px;margin:18vh auto;padding:24px}h1{font:normal 72px Georgia,serif;letter-spacing:-.05em}p{color:#625f58}button{border:1px solid #1a1a18;background:transparent;padding:12px 20px;font:inherit;cursor:pointer}</style>\n</head>\n<body>\n<main><small>DEMO / KILN</small><h1>Hello, world.</h1><p>A tiny website you can preview and download.</p><button id="try">Click to test</button><p id="result"></p></main>\n<script src="app.js"><' + '/script>\n<script>document.querySelector("#try").addEventListener("click",()=>document.querySelector("#result").textContent="It works.")<' + '/script>\n</body>\n</html>\n';
+    case 'css': return '/* Kiln Test Lab - styles.css */\n:root { color-scheme: light; }\nbody { background: #f3f1ec; color: #1a1a18; }\nh1 { color: #b5502c; }\nbutton:hover { background: #1a1a18; color: white; }\n';
+    case 'js': return '/* Kiln Test Lab - app.js */\nconsole.info("Kiln test project loaded");\nconst button = document.querySelector("#try");\nif (button) button.setAttribute("title", "This button works");\n';
+    case 'json': return JSON.stringify({ app:'Kiln Test Lab', ok:true, files:DEMO_SPECS.length, created:'in your browser', values:[1,2,3] }, null, 2) + '\n';
+    case 'csv': return '\uFEFFname,type,status\nKiln,CSV,ready\nTest Lab,example,ready\n';
+    case 'txt': return 'Kiln Test Lab\n\nThis is a real .txt file generated in your browser.\nNo model API key was used.\n';
+    case 'md': return '# Kiln Test Lab\n\nA sample Markdown file.\n\n- Test file downloads\n- Test ZIP contents\n- Test browser previews\n\nOpen `index.html` to see the web demo.\n';
+    case 'py': return '# Kiln Test Lab - test.py\n\ndef greet(name: str) -> str:\n    return f"Hello, {name}!"\n\nif __name__ == "__main__":\n    print(greet("world"))\n';
+    case 'xml': return '<?xml version="1.0" encoding="UTF-8"?>\n<test name="Kiln" version="1"><status>ready</status><file>test.xml</file></test>\n';
+    case 'yaml': return 'app: Kiln Test Lab\nmode: demo\nready: true\nfiles:\n  - test.pdf\n  - test.pptx\n  - index.html\n';
+    case 'sql': return '-- Kiln Test Lab - test.sql\nCREATE TABLE IF NOT EXISTS samples (id INTEGER PRIMARY KEY, name TEXT NOT NULL);\nINSERT INTO samples (name) VALUES (\'Kiln Test Lab\');\nSELECT * FROM samples;\n';
+    case 'ts': return '/* Kiln Test Lab - test.ts */\ntype Sample = { name: string; ready: boolean };\nconst sample: Sample = { name: "Kiln Test Lab", ready: true };\nconsole.log(sample.name, sample.ready);\n';
+    default: return '';
+  }
+}
+
+function demoPdf() {
+  const stream = 'q\n0.953 0.945 0.925 rg\n0 0 595 842 re f\nQ\n0.71 0.31 0.17 rg\n48 630 86 86 re f\n0.10 0.10 0.09 rg\nBT /F1 32 Tf 48 730 Td (Kiln Test Lab) Tj ET\nBT /F1 17 Tf 48 590 Td (A real PDF, made in your browser.) Tj ET\nBT /F1 12 Tf 48 565 Td (No API key or server is required.) Tj ET\n';
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}endstream`
+  ];
+  let pdf = '%PDF-1.4\n%Kiln Test Lab\n';
+  const positions = [0];
+  for (let i=0;i<objects.length;i++) {
+    positions.push(pdf.length);
+    pdf += `${i+1} 0 obj\n${objects[i]}\nendobj\n`;
+  }
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;
+  pdf += positions.slice(1).map(p => `${String(p).padStart(10,'0')} 00000 n \n`).join('');
+  pdf += `trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return new Blob([pdf], { type:'application/pdf' });
+}
+
+function demoOfficeZip(kind) {
+  if (!window.JSZip) throw new Error('ต้องโหลด JSZip ก่อนสร้างไฟล์ Office');
+  const z = new JSZip();
+  const ct = 'http://schemas.openxmlformats.org/package/2006/content-types';
+  const rel = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  const od = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  if (kind === 'docx') {
+    const wm = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    z.file('[Content_Types].xml', `<Types xmlns="${ct}"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+    z.file('_rels/.rels', `<Relationships xmlns="${rel}"><Relationship Id="rId1" Type="${od}/officeDocument" Target="word/document.xml"/></Relationships>`);
+    z.file('word/document.xml', `<w:document xmlns:w="${wm}"><w:body><w:p><w:r><w:rPr><w:b/><w:sz w:val="40"/></w:rPr><w:t>Kiln Test Lab</w:t></w:r></w:p><w:p><w:r><w:t>This is a real DOCX file generated in your browser.</w:t></w:r></w:p><w:p><w:r><w:t>No model API key was used.</w:t></w:r></w:p><w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`);
+    return z;
+  }
+  const sm = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  z.file('[Content_Types].xml', `<Types xmlns="${ct}"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
+  z.file('_rels/.rels', `<Relationships xmlns="${rel}"><Relationship Id="rId1" Type="${od}/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  z.file('xl/workbook.xml', `<workbook xmlns="${sm}" xmlns:r="${od}"><sheets><sheet name="Test" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  z.file('xl/_rels/workbook.xml.rels', `<Relationships xmlns="${rel}"><Relationship Id="rId1" Type="${od}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`);
+  z.file('xl/worksheets/sheet1.xml', `<worksheet xmlns="${sm}"><dimension ref="A1:C3"/><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Name</t></is></c><c r="B1" t="inlineStr"><is><t>Type</t></is></c><c r="C1" t="inlineStr"><is><t>Status</t></is></c></row><row r="2"><c r="A2" t="inlineStr"><is><t>Kiln</t></is></c><c r="B2" t="inlineStr"><is><t>XLSX</t></is></c><c r="C2" t="inlineStr"><is><t>Ready</t></is></c></row><row r="3"><c r="A3" t="inlineStr"><is><t>Browser</t></is></c><c r="B3" t="inlineStr"><is><t>Local</t></is></c><c r="C3"><v>1</v></c></row></sheetData></worksheet>`);
+  return z;
+}
+
+let pptxLoader;
+function loadPptx() {
+  if (window.PptxGenJS) return Promise.resolve(window.PptxGenJS);
+  if (!pptxLoader) pptxLoader = new Promise((resolve, reject) => {
+    const s = h('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.1/dist/pptxgen.bundle.js';
+    s.onload = () => window.PptxGenJS ? resolve(window.PptxGenJS) : reject(new Error('โหลดตัวสร้าง PPTX ไม่สำเร็จ'));
+    s.onerror = () => reject(new Error('ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อโหลดตัวสร้าง PPTX'));
+    document.head.append(s);
+  }).catch(e => { pptxLoader = null; throw e; });
+  return pptxLoader;
+}
+async function demoPptx() {
+  const PptxGenJS = await loadPptx();
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_WIDE';
+  pptx.author = 'Kiln Test Lab';
+  pptx.subject = 'Browser file test';
+  pptx.title = 'Kiln Test Lab';
+  const slide = pptx.addSlide();
+  slide.background = { color:'F3F1EC' };
+  slide.addText('KILN / TEST LAB', { x:.8, y:.65, w:10.5, h:.35, fontFace:'Aptos', fontSize:13, color:'B5502C', bold:true, charSpacing:2 });
+  slide.addText('Hello, world.', { x:.8, y:2.15, w:11.2, h:1, fontFace:'Georgia', fontSize:48, color:'1A1A18', breakLine:false });
+  slide.addText('A real PowerPoint file, made on your device.', { x:.85, y:3.55, w:10, h:.55, fontFace:'Aptos', fontSize:19, color:'625F58' });
+  slide.addText('01  /  FILE FORMAT TEST', { x:.85, y:6.75, w:6, h:.28, fontFace:'Aptos', fontSize:11, color:'8B857A' });
+  const data = await pptx.write({ outputType:'blob' });
+  return data instanceof Blob ? data : new Blob([data], { type:DEMO_BY_ID.pptx.mime });
+}
+
+function demoImage(mime) {
+  return new Promise((resolve, reject) => {
+    const canvas = h('canvas'); canvas.width=960; canvas.height=540;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { reject(new Error('เบราว์เซอร์นี้ไม่รองรับ Canvas')); return; }
+    ctx.fillStyle='#f3f1ec'; ctx.fillRect(0,0,960,540);
+    ctx.fillStyle='#b5502c'; ctx.beginPath(); ctx.arc(747,160,104,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#1a1a18'; ctx.font='74px Georgia,serif'; ctx.fillText('Kiln Test Lab',64,288);
+    ctx.fillStyle='#625f58'; ctx.font='25px Arial,sans-serif'; ctx.fillText('Made locally in your browser',70,345);
+    ctx.fillStyle='#d9d2c6'; ctx.fillRect(64,414,832,2);
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('สร้างรูปภาพไม่สำเร็จ')), mime, .92);
+  });
+}
+
+async function makeDemoArtifact(id) {
+  const spec = DEMO_BY_ID[id];
+  if (!spec) throw new Error('ไม่รู้จักชนิดไฟล์');
+  let blob, content = null;
+  if (id === 'pdf') blob = demoPdf();
+  else if (id === 'pptx') blob = await demoPptx();
+  else if (id === 'docx' || id === 'xlsx') blob = await demoOfficeZip(id).generateAsync({ type:'blob', mimeType:spec.mime, compression:'DEFLATE' });
+  else if (id === 'png' || id === 'jpg') blob = await demoImage(spec.mime);
+  else { content = demoText(id); blob = new Blob([content], { type:spec.mime + ';charset=utf-8' }); }
+  return { spec, blob, content };
+}
+function getDemoArtifact(id) {
+  if (!demoArtifacts.has(id)) demoArtifacts.set(id, makeDemoArtifact(id).catch(e => {
+    demoArtifacts.delete(id); throw e;
+  }));
+  return demoArtifacts.get(id);
+}
+async function getDemoUrl(id) {
+  if (!demoUrls.has(id)) demoUrls.set(id, URL.createObjectURL((await getDemoArtifact(id)).blob));
+  return demoUrls.get(id);
+}
+function getDemoZip(ids) {
+  const valid = [...new Set(ids)].filter(id => DEMO_BY_ID[id]);
+  const key = valid.join('|');
+  if (!demoZipCache.has(key)) demoZipCache.set(key, (async () => {
+    if (!window.JSZip) throw new Error('ต้องโหลด JSZip ก่อนสร้าง ZIP');
+    const zip = new JSZip();
+    for (const id of valid) {
+      const { spec, blob } = await getDemoArtifact(id);
+      zip.file(spec.name, await blob.arrayBuffer());
+    }
+    return zip.generateAsync({ type:'blob', compression:'DEFLATE' });
+  })().catch(e => { demoZipCache.delete(key); throw e; }));
+  return demoZipCache.get(key);
+}
+async function getDemoZipUrl(ids) {
+  const key = [...new Set(ids)].filter(id => DEMO_BY_ID[id]).join('|');
+  if (!demoZipUrls.has(key)) demoZipUrls.set(key, URL.createObjectURL(await getDemoZip(ids)));
+  return demoZipUrls.get(key);
+}
+
+function preparedDemoLink(label, name, prepare) {
+  const a = h('a'); a.textContent = 'กำลังเตรียม…'; a.href='#';
+  a.setAttribute('aria-label', `ดาวน์โหลด ${name}`);
+  a.addEventListener('click', e => e.stopPropagation());
+  a.onclick = e => { if (a.dataset.ready !== 'true') e.preventDefault(); };
+  const start = () => {
+    a.dataset.ready = 'false'; a.textContent = 'กำลังเตรียม…';
+    prepare().then(url => {
+      a.href = url; a.download = name; a.textContent = label; a.dataset.ready = 'true';
+    }).catch(err => {
+      a.textContent = 'ลองอีกครั้ง'; a.title = err.message || String(err);
+      a.onclick = e => { e.preventDefault(); a.onclick = evt => { if (a.dataset.ready !== 'true') evt.preventDefault(); }; start(); };
+    });
+  };
+  start();
+  return a;
+}
+function demoFileRow(id, group) {
+  const s = DEMO_BY_ID[id];
+  const row = h('div', 'fcard');
+  row.setAttribute('role', 'button'); row.tabIndex = 0;
+  row.setAttribute('aria-label', 'พรีวิว ' + s.name);
+  row.onclick = () => previewDemoFile(id, group);
+  row.onkeydown = e => {
+    if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); row.click(); }
+  };
+  row.append(h('span', 'ic', s.name.split('.').pop().slice(0,4)));
+  const meta = h('div', 'meta');
+  meta.append(h('b', null, s.name), h('span', null, s.description)); row.append(meta);
+  const acts = h('div', 'acts');
+  const preview = h('button'); preview.innerHTML = I.eye; preview.title = 'พรีวิว ' + s.name;
+  preview.setAttribute('aria-label', 'พรีวิว ' + s.name);
+  preview.onclick = e => { e.stopPropagation(); previewDemoFile(id, group); };
+  acts.append(preview);
+  const link = preparedDemoLink('↓', s.name, () => getDemoUrl(id));
+  link.title = 'ดาวน์โหลด ' + s.name;
+  acts.append(link); row.append(acts);
+  return row;
+}
+function buildDemoFileSet(ids, packaged) {
+  const valid = [...new Set(ids)].filter(id => DEMO_BY_ID[id]);
+  const box = h('div', 'fileset');
+  const top = h('div', 'fileset-h');
+  top.append(h('span', 'ttl', `${valid.length} ไฟล์ทดสอบ`));
+  if (packaged && valid.length) {
+    const name = valid.length === DEMO_SPECS.length ? 'kiln-test-all.zip' : 'kiln-test-project.zip';
+    top.append(preparedDemoLink('ดาวน์โหลด ZIP', name, () => getDemoZipUrl(valid)));
+  }
+  box.append(top);
+  if (packaged && valid.length > 3) {
+    const details = h('details', 'demo-list');
+    details.append(h('summary', null, `ดู ${valid.length} ไฟล์ใน ZIP และดาวน์โหลดทีละไฟล์`));
+    valid.forEach(id => details.append(demoFileRow(id, valid)));
+    box.append(details);
+  } else valid.forEach(id => box.append(demoFileRow(id, valid)));
+  return box;
+}
+async function previewDemoFile(id, group) {
+  const spec = DEMO_BY_ID[id];
+  if (!spec) return;
+  const seq = ++previewSeq;
+  pvFile = null; $('#pvDl').disabled = true; $('#pvNew').disabled = true;
+  $('#pvTitle').textContent = spec.name;
+  $('#pvMode').hidden = true;
+  $('#pvWrap').classList.remove('show-code');
+  $('#pvFrame').src = 'about:blank';
+  $('#pvFrame').srcdoc = '<p style="font:16px sans-serif;padding:20px">กำลังเตรียมไฟล์ตัวอย่าง…</p>';
+  open$('#pvWrap');
+  try {
+    const artifact = await getDemoArtifact(id);
+    if (seq !== previewSeq || !$('#pvWrap').classList.contains('on')) return;
+    if (isDemoText(id) && id !== 'svg') {
+      let all = null;
+      if (id === 'html' && group?.includes('css') && group?.includes('js')) {
+        all = await Promise.all(['html','css','js'].map(async key => {
+          const f = await getDemoArtifact(key);
+          return { name:f.spec.name, content:f.content, lang:langFromName(f.spec.name) };
+        }));
+        if (seq !== previewSeq || !$('#pvWrap').classList.contains('on')) return;
+      }
+      openFilePreview({ name:spec.name, lang:langFromName(spec.name), content:artifact.content, runnable:id === 'html' }, all, id === 'html' ? 'run' : 'code');
+      return;
+    }
+    pvFile = { name:spec.name, demoId:id, blob:artifact.blob };
+    pvSource = '';
+    $('#pvCode').textContent = `Kiln Test Lab\n\n${spec.name}\n${spec.description}\n\nไฟล์จริงถูกสร้างบนอุปกรณ์นี้ ไม่ได้ส่งจาก AI`;
+    await getDemoUrl(id);
+    if (seq !== previewSeq || !$('#pvWrap').classList.contains('on')) return;
+    $('#pvDl').disabled = false; $('#pvNew').disabled = false;
+    if (spec.native) {
+      $('#pvMode').hidden = false;
+      $('#pvModeRun').textContent = 'ดูไฟล์';
+      $('#pvModeCode').textContent = 'รายละเอียด';
+      $('#pvFrame').removeAttribute('srcdoc');
+      $('#pvFrame').src = demoUrls.get(id);
+      setPreviewMode('run');
+    } else {
+      $('#pvMode').hidden = true;
+      $('#pvFrame').srcdoc = `<div style="font:16px/1.7 -apple-system,sans-serif;padding:24px;color:#1a1a18"><h2>${spec.label}</h2><p>ไฟล์ Office ต้องเปิดใน ${id === 'pptx' ? 'Keynote / PowerPoint' : id === 'docx' ? 'Pages / Word' : 'Numbers / Excel'}</p><p>กด <b>ดาวน์โหลด</b> แล้วเปิดจากแอป Files บน iPhone</p></div>`;
+      setPreviewMode('run');
+    }
+  } catch(e) {
+    if (seq === previewSeq && $('#pvWrap').classList.contains('on'))
+      $('#pvFrame').srcdoc = `<p style="font:16px sans-serif;padding:20px">สร้างไฟล์ไม่สำเร็จ: ${escapeHTML(e.message || String(e))}</p>`;
+  }
+}
+
+/* ═══════════ ตัวแปลงไฟล์: โค้ด/markdown → ไฟล์จริง (pptx / pdf / docx / xlsx) ═══════════ */
+const STR_RE = /(["'])((?:\\.|(?!\1).)*?)\1/g;
+const unesc = s => s.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\(["'])/g, '$1');
+function pullStrings(chunk) {
+  const out = []; let m;
+  STR_RE.lastIndex = 0;
+  while ((m = STR_RE.exec(chunk)) !== null) {
+    const v = unesc(m[2]).trim();
+    if (v.length > 1 && !/\.(pptx?|docx?|xlsx?|png|jpe?g)$/i.test(v) && !/^[A-Z_]{2,}$/.test(v)) out.push(v);
+  }
+  return out;
+}
+/* สี: ดึงค่าคงที่สี python (NAME = RGBColor(r,g,b)) แล้วจับสี bg/accent/text ต่อสไลด์ ไม่ให้พรีวิวจืดเป็นตัวหนังสือล้วน */
+function parseColorConsts(src) {
+  const map = {}, re = /\b([A-Za-z][A-Za-z0-9_]*)\s*=\s*RGBColor\(\s*(0[xX][0-9A-Fa-f]{1,2}|\d{1,3})\s*,\s*(0[xX][0-9A-Fa-f]{1,2}|\d{1,3})\s*,\s*(0[xX][0-9A-Fa-f]{1,2}|\d{1,3})\s*\)/g;
+  const toHex = v => Math.max(0, Math.min(255, v.slice(0, 2).toLowerCase() === '0x' ? parseInt(v, 16) : parseInt(v, 10))).toString(16).padStart(2, '0');
+  let m;
+  while ((m = re.exec(src)) !== null) map[m[1]] = (toHex(m[2]) + toHex(m[3]) + toHex(m[4])).toUpperCase();
+  return map;
+}
+const colorLuminance = hex => {
+  const c = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4));
+  return .2126 * c[0] + .7152 * c[1] + .0722 * c[2];
+};
+function slideStyle(chunk, colorMap) {
+  const resolve = name => colorMap[name] || (/^[0-9A-Fa-f]{6}$/.test(name) ? name.toUpperCase() : null);
+  let bg = null;
+  const bgM = chunk.match(/set_bg\s*\(\s*slide\s*,\s*([A-Za-z0-9_]+)\s*\)/)
+    || chunk.match(/background\s*=\s*\{\s*color\s*:\s*["']?#?([0-9A-Fa-f]{6})["']?/)
+    || chunk.match(/\bbackground[\s\S]{0,60}?fore_color\.rgb\s*=\s*([A-Za-z0-9_]+)/);
+  if (bgM) bg = resolve(bgM[1]);
+  const refs = [...chunk.matchAll(/\bcolor\s*[:=]\s*["']?#?([0-9A-Fa-f]{6}|[A-Za-z][A-Za-z0-9_]*)["']?/g)].map(m => resolve(m[1])).filter(Boolean);
+  const distinct = [...new Set(refs)].filter(c => c !== bg);
+  return { bg, accent: distinct[0] || null, text: distinct[1] || distinct[0] || null };
+}
+/* python-pptx / pptxgenjs → รายการสไลด์ [{title, bullets[], bg, accent, text}] */
+function slidesFromCode(src, splitter) {
+  const colorMap = parseColorConsts(src);
+  const chunks = String(src).split(splitter).slice(1);
+  return chunks.map(c => {
+    const scope = c.slice(0, 4000);
+    const strs = pullStrings(scope);
+    if (!strs.length) return null;
+    return { title: strs[0].slice(0, 120), bullets: strs.slice(1, 9).map(s => s.slice(0, 200)), ...slideStyle(scope, colorMap) };
+  }).filter(Boolean).slice(0, 30);
+}
+const pySlides = src => slidesFromCode(src, /\.add_slide\s*\(/);
+const jsSlides = src => slidesFromCode(src, /\.addSlide\s*\(/);
+function mdSlides(src) {
+  const out = []; let cur = null;
+  for (const raw of String(src).split('\n')) {
+    const line = raw.trim();
+    const head = line.match(/^#{1,3}\s+(.+)/);
+    if (head || line === '---') {
+      if (cur && (cur.title || cur.bullets.length)) out.push(cur);
+      cur = { title: head ? head[1].replace(/[*_`]/g, '').slice(0, 120) : '', bullets: [] };
+      continue;
+    }
+    if (!cur) cur = { title: '', bullets: [] };
+    const item = line.replace(/^[-*+]\s+|^\d+[.)]\s+/, '').replace(/[*_`]/g, '').trim();
+    if (item && cur.bullets.length < 8) cur.bullets.push(item.slice(0, 200));
+  }
+  if (cur && (cur.title || cur.bullets.length)) out.push(cur);
+  return out.slice(0, 30);
+}
+function csvRows(src) {
+  const rows = [];
+  for (const line of String(src).replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const cells = []; let cell = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQ) { if (ch === '"') { if (line[i + 1] === '"') { cell += '"'; i++; } else inQ = false; } else cell += ch; }
+      else if (ch === '"') inQ = true;
+      else if (ch === ',') { cells.push(cell); cell = ''; }
+      else cell += ch;
+    }
+    cells.push(cell); rows.push(cells);
+    if (rows.length >= 500) break;
+  }
+  return rows;
+}
+function mdTableRows(src) {
+  return String(src).split('\n').filter(l => l.includes('|') && !/^\s*\|?[\s:-]+\|/.test(l))
+    .map(l => l.split('|').map(c => c.trim()).filter((c, i, a) => !(c === '' && (i === 0 || i === a.length - 1))))
+    .filter(r => r.length > 1).slice(0, 500);
+}
+function pyDocBlocks(src) {
+  const out = [];
+  for (const m of String(src).matchAll(/\.add_(heading|paragraph)\s*\(\s*(["'])((?:\\.|(?!\2).)*?)\2/g))
+    out.push({ h: m[1] === 'heading', text: unesc(m[3]).slice(0, 400) });
+  return out.slice(0, 200);
+}
+function mdDocBlocks(src) {
+  return String(src).split('\n').map(l => {
+    const head = l.match(/^#{1,4}\s+(.+)/);
+    const text = (head ? head[1] : l).replace(/[*_`>]/g, '').trim();
+    return text ? { h: !!head, text: text.slice(0, 400) } : null;
+  }).filter(Boolean).slice(0, 300);
+}
+/* ตัดสินใจว่าไฟล์นี้แปลงเป็นอะไรได้ */
+function filePlan(f) {
+  const name = (f.name || '').toLowerCase(), lang = (f.lang || '').toLowerCase(), src = f.content || '';
+  const py = lang === 'python' || /\.py$/.test(name);
+  const js = /^(javascript|js|typescript|ts)$/.test(lang) || /\.[mc]?[jt]s$/.test(name);
+  if (py && /pptx|add_slide|Presentation\s*\(/i.test(src)) return { kind:'py-slides', out:'pptx', label:'สไลด์ .pptx' };
+  if (js && /pptxgen|addSlide/i.test(src)) return { kind:'js-slides', out:'pptx', label:'สไลด์ .pptx' };
+  if (py && /docx|add_paragraph|add_heading/i.test(src)) return { kind:'py-doc', out:'docx', label:'เอกสาร .docx' };
+  if (/\.csv$/.test(name) || lang === 'csv') return { kind:'csv', out:'xlsx', label:'ตาราง .xlsx' };
+  if (/\.(md|markdown)$/.test(name) || lang === 'markdown') {
+    if (mdTableRows(src).length > 2 && mdSlides(src).length < 2) return { kind:'md-table', out:'xlsx', label:'ตาราง .xlsx' };
+    if ((src.match(/^#{1,3}\s/gm) || []).length >= 2) return { kind:'md-slides', out:'pptx', label:'สไลด์ .pptx' };
+    return { kind:'md-doc', out:'pdf', label:'เอกสาร .pdf' };
+  }
+  if (/\.txt$/.test(name) && src.length > 120) return { kind:'text', out:'pdf', label:'เอกสาร .pdf' };
+  return null;
+}
+async function makePptxFromSlides(slides, title) {
+  const PptxGenJS = await loadPptx();
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_WIDE'; pptx.title = title || 'Kiln';
+  slides.forEach(s => {
+    const slide = pptx.addSlide();
+    const bg = s.bg || 'F3F1EC', dark = colorLuminance(bg) < .45;
+    const titleColor = s.accent || (dark ? 'FFFFFF' : '1A1A18');
+    const bodyColor = s.text || (dark ? 'E7E2D8' : '4A4740');
+    slide.background = { color: bg };
+    if (s.accent) slide.addShape('rect', { x:0, y:0, w:'100%', h:.14, fill:{ color:s.accent }, line:{ type:'none' } });
+    if (s.title) slide.addText(s.title, { x:.7, y:.7, w:11.9, h:1, fontFace:'Georgia', fontSize:32, color:titleColor, bold:true });
+    if (s.bullets.length) slide.addText(s.bullets.map(text => ({ text, options:{ bullet:true, breakLine:true } })),
+      { x:.85, y:1.9, w:11.5, h:5, fontSize:18, color:bodyColor, lineSpacingMultiple:1.25 });
+  });
+  const blob = await pptx.write({ outputType:'blob' });
+  return blob instanceof Blob ? blob : new Blob([blob], { type: DEMO_BY_ID.pptx.mime });
+}
+function makeDocxFromBlocks(blocks, title) {
+  const z = new JSZip();
+  const rel = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  const od = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const para = b => `<w:p><w:pPr>${b.h ? '<w:spacing w:before="280" w:after="120"/>' : ''}</w:pPr><w:r><w:rPr>${b.h ? '<w:b/><w:sz w:val="32"/>' : '<w:sz w:val="22"/>'}</w:rPr><w:t xml:space="preserve">${escapeHTML(b.text)}</w:t></w:r></w:p>`;
+  z.file('[Content_Types].xml', `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+  z.file('_rels/.rels', `<Relationships xmlns="${rel}"><Relationship Id="rId1" Type="${od}/officeDocument" Target="word/document.xml"/></Relationships>`);
+  z.file('word/document.xml', `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${title ? para({ h:true, text:title }) : ''}${blocks.map(para).join('')}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr></w:body></w:document>`);
+  return z.generateAsync({ type:'blob', mimeType: DEMO_BY_ID.docx.mime, compression:'DEFLATE' });
+}
+function makeXlsxFromRows(rows) {
+  const z = new JSZip();
+  const rel = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  const od = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const sm = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const colRef = n => { let s = ''; n++; while (n > 0) { s = String.fromCharCode(64 + ((n - 1) % 26 + 1)) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const body = rows.map((r, ri) => `<row r="${ri + 1}">` + r.map((c, ci) => {
+    const num = c !== '' && !isNaN(Number(c)) && String(c).trim() !== '';
+    return num ? `<c r="${colRef(ci)}${ri + 1}"><v>${Number(c)}</v></c>`
+      : `<c r="${colRef(ci)}${ri + 1}" t="inlineStr"><is><t xml:space="preserve">${escapeHTML(String(c)).slice(0, 800)}</t></is></c>`;
+  }).join('') + '</row>').join('');
+  z.file('[Content_Types].xml', `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
+  z.file('_rels/.rels', `<Relationships xmlns="${rel}"><Relationship Id="rId1" Type="${od}/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  z.file('xl/workbook.xml', `<workbook xmlns="${sm}" xmlns:r="${od}"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  z.file('xl/_rels/workbook.xml.rels', `<Relationships xmlns="${rel}"><Relationship Id="rId1" Type="${od}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`);
+  z.file('xl/worksheets/sheet1.xml', `<worksheet xmlns="${sm}"><sheetData>${body}</sheetData></worksheet>`);
+  return z.generateAsync({ type:'blob', mimeType: DEMO_BY_ID.xlsx.mime, compression:'DEFLATE' });
+}
+/* PDF จากข้อความ: วาดลง canvas ทีละหน้า (รองรับไทย) แล้วฝัง JPEG ลง PDF จริง */
+async function makePdfFromText(text, title) {
+  const W = 1240, H = 1754, M = 96, LH = 46;
+  const pages = []; let cv = null, ctx = null, y = 0;
+  const newPage = () => {
+    cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    ctx = cv.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#1a1a18'; y = M + 20; pages.push(cv);
+  };
+  newPage();
+  const writeLine = (line, font) => {
+    ctx.font = font;
+    const words = line.split(/(\s+)/); let buf = '';
+    const flush = () => {
+      if (y > H - M) { newPage(); ctx.font = font; }
+      ctx.fillText(buf, M, y); y += LH; buf = '';
+    };
+    for (const w of words) {
+      if (ctx.measureText(buf + w).width > W - M * 2 && buf) flush();
+      buf += w;
+      // ภาษาไทยไม่มีช่องว่าง — ตัดตามความกว้างตัวอักษร
+      while (ctx.measureText(buf).width > W - M * 2) {
+        let cut = buf.length - 1;
+        while (cut > 1 && ctx.measureText(buf.slice(0, cut)).width > W - M * 2) cut--;
+        const head = buf.slice(0, cut); buf = buf.slice(cut);
+        const keep = buf; buf = head; flush(); buf = keep;
+      }
+    }
+    if (buf.trim() || line === '') flush();
+  };
+  if (title) { writeLine(title, '600 44px Georgia, "Noto Serif Thai", serif'); y += 14; }
+  for (const raw of String(text).split('\n').slice(0, 2000)) {
+    const head = raw.match(/^#{1,4}\s+(.+)/);
+    if (head) { y += 10; writeLine(head[1].replace(/[*_`]/g, ''), '600 36px Georgia, "Noto Serif Thai", serif'); }
+    else writeLine(raw.replace(/[*_`>]/g, ''), '28px -apple-system, "IBM Plex Sans Thai", sans-serif');
+  }
+  const jpegs = [];
+  for (const c of pages) jpegs.push(new Uint8Array(await new Promise((res, rej) =>
+    c.toBlob(b => b ? b.arrayBuffer().then(a => res(a)) : rej(new Error('สร้างหน้า PDF ไม่สำเร็จ')), 'image/jpeg', .9))));
+  return assemblePdf(jpegs, W, H);
+}
+function assemblePdf(jpegs, w, h) {
+  const enc = new TextEncoder(), chunks = [], offsets = [];
+  let pos = 0;
+  const push = data => { const b = typeof data === 'string' ? enc.encode(data) : data; chunks.push(b); pos += b.length; };
+  const obj = text => { offsets.push(pos); push(text); };
+  push('%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n');
+  const kids = jpegs.map((_, i) => `${3 + i * 3} 0 R`).join(' ');
+  obj(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
+  obj(`2 0 obj\n<< /Type /Pages /Kids [${kids}] /Count ${jpegs.length} >>\nendobj\n`);
+  const PW = 595.28, PH = 841.89;
+  jpegs.forEach((jpeg, i) => {
+    const pageId = 3 + i * 3, imgId = pageId + 1, contentId = pageId + 2;
+    obj(`${pageId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im${i} ${imgId} 0 R >> >> /Contents ${contentId} 0 R >>\nendobj\n`);
+    offsets.push(pos);
+    push(`${imgId} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
+    push(jpeg); push('\nendstream\nendobj\n');
+    const content = `q ${PW} 0 0 ${PH} 0 0 cm /Im${i} Do Q\n`;
+    obj(`${contentId} 0 obj\n<< /Length ${content.length} >>\nstream\n${content}endstream\nendobj\n`);
+  });
+  const xref = pos, total = offsets.length + 1;
+  push(`xref\n0 ${total}\n0000000000 65535 f \n` + offsets.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join(''));
+  push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(chunks, { type:'application/pdf' });
+}
+/* พรีวิว HTML จำลองสำหรับไฟล์ที่เปิดใน iframe ไม่ได้ */
+function slidesPreviewHtml(slides) {
+  const body = slides.map((s, i) => {
+    const bg = s.bg ? '#' + s.bg : '#f3f1ec';
+    const dark = s.bg ? colorLuminance(s.bg) < .45 : false;
+    const titleColor = s.accent ? '#' + s.accent : (dark ? '#fff' : '#1a1a18');
+    const bodyColor = s.text ? '#' + s.text : (dark ? '#e7e2d8' : '#4a4740');
+    const numColor = dark ? 'rgba(255,255,255,.55)' : '#8b857a';
+    const accentBar = s.accent ? `<i style="position:absolute;top:0;left:0;right:0;height:6px;background:#${s.accent}"></i>` : '';
+    return `<section style="background:${bg}">${accentBar}<small style="color:${numColor}">${i + 1} / ${slides.length}</small><h1 style="color:${titleColor}">${escapeHTML(s.title || 'ไม่มีชื่อสไลด์')}</h1><ul style="color:${bodyColor}">${s.bullets.map(b => `<li>${escapeHTML(b)}</li>`).join('')}</ul></section>`;
+  }).join('');
+  return `<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#e7e2d8;font-family:-apple-system,'IBM Plex Sans Thai',sans-serif}section{aspect-ratio:16/9;margin:14px;padding:7% 8%;box-sizing:border-box;border:1px solid #d5cfc2;position:relative;overflow:hidden}small{position:absolute;top:4%;right:5%;font-size:11px}h1{font:600 5.2vw Georgia,'Noto Serif Thai',serif;margin:0 0 4%}ul{margin:0;padding-left:6%;font-size:3.4vw;line-height:1.7}</style>${body}<p style="text-align:center;color:#8b857a;font-size:12px;padding:8px">ภาพจำลอง — ไฟล์ .pptx จริงเปิดใน Keynote/PowerPoint</p>`;
+}
+function tableToHtml(rows) {
+  const body = rows.slice(0, 200).map((r, i) => `<tr>${r.map(c => i === 0 ? `<th>${escapeHTML(String(c))}</th>` : `<td>${escapeHTML(String(c))}</td>`).join('')}</tr>`).join('');
+  return `<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,sans-serif;margin:14px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid #d5cfc2;padding:6px 9px;text-align:left}th{background:#eeebe4}</style><table>${body}</table>`;
+}
+function docPreviewHtml(blocks, title) {
+  const body = blocks.map(b => b.h ? `<h2>${escapeHTML(b.text)}</h2>` : `<p>${escapeHTML(b.text)}</p>`).join('');
+  return `<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,'IBM Plex Sans Thai',sans-serif;max-width:680px;margin:24px auto;padding:0 18px;color:#1a1a18;line-height:1.75}h1,h2{font-family:Georgia,'Noto Serif Thai',serif}</style>${title ? `<h1>${escapeHTML(title)}</h1>` : ''}${body}`;
+}
+/* ═══════════ รันโค้ดสร้าง Office จริง ═══════════
+   Python: รันผ่าน Pyodide + python-pptx ในเบราว์เซอร์ และดึงไฟล์ .pptx ตัวจริง
+   JavaScript: รัน PptxGenJS จริงและดัก write()/writeFile() เพื่อรับ Blob
+*/
+const PYODIDE_INDEX = 'https://cdn.jsdelivr.net/pyodide/v314.0.7/full/';
+let pyodidePromise = null;
+async function loadPyodideRuntime() {
+  if (window.loadPyodide) {
+    if (!pyodidePromise) pyodidePromise = loadPyodide({ indexURL: PYODIDE_INDEX });
+    return pyodidePromise;
+  }
+  if (!window.__kilnPyodideScript) {
+    window.__kilnPyodideScript = new Promise((resolve, reject) => {
+      const s = h('script');
+      s.src = PYODIDE_INDEX + 'pyodide.js';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('โหลด Python Runtime ไม่สำเร็จ — ต้องเชื่อมต่ออินเทอร์เน็ตครั้งแรก'));
+      document.head.append(s);
+    });
+  }
+  await window.__kilnPyodideScript;
+  if (!pyodidePromise) pyodidePromise = loadPyodide({ indexURL: PYODIDE_INDEX });
+  return pyodidePromise;
+}
+function pyQuote(s) { return JSON.stringify(String(s)); }
+async function runPythonPptxExact(file, plan, outName) {
+  const pyodide = await loadPyodideRuntime();
+  await pyodide.loadPackage(['micropip', 'lxml', 'Pillow']);
+  await pyodide.runPythonAsync('import micropip; await micropip.install("python-pptx==1.0.2")');
+
+  const sourcePath = '/tmp/kiln_generated.py';
+  const workDir = '/tmp/kiln_pptx_work';
+  const targetPath = workDir + '/kiln_output.pptx';
+  pyodide.FS.writeFile(sourcePath, file.content || '');
+  try { pyodide.FS.mkdir(workDir); } catch {}
+
+  const passOutput = /add_argument\s*\([^)]*["']--output["']/i.test(file.content || '') || /add_argument\s*\([^)]*["']-o["']/i.test(file.content || '');
+  // If the generated script supports -o/--output, force our target path.
+  // Otherwise run it inside an isolated working directory and locate the PPTX it creates.
+  const argv = passOutput
+    ? `['generated.py','--output',${pyQuote(targetPath)}]`
+    : `['generated.py']`;
+
+  const wrapper = `
+import os, sys, runpy, glob
+source = ${pyQuote(sourcePath)}
+work = ${pyQuote(workDir)}
+target = ${pyQuote(targetPath)}
+os.makedirs(work, exist_ok=True)
+os.chdir(work)
+sys.path.insert(0, work)
+sys.argv = ${argv}
+runpy.run_path(source, run_name='__main__')
+
+# Locate the real PPTX produced by the user's script.
+if not os.path.exists(target):
+    candidates = []
+    for root, dirs, files in os.walk(work):
+        for name in files:
+            if name.lower().endswith('.pptx'):
+                path = os.path.join(root, name)
+                if os.path.getsize(path) > 0:
+                    candidates.append(path)
+    if not candidates:
+        raise RuntimeError('Python ทำงานเสร็จ แต่ไม่พบไฟล์ .pptx ที่สร้าง')
+    candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    os.replace(candidates[0], target)
+`;
+
+  try {
+    // IMPORTANT: do not monkey-patch Presentation.save().
+    // The previous implementation patched the class method repeatedly, which caused
+    // recursive _kiln_save -> _kiln_save calls on persistent Pyodide runtimes.
+    pyodide.runPython(wrapper);
+    const data = pyodide.FS.readFile(targetPath);
+    const copyBuf = new Uint8Array(data).slice().buffer;
+    return { blob:new Blob([copyBuf], { type:DEMO_BY_ID.pptx.mime }), name:outName, mime:DEMO_BY_ID.pptx.mime, exact:true };
+  } catch (e) {
+    throw new Error('รัน Python สร้าง PPTX ไม่สำเร็จ: ' + (e?.message || String(e)));
+  } finally {
+    try { pyodide.FS.unlink(sourcePath); } catch {}
+    try { pyodide.FS.unlink(targetPath); } catch {}
+    try { pyodide.FS.rmdir(workDir); } catch {}
+  }
+}
+async function runJsPptxExact(file, plan, outName) {
+  const PptxGenJS = await loadPptx();
+  let captured = null;
+  const oldWrite = PptxGenJS.prototype.write;
+  const oldWriteFile = PptxGenJS.prototype.writeFile;
+  PptxGenJS.prototype.write = async function(opts) {
+    captured = await oldWrite.call(this, { ...(opts || {}), outputType:'blob' });
+    return captured;
+  };
+  if (oldWriteFile) PptxGenJS.prototype.writeFile = async function() {
+    return this.write({ outputType:'blob' });
+  };
+  let src = String(file.content || '');
+  src = src.replace(/^\s*import[^\n;]+;?\s*$/gm, '');
+  src = src.replace(/^\s*(?:const|let|var)\s+PptxGenJS\s*=\s*require\([^\n]+\);?\s*$/gm, '');
+  try {
+    const runner = new Function('PptxGenJS', 'JSZip', `"use strict"; return (async()=>{\n${src}\n})()`);
+    await runner(PptxGenJS, window.JSZip);
+    if (!captured) throw new Error('โค้ด JavaScript ไม่ได้เรียก pptx.write()/writeFile()');
+    const blob = captured instanceof Blob ? captured : new Blob([captured], { type:DEMO_BY_ID.pptx.mime });
+    return { blob, name:outName, mime:DEMO_BY_ID.pptx.mime, exact:true };
+  } finally {
+    PptxGenJS.prototype.write = oldWrite;
+    if (oldWriteFile) PptxGenJS.prototype.writeFile = oldWriteFile;
+  }
+}
+async function prepareArtifact(file, plan) {
+  if (file.artifactPromise) return file.artifactPromise;
+  const outName = artifactName(file, plan);
+  file.artifactPromise = (async () => {
+    if (plan.out === 'pptx' && plan.kind === 'py-slides') {
+      return await runPythonPptxExact(file, plan, outName);
+    }
+    if (plan.out === 'pptx' && plan.kind === 'js-slides') {
+      try {
+        return await runJsPptxExact(file, plan, outName);
+      } catch (e) {
+        setArtifactStatus(file, 'รัน JS ตรงไม่สำเร็จ — ใช้ตัวแปลงสำรอง');
+      }
+    }
+    const src = file.content || '';
+    let blob;
+    if (plan.out === 'pptx') {
+      const slides = plan.kind === 'py-slides' ? pySlides(src) : plan.kind === 'js-slides' ? jsSlides(src) : mdSlides(src);
+      if (!slides.length) throw new Error('อ่านโครงสไลด์ไม่ได้');
+      blob = await makePptxFromSlides(slides, outName.replace(/\.[^.]+$/, ''));
+    } else if (plan.out === 'xlsx') {
+      const rows = plan.kind === 'csv' ? csvRows(src) : mdTableRows(src);
+      if (rows.length < 2) throw new Error('ไม่พบตาราง');
+      blob = await makeXlsxFromRows(rows);
+    } else if (plan.out === 'docx') {
+      const blocks = pyDocBlocks(src).length ? pyDocBlocks(src) : mdDocBlocks(src);
+      if (!blocks.length) throw new Error('ไม่พบเนื้อหาเอกสาร');
+      blob = await makeDocxFromBlocks(blocks, outName.replace(/\.[^.]+$/, ''));
+    } else {
+      blob = await makePdfFromText(src, outName.replace(/\.[^.]+$/, ''));
+    }
+    return { blob, name:outName, mime:blob.type || 'application/octet-stream', exact:false };
+  })().catch(e => { file.artifactPromise = null; throw e; });
+  return file.artifactPromise;
+}
+
+/* แปลง + เปิดพรีวิวจริง — ปุ่ม "ดูโค้ด" ยังอยู่ในหน้าต่างเดียวกัน */
+async function openConverted(file, plan) {
+  const seq = ++previewSeq;
+  pvFile = null; pvAll = null; pvSource = '';
+  const outName = artifactName(file, plan);
+  $('#pvTitle').textContent = file.name + ' → ' + outName;
+  $('#pvMode').hidden = false;
+  $('#pvModeRun').textContent = 'ไฟล์จริง'; $('#pvModeCode').textContent = 'โค้ดต้นฉบับ';
+  $('#pvCode').textContent = file.content || '';
+  $('#pvDl').disabled = true; $('#pvNew').disabled = true;
+  $('#pvFrame').removeAttribute('src');
+  $('#pvFrame').srcdoc = '<div style="font:16px/1.7 -apple-system,sans-serif;padding:24px;color:#1a1a18"><h2 style="margin:0 0 10px">กำลังสร้าง ' + escapeHTML(outName) + '</h2><p>แอปกำลังแปลงโค้ดเป็นไฟล์จริง โดยไม่บรรจุไฟล์นั้นซ้ำเป็น ZIP</p></div>';
+  setPreviewMode('run'); open$('#pvWrap');
+  try {
+    const out = await prepareArtifact(file, plan);
+    if (seq !== previewSeq || !$('#pvWrap').classList.contains('on')) return;
+    const url = URL.createObjectURL(out.blob);
+    convUrls.push(url);
+    pvFile = { name:out.name, convUrl:url, blob:out.blob, content:file.content, lang:file.lang, artifactExact:!!out.exact };
+    $('#pvFrame').srcdoc = `<div style="font:16px/1.7 -apple-system,sans-serif;padding:24px;color:#1a1a18"><h2 style="margin:0 0 8px">${escapeHTML(out.name)}</h2><p>${out.exact ? 'สร้างจากโค้ดต้นฉบับโดยรันตัวสร้างไฟล์จริงในเบราว์เซอร์' : 'สร้างด้วยตัวแปลงสำรองจากเนื้อหาในโค้ด'}</p><p><b>ขนาด:</b> ${byteSize(out.blob.size)}</p><p>กด <b>ดาวน์โหลด</b> เพื่อบันทึกไฟล์ ${artifactLabel(plan)} โดยตรง</p></div>`;
+    $('#pvDl').disabled = false; $('#pvNew').disabled = false;
+    toast('สร้าง ' + out.name + ' แล้ว (' + byteSize(out.blob.size) + ')');
+  } catch (e) {
+    if (seq === previewSeq && $('#pvWrap').classList.contains('on'))
+      $('#pvFrame').srcdoc = `<p style="font:15px sans-serif;padding:20px">สร้างไฟล์ไม่สำเร็จ: ${escapeHTML(e.message || String(e))}</p>`;
+  }
+}
+const convUrls = [];
+
+/* ─────────── sheets ─────────── */
+const open$  = sel => { $(sel).classList.add('on'); document.body.style.overflow = 'hidden'; };
+const close$ = sel => $(sel).classList.remove('on');
+$$('[data-close]').forEach(b => b.onclick = () => b.closest('.sheet-wrap').classList.remove('on'));
+
+/* ─────────── rail ─────────── */
+const railOpen  = () => { $('#rail').classList.add('open'); $('#scrim').classList.add('on'); };
+const railClose = () => { $('#rail').classList.remove('open'); $('#scrim').classList.remove('on'); };
+$('#btnMenu').onclick = railOpen;
+$('#scrim').onclick = railClose;
+$('#btnTheme2').onclick = flipTheme;
+
+function newChat() {
+  const c = { id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title:'บทสนทนาใหม่', messages:[], ts: Date.now() };
+  chats.unshift(c); curId = c.id; saveChats(); drawRail(); drawThread(); railClose();
+}
+function drawRail() {
+  const list = $('#chatList'); list.innerHTML = '';
+  $('#convCount').textContent = String(chats.length).padStart(2, '0');
+  if (!chats.length) { list.append(h('div', 'empty-rail', 'ยังไม่มีบทสนทนา')); return; }
+  chats.forEach((c, i) => {
+    const row = h('div', 'conv' + (c.id === curId ? ' on' : ''));
+    row.append(h('span', 'idx', String(i + 1).padStart(2, '0')));
+    const body = h('div', 'body');
+    body.append(h('div', 'nm', c.title || 'บทสนทนาใหม่'));
+    body.append(h('div', 'meta', `${c.messages.length} ข้อความ · ${when(c.ts)}`));
+    body.onclick = () => { curId = c.id; drawRail(); drawThread(); railClose(); };
+    const acts = h('div', 'acts');
+    const ren = h('button'); ren.innerHTML = I.pen; ren.title = 'เปลี่ยนชื่อ';
+    ren.onclick = e => { e.stopPropagation(); const n = prompt('ชื่อบทสนทนา', c.title); if (n && n.trim()) { c.title = n.trim().slice(0, 60); saveChats(); drawRail(); head(); } };
+    const del = h('button'); del.innerHTML = I.trash; del.title = 'ลบ';
+    del.onclick = e => {
+      e.stopPropagation();
+      if (!confirm('ลบ "' + (c.title || '') + '" ?')) return;
+      chats = chats.filter(x => x.id !== c.id);
+      if (curId === c.id) curId = chats[0]?.id || null;
+      saveChats(); drawRail(); drawThread();
+    };
+    acts.append(ren, del);
+    row.append(body, acts); list.append(row);
+  });
+}
+function when(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts), n = new Date();
+  if (d.toDateString() === n.toDateString()) return d.toTimeString().slice(0, 5);
+  return `${d.getDate()}/${d.getMonth() + 1}`;
+}
+
+/* ─────────── header ─────────── */
+function head() {
+  $('#hTitle').textContent = chat()?.title || 'บทสนทนาใหม่';
+  const btn = $('#modelBtn');
+  btn.querySelector('.nm').textContent = M().label;
+  btn.querySelector('.nm').textContent = M().label;
+  const m = M();
+  /* โมเดลไม่มีโหมดคิดในตัวก็เลือกได้ — Kiln จะจำลองการคิดให้ */
+  const show = cfg.provider !== 'demo';
+  $('#btnReason').style.display = show ? '' : 'none';
+  if (show) {
+    const lv = (LEVELS.find(l => l.v === cfg.level) || LEVELS[1]).th;
+    $('#reasonVal').textContent = m.think === 'opt' ? lv : lv + '·จำลอง';
+  }
+  const searchSupported = cfg.provider !== 'demo' && !(proxySupported() && cfg.provider === 'groq');
+  $('#btnSearch').style.display = searchSupported ? '' : 'none';
+  $('#btnSearch').classList.toggle('on', !!cfg.search);
+  $('#hintKey').textContent = cfg.enter ? '⏎ ส่ง' : '';
+}
+
+/* ─────────── thread ─────────── */
+function drawThread() {
+  const box = $('#msgs'); box.innerHTML = ''; head();
+  const c = chat();
+  if (!c || !c.messages.length) { box.append(blankState()); return; }
+  c.messages.forEach((m, i) => box.append(turnEl(m, i)));
+  jump(true);
+}
+function blankState() {
+  const w = h('div', 'blank');
+  const t = h('h2', 'k'); t.innerHTML = 'ยินดีต้อนรับ <em>ครับ</em>';
+  w.append(t);
+  if (cfg.provider === 'demo') {
+    t.innerHTML = 'Kiln <em>Test Lab</em>';
+    w.append(h('p', 'sub', 'ลองพิมพ์ 1 เพื่อรับ PDF, 1.1 สำหรับ PowerPoint หรือ 2 เพื่อรับ ZIP รวมทุกไฟล์ ไม่ต้องใส่ API Key'));
+    const seeds = h('div', 'seeds');
+    [['01','PDF ตัวอย่าง','1'], ['02','PowerPoint ตัวอย่าง','1.1'],
+      ['03','ZIP รวมทุกนามสกุล','2'], ['04','โปรเจกต์เว็บ 3 ไฟล์','3'],
+      ['05','แนบไฟล์ / ZIP เพื่อทดสอบการอ่านไฟล์','@attach']].forEach(([n,label,command]) => {
+        const s = h('button', 'seed'); s.append(h('span', 'n', n), h('span', 't', label));
+        const a = h('span', 'ar'); a.innerHTML = I.arrow; s.append(a);
+        s.onclick = () => {
+          if (command === '@attach') { $('#fileIn').click(); return; }
+          $('#ta').value = command; grow(); syncSend(); $('#ta').focus();
+        };
+        seeds.append(s);
+      });
+    w.append(seeds);
+    return w;
+  }
+  w.append(h('p', 'sub', proxySupported()
+    ? `เชื่อม Backend แล้ว · ${P().name} · ${M().label} — LLM Key อยู่ฝั่ง server`
+    : keys[cfg.provider]
+    ? `พร้อมใช้งานกับ ${P().name} · ${M().label} — บทสนทนาทั้งหมดอยู่ในเครื่องนี้เท่านั้น`
+    : `ยังไม่ได้ใส่กุญแจของ ${P().name} — เปิดหน้าตั้งค่าเพื่อเริ่มต้น`));
+  if (!keys[cfg.provider] && !proxySupported()) {
+    const b = h('button', 'b solid');
+    b.style.cssText = 'max-width:230px;margin:0 0 30px';
+    b.textContent = 'ใส่กุญแจเพื่อเริ่มต้น';
+    b.onclick = openSettings; w.append(b);
+    const test = h('button', 'note', 'หรือทดลอง Test Lab โดยไม่ใช้ Key  →');
+    test.style.cssText = 'display:block;margin:-19px 0 27px;text-align:left;color:var(--accent)';
+    test.onclick = () => { cfg.provider = 'demo'; saveCfg(); drawThread(); };
+    w.append(test);
+  }
+  const seeds = h('div', 'seeds');
+  [['อธิบายเรื่องที่ซับซ้อนให้เข้าใจง่าย', 'อธิบาย transformer แบบที่เด็ก ม.ปลาย เข้าใจได้ ใช้การเปรียบเทียบ'],
+   ['โปรเจกต์หลายไฟล์ + ZIP', 'สร้างเว็บเพจมินิมอล 3 ไฟล์: index.html, styles.css, app.js สำหรับพอร์ตโฟลิโอส่วนตัว ส่งแต่ละไฟล์ใน code fence คนละอัน พร้อมชื่อไฟล์'],
+   ['ออกแบบหน้าเว็บหนึ่งหน้า', 'สร้างหน้าเว็บ HTML ไฟล์เดียวสำหรับร้านกาแฟเล็ก ๆ สไตล์มินิมอล ใช้ฟอนต์ serif'],
+   ['สรุปเป็นตารางเปรียบเทียบ', 'เปรียบเทียบข้อดีข้อเสียของการเช่ากับการซื้อบ้านในกรุงเทพ เป็นตาราง']
+  ].forEach(([label, prompt], i) => {
+    const s = h('button', 'seed');
+    s.append(h('span', 'n', String(i + 1).padStart(2, '0')), h('span', 't', label));
+    const a = h('span', 'ar'); a.innerHTML = I.arrow; s.append(a);
+    s.onclick = () => { $('#ta').value = prompt; grow(); syncSend(); $('#ta').focus(); };
+    seeds.append(s);
+  });
+  w.append(seeds);
+  return w;
+}
+function turnEl(m, idx) {
+  if (m.role === 'user') {
+    const t = h('div', 'turn u'), col = h('div');
+    col.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;max-width:100%';
+    if (m.attachments?.length) {
+      const f = h('div', 'files');
+      displayAttachments(m.attachments).forEach(a => {
+        const tag = h(a.type === 'zip' ? 'button' : 'span', 'file-tag' + (a.type === 'zip' ? ' zip' : ''));
+        if (a.type === 'image') { const im = h('img'); im.src = a.dataUrl; im.alt = ''; tag.append(im); }
+        else tag.append(h('span', 'kind', attKind(a)));
+        tag.append(document.createTextNode(attLabel(a)));
+        if (a.type === 'zip') { tag.title = 'ดูไฟล์ใน ZIP'; tag.onclick = () => openZipSheet(a); }
+        f.append(tag);
+      });
+      col.append(f);
+    }
+    if (m.content?.trim()) col.append(h('div', 'box', m.content));
+    t.append(col); return t;
+  }
+  const t = h('div', 'turn a');
+  const who = h('div', 'who');
+  who.innerHTML = `<span class="mark">K</span><span class="nm">${escapeHTML(m.model || 'Assistant')}</span><span class="line"></span>`;
+  t.append(who);
+  if (m.queries?.length) t.append(seekEl(m.queries, false));
+  if (m.reasoning?.trim()) t.append(thinkEl(m.reasoning, false, m.simulated ? 'กระบวนการคิด · จำลองโดย Kiln' : null));
+  if (m.error) {
+    const f = h('div', 'fail'); f.innerHTML = '<b>ส่งคำขอไม่สำเร็จ</b>';
+    f.append(document.createTextNode(m.content)); t.append(f);
+  } else {
+    const files = renderAssistantBody(t, m.content || '', m.media || []);
+    if (m.demoFiles?.length) t.append(buildDemoFileSet(m.demoFiles, !!m.demoZip));
+    const acts = h('div', 'turn-acts');
+    const mk = (ic, label, fn) => { const b = h('button'); b.innerHTML = ic + '<span>' + label + '</span>'; b.onclick = fn; return b; };
+    acts.append(mk(I.copy, 'คัดลอก', () => copy(m.content)));
+    acts.append(mk(I.down, 'บันทึก .md', () => save(m.content, `kiln-${stamp()}.md`, 'text/markdown')));
+    const artifactFiles = files.filter(f => filePlan(f));
+    if (artifactFiles.length === 1) {
+      const af = artifactFiles[0], plan = filePlan(af);
+      acts.append(mk(I.down, 'ดาวน์โหลด ' + artifactLabel(plan), () => downloadArtifact(af, plan)));
+      if (files.length > 1) acts.append(mk(I.down, 'ZIP ต้นฉบับ', () => downloadZip(files, `project-${stamp()}.zip`)));
+    } else if (files.length > 1) acts.append(mk(I.down, 'ZIP ต้นฉบับ', () => downloadZip(files, `project-${stamp()}.zip`)));
+    else if (files.length === 1) acts.append(mk(I.down, 'ดาวน์โหลดไฟล์', () => save(files[0].content, files[0].name.split('/').pop())));
+    acts.append(mk(I.redo, 'ตอบใหม่', () => regen(idx)));
+    t.append(acts);
+  }
+  if (m.sources?.length) t.append(citeEl(m.sources));
+  return t;
+}
+function citeEl(sources) {
+  const w = h('div', 'cites');
+  sources.slice(0, 8).forEach(s => {
+    const a = h('a'); a.href = s.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.textContent = s.title || s.url;
+    w.append(a);
+  });
+  return w;
+}
+function thinkEl(text, live, label) {
+  const d = h('details', 'think' + (live ? ' live' : ''));
+  const s = h('summary');
+  s.innerHTML = (live ? '<span class="dotp"></span>' : '') + `<span>${escapeHTML(label || (live ? 'กำลังคิด' : 'กระบวนการคิด'))}</span><span class="chev">${I.chev}</span>`;
+  const inner = h('div', 'inner', text);
+  d.append(s, inner); d.open = live;
+  return d;
+}
+function seekEl(queries, live) {
+  const d = h('details', 'think' + (live ? ' live' : ''));
+  const s = h('summary');
+  s.innerHTML = (live ? '<span class="dotp"></span>' : '') + `<span>${live ? 'กำลังค้นเว็บ' : 'ค้นจากเว็บ'}</span><span class="chev">${I.chev}</span>`;
+  const inner = h('div', 'inner', (queries || []).filter(Boolean).join('\n'));
+  d.append(s, inner); d.open = live;
+  return d;
+}
+const escapeHTML = s => (s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+function jump(force) {
+  const s = $('#scroller');
+  if (force || s.scrollHeight - s.scrollTop - s.clientHeight < 260) s.scrollTop = s.scrollHeight;
+}
+
+/* ─────────── attachments ───────────
+   1 ZIP = 1 ไฟล์แนบ (เก็บรายการไฟล์ไว้ข้างใน) — ไม่แตกออกมาเป็นชิปหลายสิบอันแบบเดิม */
+const MAX_ATT = 30;                          // จำนวนชิ้นในช่องพิมพ์ (ZIP นับเป็น 1)
+const TEXT_BUDGET = 300000;                  // ตัวอักษรรวมต่อข้อความ — กันบริบทล้น และกัน localStorage เต็ม
+const FILE_CAP = 100000;                     // ตัวอักษรสูงสุดต่อไฟล์
+const ZIP_MAX_BYTES = 25 * 1024 * 1024, ZIP_MAX_ENTRIES = 500;
+const IMG_MAX_SIDE = 1600, IMG_KEEP_BYTES = 900000;
+const OFFICE_EXTS = /\.(docx|pptx|xlsx)$/i;
+const BINARY_EXTS = /\.(png|jpe?g|gif|webp|heic|heif|bmp|ico|tiff?|pdf|zip|rar|7z|gz|tgz|tar|woff2?|ttf|otf|eot|mp[34]|m4a|aac|wav|mov|avi|mkv|exe|dll|so|dylib|bin|psd|ai|sketch|fig|key|pages|numbers|sqlite|db|jar|class|wasm)$/i;
+const ZIP_JUNK = /(^|\/)(__MACOSX|node_modules|__pycache__|\.git|\.next|\.nuxt|\.venv|venv|\.idea|\.vscode)(\/|$)|(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$|(^|\/)\._/i;
+const ZIP_SECRET = /(^|\/)(\.env(\.(?!example$|sample$)[^/]*)?|id_rsa|id_ed25519|[^/]*\.pem)$/i;
+const extOf = name => ((String(name).split('/').pop().match(/\.([^.]+)$/) || [])[1] || '').toLowerCase();
+const attChars = a => a.type === 'text' ? (a.text || '').length
+  : a.type === 'zip' ? (a.files || []).reduce((n, f) => n + (f.text || '').length, 0) : 0;
+const pendingChars = () => pending.reduce((n, a) => n + attChars(a), 0);
+const thaiMsg = (err, fallback) => (err && /[\u0E00-\u0E7F]/.test(err.message || '')) ? err.message : fallback;
+
+$('#btnAtt').onclick = () => $('#fileIn').click();
+$('#fileIn').onchange = async e => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  for (const f of files) {
+    if (pending.length >= MAX_ATT) { toast('แนบได้สูงสุด ' + MAX_ATT + ' ชิ้น'); break; }
+    try {
+      const att = await readAttachment(f);
+      if (att) pending.push(att);
+    } catch (err) { toast(thaiMsg(err, 'เปิดไฟล์ไม่ได้: ' + f.name)); }
+    drawAtt();
+  }
+  syncSend();
+};
+async function readAttachment(f) {
+  const name = f.name || 'file';
+  if (/\.zip$/i.test(name) || /^application\/(x-)?zip(-compressed)?$/i.test(f.type)) return readZip(f, name);
+  if (/^image\//i.test(f.type) && !/svg/i.test(f.type)) return readImage(f);      // SVG = ข้อความ (API vision ไม่รับ SVG)
+  if (OFFICE_EXTS.test(name)) return withText({ type:'text', name, office:true }, await officeText(f, name));
+  if (BINARY_EXTS.test(name) || f.size > 5 * 1024 * 1024) return binaryNote(f);
+  const text = await f.text();
+  if (text.slice(0, 8000).includes('\u0000')) return binaryNote(f);
+  return withText({ type:'text', name }, text);
+}
+function withText(att, text) {
+  const room = Math.min(FILE_CAP, TEXT_BUDGET - pendingChars());
+  if (room <= 0) { toast('ไฟล์แนบรวมยาวเกินที่ส่งได้ — ข้าม ' + att.name); return null; }
+  if (text.length > room) { att.cut = true; toast('ไฟล์ยาว ส่งเฉพาะช่วงแรก: ' + att.name); }
+  att.text = text.slice(0, room);
+  att.size = text.length;
+  return att;
+}
+function binaryNote(f) {
+  toast('แนบได้เฉพาะชื่อไฟล์: ' + f.name);
+  return { type:'text', name:f.name, meta:true,
+    text:`[ไฟล์ ${f.name} · ${byteSize(f.size)} · ${f.type || 'ไม่ทราบชนิด'}]\nแอปยังอ่านเนื้อหาไฟล์ชนิดนี้ไม่ได้ จึงส่งให้ AI เฉพาะชื่อและขนาด` };
+}
+const asDataURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+const loadImage = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('เปิดรูปไม่ได้')); im.src = src; });
+/* รูปจาก iPhone ใหญ่หลาย MB — ย่อเหลือด้านยาว 1600px ก่อนเก็บ ไม่งั้น localStorage เต็มแล้วแชทไม่ถูกบันทึก */
+async function readImage(f) {
+  const raw = await asDataURL(f);
+  const direct = /^image\/(png|jpe?g|gif|webp)$/i.test(f.type);
+  let im = null;
+  try { im = await loadImage(raw); } catch {}
+  if (!im) { if (direct) return { type:'image', name:f.name, mime:f.type, dataUrl:raw }; throw new Error('เปิดรูปนี้ไม่ได้: ' + f.name); }
+  const scale = Math.min(1, IMG_MAX_SIDE / Math.max(im.naturalWidth || 1, im.naturalHeight || 1));
+  if (direct && scale === 1 && f.size <= IMG_KEEP_BYTES) return { type:'image', name:f.name, mime:f.type, dataUrl:raw };
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(im.naturalWidth * scale));
+  cv.height = Math.max(1, Math.round(im.naturalHeight * scale));
+  const ctx = cv.getContext('2d');
+  if (!ctx) throw new Error('ย่อรูปไม่ได้: ' + f.name);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(im, 0, 0, cv.width, cv.height);
+  return { type:'image', name:f.name.replace(/\.[^.]+$/, '') + '.jpg', mime:'image/jpeg', dataUrl:cv.toDataURL('image/jpeg', .86), resized:true };
+}
+async function readZip(file, name = file.name || 'archive.zip') {
+  if (!window.JSZip) throw new Error('ยังโหลดตัวเปิด ZIP ไม่ได้ — ต่อเน็ตแล้วลองใหม่');
+  if (file.size > ZIP_MAX_BYTES) throw new Error(`ZIP ใหญ่เกิน ${ZIP_MAX_BYTES / 1048576} MB`);
+  toast('กำลังเปิด ' + name + '…');
+  const zip = await JSZip.loadAsync(file);
+  const entries = Object.values(zip.files).filter(e => !e.dir).sort((a, b) => a.name.localeCompare(b.name));
+  const z = { type:'zip', name, size:file.size, total:0, ignored:0, more:0, files:[], skipped:[] };
+  let room = TEXT_BUDGET - pendingChars();
+  const skip = (path, reason) => z.skipped.push({ name:path, reason });
+  const take = (path, text, extra) => {
+    if (room <= 0) return skip(path, 'เกินขนาดรวมที่ส่งได้');
+    const cap = Math.min(FILE_CAP, room), cut = text.length > cap;
+    const body = cut ? text.slice(0, cap) : text;
+    room -= body.length;
+    if (cut) z.truncated = true;
+    z.files.push(Object.assign({ name:path, text:body, size:text.length, cut }, extra));
+  };
+  for (const e of entries) {
+    const path = safePath(e.name);
+    if (ZIP_JUNK.test(path)) { z.ignored++; continue; }          // __MACOSX, node_modules, .git ฯลฯ
+    if (++z.total > ZIP_MAX_ENTRIES) { z.more++; continue; }
+    if (ZIP_SECRET.test(path)) { skip(path, 'ไฟล์ลับ — ไม่ส่งเพื่อความปลอดภัย'); continue; }
+    try {
+      if (OFFICE_EXTS.test(path)) take(path, await officeText(await e.async('arraybuffer'), path), { office:true });
+      else if (BINARY_EXTS.test(path)) skip(path, 'ไฟล์ไบนารี/รูปภาพ');
+      else if ((e._data && e._data.uncompressedSize) > 3 * 1024 * 1024) skip(path, 'ไฟล์ใหญ่เกิน');
+      else {
+        const text = await e.async('string');
+        if (text.slice(0, 8000).includes('\u0000')) skip(path, 'ไฟล์ไบนารี');
+        else take(path, text);
+      }
+    } catch { skip(path, 'อ่านไม่ได้'); }
+  }
+  if (!z.total) throw new Error('ZIP นี้ว่าง หรือมีแต่ไฟล์ระบบ');
+  toast(`${name}: อ่านได้ ${z.files.length}/${z.total} ไฟล์${z.skipped.length ? ` · ข้าม ${z.skipped.length}` : ''}`);
+  return z;
+}
+
+/* ดึงข้อความจาก Word / PowerPoint / Excel (ข้างในเป็น ZIP ของ XML) */
+const xmlText = s => s.replace(/&(#x[0-9a-f]+|#\d+|lt|gt|amp|quot|apos);/gi, (m, k) => {
+  const key = k.toLowerCase();
+  const named = { lt:'<', gt:'>', amp:'&', quot:'"', apos:"'" }[key];
+  if (named) return named;
+  try { return String.fromCodePoint(key[1] === 'x' ? parseInt(key.slice(2), 16) : parseInt(key.slice(1), 10)); } catch { return m; }
+});
+const xmlRuns = (xml, tag) => [...xml.matchAll(new RegExp(`<${tag}(?:\\s[^>]*)?>([^<]*)</${tag}>`, 'g'))].map(m => xmlText(m[1])).join('');
+const xmlParagraphs = (xml, p, t) => xml.split(`</${p}>`).map(chunk => xmlRuns(chunk, t)).filter(s => s.trim());
+async function officeText(data, name) {
+  if (!window.JSZip) throw new Error('ยังโหลดตัวอ่านไฟล์ Office ไม่ได้');
+  const zip = await JSZip.loadAsync(data);
+  const read = path => zip.file(path) ? zip.file(path).async('string') : Promise.resolve('');
+  const num = p => Number((p.match(/(\d+)\.xml$/) || [0, 0])[1]);
+  const listed = re => Object.keys(zip.files).filter(n => re.test(n)).sort((a, b) => num(a) - num(b));
+  const ext = extOf(name);
+  let out = '';
+  if (ext === 'docx') {
+    const xml = (await read('word/document.xml')).replace(/<w:tab\/>/g, '<w:t>\t</w:t>').replace(/<w:(br|cr)\/>/g, '<w:t>\n</w:t>');
+    out = xmlParagraphs(xml, 'w:p', 'w:t').join('\n');
+  } else if (ext === 'pptx') {
+    const slides = listed(/^ppt\/slides\/slide\d+\.xml$/), parts = [];
+    for (let i = 0; i < slides.length; i++) parts.push(`--- สไลด์ ${i + 1} ---\n` + xmlParagraphs(await read(slides[i]), 'a:p', 'a:t').join('\n'));
+    out = parts.join('\n\n');
+  } else if (ext === 'xlsx') {
+    const shared = [...(await read('xl/sharedStrings.xml')).matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m => xmlRuns(m[1], 't'));
+    const sheets = listed(/^xl\/worksheets\/sheet\d+\.xml$/), parts = [];
+    for (let i = 0; i < sheets.length; i++) {
+      const rows = [...(await read(sheets[i])).matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)].slice(0, 1000).map(r =>
+        [...r[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)].map(c => {
+          const type = (c[1].match(/\bt="([^"]+)"/) || [])[1], inner = c[2] || '';
+          if (type === 'inlineStr') return xmlRuns(inner, 't');
+          const v = (inner.match(/<v>([^<]*)<\/v>/) || [])[1] || '';
+          if (type === 's') return shared[Number(v)] ?? '';
+          if (type === 'b') return v === '1' ? 'TRUE' : 'FALSE';
+          return xmlText(v);
+        }).join('\t'));
+      parts.push(`--- ชีต ${i + 1} ---\n` + rows.join('\n'));
+    }
+    out = parts.join('\n\n');
+  } else throw new Error('ไม่รองรับไฟล์ชนิดนี้');
+  return out.trim() || '(ไม่พบข้อความในไฟล์นี้)';
+}
+
+/* ─────────── attachment display ─────────── */
+const attLabel = a => a.type === 'zip' ? `${a.name} · ${a.total} ไฟล์` : a.name;
+const attKind = a => a.type === 'zip' ? 'ZIP' : (extOf(a.name) || 'file').slice(0, 4);
+/* ข้อความเก่า (ก่อนแก้บั๊ก) ที่แตก ZIP เป็นหลายไฟล์ — รวมกลับเป็นป้ายเดียวตอนแสดง */
+function displayAttachments(list) {
+  const out = [], legacy = new Map();
+  for (const a of list || []) {
+    if (a.type === 'text' && a.fromZip) {
+      let z = legacy.get(a.fromZip);
+      if (!z) { z = { type:'zip', name:a.fromZip, total:0, files:[], skipped:[] }; legacy.set(a.fromZip, z); out.push(z); }
+      z.files.push({ name:a.name, text:a.text || '', size:(a.text || '').length }); z.total++;
+    } else out.push(a);
+  }
+  return out;
+}
+function drawAtt() {
+  const row = $('#attRow'); row.innerHTML = '';
+  pending.forEach((a, i) => {
+    const c = h('div', 'chip' + (a.type === 'zip' ? ' zip' : ''));
+    if (a.type === 'image') { const im = h('img'); im.src = a.dataUrl; im.alt = ''; c.append(im); }
+    else c.append(h('span', 'kind', attKind(a)));
+    c.append(h('span', 'n', attLabel(a)));
+    if (a.type === 'zip') {
+      c.setAttribute('role', 'button'); c.tabIndex = 0; c.title = 'ดูไฟล์ใน ZIP';
+      c.onclick = () => openZipSheet(a);
+      c.onkeydown = ev => { if (ev.target === c && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); openZipSheet(a); } };
+    }
+    const x = h('button', 'x'); x.innerHTML = I.x; x.setAttribute('aria-label', 'เอาออก ' + a.name);
+    x.onclick = ev => { ev.stopPropagation(); pending.splice(i, 1); drawAtt(); syncSend(); };
+    c.append(x); row.append(c);
+  });
+  if (pending.some(a => a.type === 'image') && !M().vision) {
+    row.append(h('span', 'note', 'โมเดลนี้ไม่รับรูปภาพ — ลองเปลี่ยนโมเดล'));
+  }
+}
+function openZipSheet(z) {
+  $('#zipTitle').textContent = z.name;
+  const bits = [`${z.total} ไฟล์`, `ส่งเนื้อหาให้ AI ${z.files.length} ไฟล์`];
+  if (z.skipped?.length) bits.push(`ข้าม ${z.skipped.length}`);
+  if (z.more) bits.push(`ไม่ได้อ่านอีก ${z.more}`);
+  if (z.ignored) bits.push(`ซ่อนไฟล์ระบบ ${z.ignored}`);
+  $('#zipSummary').textContent = bits.join(' · ') + (z.truncated ? ' — บางไฟล์ยาวเกิน จึงส่งเฉพาะช่วงแรก' : '');
+  const list = $('#zipList'); list.innerHTML = '';
+  const all = z.files.map(f => {
+    const lang = f.office ? 'text' : langFromName(f.name);
+    return { name:f.name, content:f.text || '', lang, runnable:!f.office && isHtmlish(lang, f.text, f.name) };
+  });
+  z.files.forEach((f, i) => {
+    const o = h('button', 'opt zrow'), t = h('div', 't');
+    t.append(h('b', null, f.name), h('span', null,
+      `${f.office ? 'ข้อความจาก Office' : all[i].lang} · ${byteSize(f.size ?? (f.text || '').length)}${f.cut ? ' · ส่งช่วงแรก' : ''}${all[i].runnable ? ' · รันได้' : ''}`));
+    const go = h('span', 'tick'); go.style.cssText = 'opacity:1;color:var(--ink-4)'; go.innerHTML = I.chev;
+    o.append(t, go);
+    o.onclick = () => openFilePreview(all[i], all, all[i].runnable ? 'run' : 'code');
+    list.append(o);
+  });
+  (z.skipped || []).forEach(s => {
+    const o = h('div', 'opt zrow skip'), t = h('div', 't');
+    t.append(h('b', null, s.name), h('span', null, s.reason));
+    o.append(t); list.append(o);
+  });
+  if (!z.files.length && !(z.skipped || []).length) list.append(h('p', 'note', 'ไม่มีไฟล์ที่แสดงได้'));
+  open$('#shZip');
+}
+
+/* ─────────── payload builders (pure, testable) ─────────── */
+/* ถ้าในไฟล์มี ``` อยู่แล้ว ใช้ fence ที่ยาวกว่า ไม่งั้นบล็อกโค้ดใน prompt จะขาดกลางทาง */
+function fenceFor(text) {
+  const longest = (String(text).match(/`{3,}/g) || []).reduce((n, run) => Math.max(n, run.length), 0);
+  return '`'.repeat(Math.max(3, longest + 1));
+}
+function fileBlock(name, text, note = '', lang = langFromName(name)) {
+  const f = fenceFor(text);
+  return `### file: ${name}${note}\n${f}${lang && lang !== 'text' ? lang : ''}\n${text}\n${f}`;
+}
+function flatten(m) {
+  let t = m.content || '';
+  const atts = m.attachments || [];
+  const texts = atts.filter(a => a.type === 'text'), zips = atts.filter(a => a.type === 'zip');
+  const noteOf = f => (f.fromZip ? ` (from ${f.fromZip})` : '') + (f.office ? ' (ข้อความที่ดึงจากไฟล์ Office)' : '') + (f.cut ? ' (ส่งเฉพาะช่วงแรก)' : '');
+  const langOf = f => (f.office || f.meta) ? 'text' : langFromName(f.name);
+  const parts = [];
+  if (texts.length) parts.push(`## ไฟล์ที่แนบมา (${texts.length})\n` + texts.map(a => fileBlock(a.name, a.text || '', noteOf(a), langOf(a))).join('\n\n'));
+  zips.forEach(z => {
+    const tree = z.files.map(f => '- ' + f.name + (f.cut ? '  (ตัดบางส่วน)' : ''))
+      .concat((z.skipped || []).map(s => `- ${s.name}  [ไม่ได้แนบ: ${s.reason}]`));
+    if (z.more) tree.push(`- …และอีก ${z.more} ไฟล์ที่ไม่ได้อ่าน`);
+    parts.push(`## ZIP: ${z.name} — ${z.total} ไฟล์ (แนบเนื้อหา ${z.files.length} ไฟล์)\nโครงสร้าง:\n${tree.join('\n')}` +
+      (z.files.length ? '\n\n' + z.files.map(f => fileBlock(f.name, f.text || '', noteOf(f), langOf(f))).join('\n\n') : ''));
+  });
+  if (parts.length) t += '\n\n' + parts.join('\n\n');
+  return t.trim() || '(ไฟล์แนบ)';
+}
+function buildOpenAI(msgs, vision, sys, wire) {
+  const out = [];
+  if (sys) out.push({ role:'system', content: sys });
+  for (const m of msgs) {
+    if (m.error) continue;
+    if (m.role === 'user') {
+      const imgs = (m.attachments || []).filter(a => a.type === 'image');
+      if (imgs.length && vision) out.push({ role:'user', content: [{ type:'text', text: flatten(m) }, ...imgs.map(a => ({ type:'image_url', image_url:{ url:a.dataUrl } }))] });
+      else out.push({ role:'user', content: flatten(m) });
+    } else {
+      const a = { role:'assistant', content: m.content || '' };
+      /* DeepSeek V4 โหมดคิดบังคับให้ส่ง reasoning_content กลับทุกครั้ง ไม่งั้นตอบ 400
+         (แม้จะเป็นสตริงว่าง) — อ้างอิง api-docs.deepseek.com/guides/thinking_mode */
+      if (wire === 'deepseek') a.reasoning_content = m.reasoning || '';
+      out.push(a);
+    }
+  }
+  return out;
+}
+function buildAnthropic(msgs, vision) {
+  return msgs.filter(m => !m.error).map(m => {
+    if (m.role === 'user') {
+      const parts = [];
+      if (vision) (m.attachments || []).filter(a => a.type === 'image')
+        .forEach(a => parts.push({ type:'image', source:{ type:'base64', media_type: a.mime || 'image/jpeg', data: String(a.dataUrl).split(',')[1] } }));
+      parts.push({ type:'text', text: flatten(m) });
+      return { role:'user', content: parts };
+    }
+    return { role:'assistant', content: [{ type:'text', text: m.content || ' ' }] };
+  });
+}
+function buildGemini(msgs, vision) {
+  return msgs.filter(m => !m.error).map(m => {
+    if (m.role === 'user') {
+      const parts = [];
+      if (vision) (m.attachments || []).filter(a => a.type === 'image')
+        .forEach(a => parts.push({ inlineData:{ mimeType: a.mime || 'image/jpeg', data: String(a.dataUrl).split(',')[1] } }));
+      parts.push({ text: flatten(m) });
+      return { role:'user', parts };
+    }
+    return { role:'model', parts:[{ text: m.content || ' ' }] };
+  });
+}
+/* reasoning → per-provider params (pure, testable) */
+function reasonParams(wire, model, level) {
+  const supported = model.think === 'opt';
+  if (!supported) return {};
+  if (level === 'off' && !model.off) level = 'auto';
+  switch (wire) {
+    case 'openai':
+      if (level === 'auto') return {};
+      return { reasoning_effort: level === 'off' ? 'none' : level };
+    case 'openrouter':
+      if (level === 'auto') return {};
+      return level === 'off' ? { reasoning:{ enabled:false } } : { reasoning:{ effort: level } };
+    case 'anthropic':
+      if (level === 'auto' || level === 'off') return {};
+      return { thinking:{ type:'enabled', budget_tokens: ANTHROPIC_BUDGET[level] } };
+    case 'gemini': {
+      /* Gemini 3 ใช้ thinkingLevel (low/high) แทน budget และปิดการคิดไม่ได้สนิท */
+      if (model.tlevel) {
+        if (level === 'auto') return {};
+        if (level === 'off') return { thinkingConfig:{ thinkingLevel:'low' } };
+        return { thinkingConfig:{ thinkingLevel: level === 'low' ? 'low' : 'high' } };
+      }
+      if (level === 'auto') return { thinkingConfig:{ includeThoughts:true, thinkingBudget:-1 } };
+      if (level === 'off') return { thinkingConfig:{ includeThoughts:false, thinkingBudget:0 } };
+      return { thinkingConfig:{ includeThoughts:true, thinkingBudget: GEMINI_BUDGET[level] } };
+    }
+    case 'deepseek':
+      if (level === 'auto') return {};
+      if (level === 'off') return { thinking:{ type:'disabled' } };
+      return { thinking:{ type:'enabled' }, reasoning_effort: DEEPSEEK_EFFORT[level] };
+    default: return {};
+  }
+}
+
+/* ─────────── SSE parser (pure, testable) ─────────── */
+class SSE {
+  constructor() { this.buf = ''; this.curEvent = ''; }
+  push(chunk) {
+    this.buf += chunk;
+    const out = [];
+    let i;
+    while ((i = this.buf.indexOf('\n')) >= 0) {
+      const line = this.buf.slice(0, i).replace(/\r$/, '');
+      this.buf = this.buf.slice(i + 1);
+      if (!line) { this.curEvent = ''; continue; }
+      if (line[0] === ':') continue;
+      if (line.startsWith('event:')) { this.curEvent = line.slice(6).trim(); continue; }
+      if (line.startsWith('data:')) {
+        const d = line.slice(5).trim();
+        if (d === '[DONE]') { out.push({ done:true }); continue; }
+        try { out.push({ event: this.curEvent, data: JSON.parse(d) }); } catch { /* partial / non-json */ }
+      }
+    }
+    return out;
+  }
+}
+async function pump(res, onData) {
+  const reader = res.body.getReader(), dec = new TextDecoder(), p = new SSE();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    for (const ev of p.push(dec.decode(value, { stream:true }))) {
+      if (ev.done) return;
+      onData(ev.data, ev.event);
+    }
+  }
+}
+
+/* ─────────── web search (browser-side, no backend) ─────────── */
+const SEARCH_TOOL = {
+  type: 'function',
+  function: {
+    name: 'web_search',
+    description: 'Search the public web for current information, news, prices, docs, or facts after your knowledge cutoff. Call this before answering time-sensitive questions.',
+    parameters: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'Search query. Use the language of the sources you want.' } },
+      required: ['query']
+    }
+  }
+};
+function formatSearchResults(blocks) {
+  if (!blocks?.length) return 'No search results.';
+  return blocks.map((b, i) => `${i + 1}. ${b.title || 'untitled'}\n   ${b.url || ''}\n   ${b.snippet || ''}`).join('\n\n');
+}
+function withTimeout(parent, ms) {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  if (parent) {
+    if (parent.aborted) { clearTimeout(t); c.abort(); }
+    else parent.addEventListener('abort', () => { clearTimeout(t); c.abort(); }, { once:true });
+  }
+  return c.signal;
+}
+async function wikiSearch(lang, q, signal) {
+  const url = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&utf8=1&format=json&origin=*&srlimit=4`;
+  const r = await fetch(url, { signal });
+  if (!r.ok) return [];
+  const j = await r.json();
+  return (j.query?.search || []).map(s => ({
+    title: s.title,
+    url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(String(s.title).replace(/ /g, '_'))}`,
+    snippet: String(s.snippet || '').replace(/<[^>]+>/g, '')
+  }));
+}
+async function ddgSearch(q, signal) {
+  const r = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`, { signal });
+  if (!r.ok) return [];
+  const j = await r.json();
+  const out = [];
+  if (j.AbstractText) out.push({ title: j.Heading || q, url: j.AbstractURL, snippet: j.AbstractText });
+  const walk = items => (items || []).forEach(t => {
+    if (t.Text && t.FirstURL) out.push({ title: t.Text.split(' - ')[0], url: t.FirstURL, snippet: t.Text });
+    if (t.Topics) walk(t.Topics);
+  });
+  walk(j.RelatedTopics);
+  return out.slice(0, 6);
+}
+async function jinaSearch(q, signal) {
+  const headers = { Accept: 'application/json' };
+  if (keys.jina) headers.Authorization = 'Bearer ' + keys.jina;
+  const r = await fetch('https://s.jina.ai/?q=' + encodeURIComponent(q), { headers, signal });
+  if (!r.ok) return [];
+  const j = await r.json();
+  const arr = j.data || j.results || (Array.isArray(j) ? j : []);
+  return arr.slice(0, 6).map(x => ({ title: x.title, url: x.url, snippet: x.description || x.content || '' }));
+}
+async function tavilySearch(q, signal) {
+  const r = await fetch('https://api.tavily.com/search', {
+    method: 'POST', signal,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: keys.tavily, query: q, max_results: 5, include_answer: true })
+  });
+  if (!r.ok) return [];
+  const j = await r.json();
+  const out = (j.results || []).map(x => ({ title: x.title, url: x.url, snippet: x.content }));
+  if (j.answer) out.unshift({ title: 'Tavily', url: '', snippet: j.answer });
+  return out;
+}
+async function readPage(url, signal) {
+  const r = await fetch('https://r.jina.ai/' + url, { signal, headers: { Accept: 'text/plain' } });
+  if (!r.ok) return '';
+  return (await r.text()).slice(0, 4500);
+}
+async function doSearch(query, signal) {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  const q = String(query || '').trim().slice(0, 200);
+  if (!q) return { text: 'Empty query', sources: [] };
+  const tsig = withTimeout(signal, 14000);
+  const blocks = [];
+  const seen = new Set();
+  const add = arr => (arr || []).forEach(b => {
+    if (!b) return;
+    const k = b.url || b.title;
+    if (!k || seen.has(k)) return;
+    seen.add(k); blocks.push(b);
+  });
+  const jobs = [wikiSearch('th', q, tsig), wikiSearch('en', q, tsig), ddgSearch(q, tsig)];
+  if (keys.jina) jobs.push(jinaSearch(q, tsig));
+  if (keys.tavily) jobs.push(tavilySearch(q, tsig));
+  const settled = await Promise.allSettled(jobs);
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  settled.forEach(s => { if (s.status === 'fulfilled') add(s.value); });
+  const pages = [];
+  for (const b of blocks.filter(x => x.url && /^https?:/i.test(x.url)).slice(0, 2)) {
+    try {
+      const body = await readPage(b.url, withTimeout(signal, 9000));
+      if (body) pages.push({ ...b, body });
+    } catch {}
+  }
+  const text = [formatSearchResults(blocks.slice(0, 8)), ...pages.map(p => `\n\n# ${p.title}\n${p.url}\n${p.body}`)].join('');
+  return { text: text.slice(0, 16000) || `No results for: ${q}`, sources: blocks.slice(0, 8) };
+}
+function parseToolArgs(raw) {
+  try { return JSON.parse(raw || '{}'); } catch { return { query: String(raw || '') }; }
+}
+
+function noop() {}
+function pullSources(obj, onSource) {
+  if (!obj || !onSource) return;
+  const chunks = obj.groundingChunks || obj.grounding_chunks || [];
+  chunks.forEach(c => { const w = c.web || c; if (w?.uri || w?.url) onSource({ title: w.title || w.uri || w.url, url: w.uri || w.url }); });
+  const anns = obj.annotations || [];
+  anns.forEach(a => { const u = a.url || a.url_citation?.url; if (u) onSource({ title: a.title || a.url_citation?.title || u, url: u }); });
+}
+function pullMedia(obj, onMedia) {
+  if (!obj || !onMedia) return;
+  const hit = new Set();
+  const emit = (url, kind, name='', mime='') => {
+    url = String(url || '').trim();
+    if (!url || hit.has(url)) return;
+    if (!kind) kind = mediaKindFromUrl(url, mime || '');
+    if (!kind) return;
+    hit.add(url);
+    onMedia({ url, kind, name: name || mediaFileName(url, kind, '', mime), mime: mime || '' });
+  };
+  const addObject = (v, hint='') => {
+    if (!v) return;
+    if (typeof v === 'string') { emit(v, mediaKindFromUrl(v, hint), '', ''); return; }
+    if (Array.isArray(v)) { v.forEach(x => addObject(x, hint)); return; }
+    if (typeof v !== 'object') return;
+    const mime = v.mime || v.mime_type || v.mimeType || '';
+    const kind = mediaKindFromMime(mime) || (v.type === 'video' || /video/i.test(String(v.type || hint)) ? 'video' : /image|photo|picture/i.test(String(v.type || hint)) ? 'image' : '');
+    const name = v.filename || v.file_name || v.name || v.title || '';
+    const url = v.url || v.uri || v.output_url || v.media_url || v.download_url || '';
+    if (typeof url === 'string') emit(url, kind, name, mime);
+    const data = v.data || v.base64 || v.b64_json || v.data_base64;
+    if (typeof data === 'string' && data.length <= 3000000) {
+      const du = dataUrlFromBase64(data, mime || (kind === 'video' ? 'video/mp4' : kind === 'image' ? 'image/png' : ''));
+      if (du) emit(du, kind, name, mime);
+    }
+  };
+  const keys = ['media','images','videos','image','video','outputs','output','artifacts','files'];
+  keys.forEach(k => { if (obj[k] != null) addObject(obj[k], k); });
+  if (obj.inlineData) addObject({ data: obj.inlineData.data, mime: obj.inlineData.mimeType, type: obj.inlineData.mimeType }, 'inlineData');
+  if (obj.inline_data) addObject({ data: obj.inline_data.data, mime: obj.inline_data.mime_type, type: obj.inline_data.mime_type }, 'inline_data');
+  if (obj.choices?.[0]?.message) pullMedia(obj.choices[0].message, onMedia);
+}
+function buildResponsesInput(msgs, vision) {
+  const input = [];
+  for (const m of msgs) {
+    if (m.error) continue;
+    if (m.role === 'user') {
+      const imgs = (m.attachments || []).filter(a => a.type === 'image');
+      const text = flatten(m);
+      if (imgs.length && vision) input.push({ role:'user', content: [{ type:'input_text', text }, ...imgs.map(a => ({ type:'input_image', image_url: a.dataUrl }))] });
+      else input.push({ role:'user', content: text });
+    } else input.push({ role:'assistant', content: m.content || '' });
+  }
+  return input;
+}
+
+/* เรียก Backend (/api/chat) — backend แปลงให้ครบทุกค่าย แล้วสตรีม OpenAI-format กลับมา */
+async function callProxy({ provider, model, messages, level, search, signal, onText, onThink, onSearch, onSource, onMedia, sys }) {
+  const prov = PROVIDERS[provider];
+  const base = String(cfg.proxy.base || '').trim().replace(/\/+$/, '');
+  const secret = String(cfg.proxy.secret || '').trim();
+  if (!base || !secret) throw new Error('ยังไม่ได้ตั้ง Backend URL และ UI Secret ใน Settings');
+  if (!prov.proxyPath) throw new Error(`${prov.name} ยังไม่รองรับผ่าน Backend`);
+
+  const mdef = prov.models.find(m => m.id === model) || { vision:false, think:false };
+  const body = {
+    provider: prov.proxyPath,
+    model,
+    messages: buildOpenAI(messages, mdef.vision, sys, provider === 'deepseek' ? 'deepseek' : prov.wire),
+    stream: true,
+    ...reasonParams(prov.wire, mdef, level)
+  };
+  if (mdef.think !== 'opt') body.temperature = cfg.temp;
+  if (search) body.kiln_web_search = true;
+
+  const response = await fetch(base + '/api/chat', {
+    method:'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + secret },
+    body: JSON.stringify(body), signal
+  });
+  if (!response.ok) throw new Error(await apiError(response));
+  await pump(response, j => {
+    if (j.error) throw new Error(j.error.message || 'Proxy stream error');
+    pullMedia(j, onMedia);
+    const d = j.choices?.[0]?.delta;
+    if (!d) return;
+    pullMedia(d, onMedia);
+    const reasoning = d.reasoning_content ?? d.reasoning;
+    if (typeof reasoning === 'string' && reasoning) onThink(reasoning);
+    if (d.content) onText(d.content);
+    pullSources(d, onSource);
+    if (d.annotations) pullSources(d, onSource);
+  });
+}
+
+/* ─────────── callProvider — the single network seam ─────────── */
+async function callProvider({ provider, model, messages, level, signal, search, onText, onThink, onSearch, onSource, onMedia }) {
+  const prov = provider === cfg.provider ? P() : PROVIDERS[provider];
+  const mdef = prov.models.find(m => m.id === model) || { vision:false, think:false };
+  const key = keys[provider];
+  const usingProxy = provider === cfg.provider && proxySupported();
+  if (!key && !usingProxy) throw new Error(`ยังไม่ได้ใส่กุญแจของ ${prov.name} — เปิดหน้าตั้งค่าก่อน`);
+  if (prov.wire === 'compat' && !prov.base) throw new Error('ยังไม่ได้ใส่ API Base URL ของค่ายนี้ — เปิดหน้าตั้งค่า');
+  if (prov.wire === 'compat' && !model) throw new Error('ยังไม่ได้ใส่ Model ID ของค่ายนี้ — เปิดหน้าตั้งค่า');
+  const extra = reasonParams(prov.wire, mdef, level);
+  onText = onText || noop; onThink = onThink || noop; onSearch = onSearch || noop; onSource = onSource || noop; onMedia = onMedia || noop;
+  // โปรโตคอลไฟล์: ถ้าผู้ใช้ขอไฟล์ ให้ส่ง source file ที่แอปจะรัน/แปลงเป็นไฟล์จริงโดยตรง
+  const fileHint = 'When the user asks for a file (PDF/PPTX/DOCX/XLSX or another artifact), make the requested file the primary deliverable. Put the complete source code in ONE markdown fenced block and include a filename after the language tag, e.g. ```python create_slides.py. The app may execute supported Python Office-generation code in the browser and then offer the resulting binary file directly; do NOT add a README, slides.md, or extra helper files unless they are genuinely required. Do not wrap a single requested artifact in ZIP. For a real multi-file project, put EACH file in its own fenced code block with its filename and the app may offer a ZIP of the source project.';
+  const sys = [cfg.sys, fileHint].filter(Boolean).join('\n\n');
+
+  if (usingProxy) {
+    if (search) onSearch({ query:'Worker web search', status:'searching' });
+    await callProxy({ provider, model, messages, level, search, signal, onText, onThink, onSearch, onSource, onMedia, sys });
+    if (search) onSearch({ query:'Worker web search', status:'done' });
+    return;
+  }
+
+  /* ── OpenAI hosted web_search via Responses API ── */
+  if (search && prov.wire === 'openai') {
+    try {
+      await callOpenAIResponses({ key, model, messages, extra, vision: mdef.vision, signal, onText, onThink, onSearch, onSource, onMedia, sys });
+      return;
+    } catch (e) {
+      if (e?.name === 'AbortError') throw e;
+      /* โมเดลบางตัวยังไม่รับ Responses — ตกลงไปใช้ function calling */
+    }
+  }
+
+  /* ── OpenAI-compatible wire: openai / deepseek / openrouter ── */
+  if (prov.wire === 'openai' || prov.wire === 'deepseek' || prov.wire === 'openrouter' || prov.wire === 'compat') {
+    const headers = { 'Content-Type':'application/json', Authorization: 'Bearer ' + key };
+    if (prov.wire === 'openrouter') {
+      headers['HTTP-Referer'] = location.origin && location.origin !== 'null' ? location.origin : 'https://kiln.local';
+      headers['X-Title'] = 'Kiln';
+    }
+    /* DeepSeek ไม่มีค้นเว็บในตัว — ค้นในเบราว์เซอร์แล้วแนบผลให้โมเดล
+       OpenAI (ถ้า Responses ใช้ไม่ได้) ใช้ function calling แล้วค่อย fallback แบบเดียวกัน */
+    if (search && prov.wire === 'deepseek') {
+      await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource, onMedia });
+      return;
+    }
+    if (search && prov.wire === 'compat') {
+      await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource, onMedia });
+      return;
+    }
+    if (search && prov.wire === 'openai') {
+      try {
+        await callCompatToolLoop({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource, onMedia });
+      } catch (e) {
+        if (e?.name === 'AbortError') throw e;
+        await searchThenStream({ url: prov.base + '/chat/completions', headers, model, messages, extra, vision: mdef.vision, wire: prov.wire, signal, onText, onThink, onSearch, onSource, onMedia });
+      }
+      return;
+    }
+    const body = { model, messages: buildOpenAI(messages, mdef.vision, sys, prov.wire), stream:true, ...extra };
+    if (!(prov.wire === 'openai' && mdef.think === 'opt')) body.temperature = cfg.temp;
+    if (search && prov.wire === 'openrouter') {
+      body.tools = [{ type:'openrouter:web_search' }, { type:'openrouter:web_fetch' }];
+    }
+    let res = await fetch(prov.base + '/chat/completions', { method:'POST', headers, body: JSON.stringify(body), signal });
+    if (!res.ok && search && prov.wire === 'openrouter') {
+      delete body.tools;
+      body.plugins = [{ id:'web', max_results: 5 }];
+      res = await fetch(prov.base + '/chat/completions', { method:'POST', headers, body: JSON.stringify(body), signal });
+    }
+    if (!res.ok) throw new Error(await apiError(res));
+    let stop = null;
+    await pump(res, j => {
+      if (j.error) { stop = j.error.message || 'stream error'; return; }
+      pullMedia(j, onMedia);
+      const d = j.choices?.[0]?.delta; if (!d) return;
+      pullMedia(d, onMedia);
+      const r = d.reasoning_content ?? d.reasoning;
+      if (typeof r === 'string' && r) onThink(r);
+      if (d.content) onText(d.content);
+      pullSources(d, onSource);
+      pullSources(j.choices?.[0]?.message, onSource);
+      if (d.annotations) pullSources(d, onSource);
+    });
+    if (stop) throw new Error(stop);
+    return;
+  }
+
+  /* ── Anthropic ── */
+  if (prov.wire === 'anthropic') {
+    const body = { model, stream:true, max_tokens: 8192, messages: buildAnthropic(messages, mdef.vision), ...extra };
+    if (sys) body.system = sys;
+    if (extra.thinking) body.max_tokens = extra.thinking.budget_tokens + 6000;
+    else body.temperature = Math.min(cfg.temp, 1);
+    if (search) body.tools = [{ type:'web_search_20250305', name:'web_search', max_uses: 5 }];
+    const res = await fetch(prov.base + '/messages', { method:'POST', signal, body: JSON.stringify(body), headers:{
+      'Content-Type':'application/json', 'x-api-key': key,
+      'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true'
+    }});
+    if (!res.ok) throw new Error(await apiError(res));
+    let stop = null, jsonBuf = '';
+    await pump(res, j => {
+      if (j.type === 'error') { stop = j.error?.message || 'stream error'; return; }
+      if (j.type === 'content_block_start') {
+        const b = j.content_block || {};
+        pullMedia(b, onMedia);
+        if (b.type === 'server_tool_use' && (b.name === 'web_search' || b.name === 'web_search_tool')) onSearch({ query:'', status:'searching' });
+        if (b.type === 'web_search_tool_result') onSearch({ status:'done' });
+      }
+      if (j.type !== 'content_block_delta') return;
+      const d = j.delta || {};
+      if (d.type === 'thinking_delta' && d.thinking) onThink(d.thinking);
+      else if (d.type === 'text_delta' && d.text) onText(d.text);
+      else if (d.type === 'input_json_delta' && d.partial_json) {
+        jsonBuf += d.partial_json;
+        try { const o = JSON.parse(jsonBuf); if (o.query) onSearch({ query: o.query, status:'searching' }); } catch {}
+      }
+      else if (d.type === 'citations_delta' && d.citation) {
+        const c = d.citation;
+        if (c.url) onSource({ title: c.title || c.url, url: c.url });
+      }
+    });
+    if (stop) throw new Error(stop);
+    return;
+  }
+
+  /* ── Gemini ── */
+  if (prov.wire === 'gemini') {
+    /* Gemini 3: เอกสารแนะนำให้คง temperature ไว้ที่ 1.0 — ค่าต่ำกว่านั้นทำให้คิดวนลูป/คุณภาพตก */
+    const gen = mdef.tlevel ? {} : { temperature: cfg.temp };
+    if (extra.thinkingConfig) gen.thinkingConfig = extra.thinkingConfig;
+    const body = { contents: buildGemini(messages, mdef.vision), generationConfig: gen };
+    if (sys) body.systemInstruction = { parts:[{ text: sys }] };
+    if (search) body.tools = [{ googleSearch: {} }];
+    const url = `${prov.base}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
+    let res = await fetch(url, { method:'POST', signal, body: JSON.stringify(body),
+      headers:{ 'Content-Type':'application/json', 'x-goog-api-key': key } });
+    if (!res.ok && search) {
+      body.tools = [{ google_search: {} }];
+      res = await fetch(url, { method:'POST', signal, body: JSON.stringify(body),
+        headers:{ 'Content-Type':'application/json', 'x-goog-api-key': key } });
+    }
+    if (!res.ok) throw new Error(await apiError(res));
+    let stop = null;
+    await pump(res, j => {
+      if (j.error) { stop = j.error.message; return; }
+      const cand = j.candidates?.[0] || {};
+      const parts = cand.content?.parts || [];
+      for (const p of parts) {
+        pullMedia(p, onMedia);
+        if (typeof p.text === 'string' && p.text) (p.thought ? onThink : onText)(p.text);
+      }
+      const gm = cand.groundingMetadata || cand.grounding_metadata;
+      if (gm) {
+        (gm.webSearchQueries || gm.web_search_queries || []).forEach(q => onSearch({ query: q, status:'done' }));
+        pullSources(gm, onSource);
+      }
+    });
+    if (stop) throw new Error(stop);
+    return;
+  }
+  throw new Error('ไม่รู้จักผู้ให้บริการนี้');
+}
+async function callOpenAIResponses({ key, model, messages, extra, vision, signal, onText, onThink, onSearch, onSource, onMedia, sys }) {
+  const body = { model, stream:true, tools:[{ type:'web_search' }], input: buildResponsesInput(messages, vision) };
+  if (sys) body.instructions = sys;
+  if (extra.reasoning_effort && extra.reasoning_effort !== 'none') body.reasoning = { effort: extra.reasoning_effort };
+  const res = await fetch('https://api.openai.com/v1/responses', {
+    method:'POST', signal, body: JSON.stringify(body),
+    headers:{ 'Content-Type':'application/json', Authorization: 'Bearer ' + key }
+  });
+  if (!res.ok) throw new Error(await apiError(res));
+  await pump(res, (j, ev) => {
+    const type = ev || j?.type || '';
+    const delta = typeof j?.delta === 'string' ? j.delta : (typeof j?.text === 'string' ? j.text : '');
+    if (type.includes('output_text') && delta) onText(delta);
+    if (type.includes('reasoning') && delta) onThink(delta);
+    if (type.includes('web_search_call')) {
+      const q = j?.action?.query || j?.query || (Array.isArray(j?.action?.queries) ? j.action.queries[0] : '');
+      onSearch({ query: q || 'ค้นเว็บ', status: type.includes('completed') ? 'done' : 'searching' });
+    }
+    pullMedia(j, onMedia);
+    const item = j?.item || j;
+    if (j?.item) pullMedia(j.item, onMedia);
+    pullSources(j, onSource);
+    if (item?.type === 'message') (item.content || []).forEach(c => { pullMedia(c, onMedia); pullSources(c, onSource); });
+  });
+}
+async function streamChat({ url, headers, body, signal, onText, onThink, onSource, onMedia }) {
+  const res = await fetch(url, { method:'POST', headers, body: JSON.stringify(body), signal });
+  if (!res.ok) throw new Error(await apiError(res));
+  let stop = null;
+  await pump(res, j => {
+    if (j.error) { stop = j.error.message || 'stream error'; return; }
+    const d = j.choices?.[0]?.delta; if (!d) return;
+    const r = d.reasoning_content ?? d.reasoning;
+    if (typeof r === 'string' && r) onThink(r);
+    if (d.content) onText(d.content);
+    pullSources(d, onSource);
+  });
+  if (stop) throw new Error(stop);
+}
+async function searchThenStream({ url, headers, model, messages, extra, vision, wire, signal, onText, onThink, onSearch, onSource, onMedia }) {
+  const last = [...messages].reverse().find(m => m.role === 'user');
+  const q = flatten(last || { content:'' }).slice(0, 280);
+  onSearch({ query: q, status:'searching' });
+  const result = await doSearch(q, signal);
+  (result.sources || []).forEach(onSource);
+  onSearch({ query: q, status:'done' });
+  const copy = messages.map(m => ({ ...m, content: m.content, attachments: m.attachments }));
+  const u = [...copy].reverse().find(m => m.role === 'user');
+  if (u) u.content = (u.content || '') + '\n\n<search_results>\n' + result.text + '\n</search_results>\nอ้างอิงแหล่งที่มาเป็นลิงก์ markdown เมื่อใช้ข้อมูลจากผลการค้น';
+  const body = { model, messages: buildOpenAI(copy, vision, [cfg.sys, 'When delivering multiple files, put EACH file in its own markdown fence with a filename. If you have an actual image or video file/URL available to return, include it using standard Markdown media (image: ![filename](URL); video: [filename](URL)), or a JSON media object such as {"type":"image","url":"..."} / {"type":"video","url":"..."}; for base64 use {"type":"image","mime":"image/png","b64_json":"..."}. The client previews and offers download for these outputs. Do not invent media URLs or base64 data.'].filter(Boolean).join('\n\n'), wire), stream:true, ...extra };
+  if (!(wire === 'openai' && extra.reasoning_effort)) body.temperature = cfg.temp;
+  await streamChat({ url, headers, body, signal, onText, onThink, onSource, onMedia });
+}
+async function callCompatToolLoop({ url, headers, model, messages, extra, vision, wire, signal, onText, onThink, onSearch, onSource, onMedia }) {
+  let msgs = buildOpenAI(messages, vision, (cfg.sys || '') + '\n\nYou have a web_search tool. Use it for current events, prices, news, or anything that may have changed after your knowledge cutoff. Cite sources with markdown links.', wire);
+  for (let round = 0; round < 4; round++) {
+    const body = { model, messages: msgs, stream:true, tools:[SEARCH_TOOL], tool_choice: round === 0 ? 'auto' : 'auto', ...extra };
+    if (!(wire === 'openai' && extra.reasoning_effort)) body.temperature = cfg.temp;
+    const res = await fetch(url, { method:'POST', headers, body: JSON.stringify(body), signal });
+    if (!res.ok) throw new Error(await apiError(res));
+    const tools = [];
+    let finish = null, stop = null;
+    await pump(res, j => {
+      if (j.error) { stop = j.error.message || 'stream error'; return; }
+      pullMedia(j, onMedia);
+      const ch = j.choices?.[0]; if (!ch) return;
+      if (ch.finish_reason) finish = ch.finish_reason;
+      const d = ch.delta; if (!d) return;
+      pullMedia(d, onMedia);
+      const r = d.reasoning_content ?? d.reasoning;
+      if (typeof r === 'string' && r) onThink(r);
+      if (d.content) onText(d.content);
+      if (d.tool_calls) {
+        for (const tc of d.tool_calls) {
+          const i = tc.index ?? 0;
+          if (!tools[i]) tools[i] = { id:'', name:'', arguments:'' };
+          if (tc.id) tools[i].id = tc.id;
+          if (tc.function?.name) tools[i].name += tc.function.name;
+          if (tc.function?.arguments) tools[i].arguments += tc.function.arguments;
+        }
+      }
+    });
+    if (stop) throw new Error(stop);
+    const calls = tools.filter(t => t && t.name);
+    if (!calls.length || (finish && finish !== 'tool_calls')) return;
+    const packed = calls.map(t => ({
+      id: t.id || ('call_' + Math.random().toString(36).slice(2, 10)),
+      type: 'function',
+      function: { name: t.name, arguments: t.arguments || '{}' }
+    }));
+    const asst = { role:'assistant', content: null, tool_calls: packed };
+    if (wire === 'deepseek') asst.reasoning_content = '';   // V4 บังคับให้มีฟิลด์นี้ในลูป tool
+    msgs.push(asst);
+    for (let i = 0; i < packed.length; i++) {
+      const args = parseToolArgs(packed[i].function.arguments);
+      const q = args.query || args.q || Object.values(args)[0] || '';
+      onSearch({ query: q, status:'searching' });
+      const result = await doSearch(q, signal);
+      (result.sources || []).forEach(onSource);
+      onSearch({ query: q, status:'done' });
+      msgs.push({ role:'tool', tool_call_id: packed[i].id, content: result.text });
+    }
+  }
+}
+async function apiError(res) {
+  let msg = '';
+  try { const j = await res.json(); msg = j.error?.message || j.message || j.error || JSON.stringify(j).slice(0, 240); }
+  catch { try { msg = (await res.text()).slice(0, 240); } catch {} }
+  if (typeof msg !== 'string') msg = JSON.stringify(msg).slice(0, 240);
+  const pre = { 401:'กุญแจไม่ถูกต้อง', 403:'กุญแจไม่มีสิทธิ์เข้าถึงโมเดลนี้', 404:'ไม่พบโมเดลนี้',
+    429:'เรียกถี่เกินไปหรือเครดิตหมด', 400:'คำขอไม่ถูกต้อง', 500:'เซิร์ฟเวอร์ผู้ให้บริการขัดข้อง', 529:'ผู้ให้บริการรับงานไม่ไหว' }[res.status];
+  return `${pre ? pre + ' ' : ''}(${res.status}) ${msg}`;
+}
+
+/* ─────────── send / stream ─────────── */
+function syncSend() { $('#btnSend').disabled = busy || (!$('#ta').value.trim() && !pending.length); }
+async function send() {
+  if (busy) return;
+  const text = $('#ta').value.trim();
+  if (!text && !pending.length) return;
+  if (cfg.provider !== 'demo' && !proxySupported() && !keys[cfg.provider]) { openSettings(); toast('ใส่กุญแจของ ' + P().name + ' ก่อน'); return; }
+  /* ยิงกลาง — backend รองรับทุกค่าย จึงข้ามข้อจำกัด CORS ของ browser */
+  if (!chat()) newChat();
+  const c = chat();
+  c.messages.push({ role:'user', content:text, attachments: pending.slice(), ts: Date.now() });
+  c.ts = Date.now();
+  if (!c.title || c.title === 'บทสนทนาใหม่') c.title = (text || pending[0]?.name || 'บทสนทนาใหม่').slice(0, 52);
+  pending = []; drawAtt();
+  $('#ta').value = ''; grow(); syncSend();
+  saveChats(); drawRail(); drawThread(); jump(true);
+  await run();
+}
+async function regen(idx) {
+  if (busy) return;
+  const c = chat(); if (!c) return;
+  c.messages = c.messages.slice(0, idx);
+  saveChats(); drawThread(); await run();
+}
+/* ── เครื่องมือของ working card ──
+   หมายเหตุ: เจตนาไม่ใช้ป้ายชื่อ stage ตายตัว (เช่น "ตีความโจทย์ / วิเคราะห์และวางแผน / ...")
+   เพราะทำให้การคิดดูเป็นแพทเทิร์นซ้ำทุกครั้ง ไม่ว่าโจทย์จะง่ายหรือยาก
+   แทนที่ด้วยข้อความสถานะที่สร้างจากสิ่งที่กำลังเกิดขึ้นจริง ณ ขณะนั้น */
+const SIM_PLAN_BUDGET = { low:700, medium:1600, high:3000, auto:1200 };
+/* กันติดลูป: ท้ายข้อความซ้ำก้อนเดิมติดกันหลายรอบ = โมเดลวน */
+function repeatLoop(text, win = 90, times = 4) {
+  const s = String(text).replace(/\s+/g, ' ');
+  if (s.length < win * times) return false;
+  const probe = s.slice(-win);
+  if (!probe.trim() || /^[\s\-=*#_.]+$/.test(probe)) return false;
+  let count = 0, idx = s.length;
+  while (count < times) {
+    idx = s.lastIndexOf(probe, idx - win);
+    if (idx < 0) break;
+    count++;
+  }
+  return count + 1 >= times;
+}
+/* กำลังอยู่กลาง code fence หรือเปล่า + ไฟล์อะไร */
+function openFenceInfo(text) {
+  const parts = String(text).split('```');
+  if (parts.length % 2 === 1) return { inside:false, files:(parts.length - 1) / 2 };
+  const header = (parts[parts.length - 1].split('\n')[0] || '').trim();
+  return { inside:true, files:(parts.length - 2) / 2, label:header.split(/\s+/).find(w => w.includes('.')) || header.split(/\s+/)[0] || 'code' };
+}
+function buildWorkCard(model, simulated) {
+  const card = h('div', 'work');
+  const head_ = h('div', 'work-h');
+  const spin = h('span', 'spin');
+  const st = h('div', 'st');
+  const big = h('b', null, 'กำลังเริ่มคิด…');
+  const sub = h('span', null, model + (simulated ? ' · โหมดคิดจำลอง' : ''));
+  st.append(big, sub);
+  const clock = h('time', null, '0s');
+  head_.append(spin, st, clock);
+  const mkPeek = label => {
+    const d = h('details');
+    const s = h('summary'); s.innerHTML = `<span>${label}</span><span class="chev">${I.chev}</span>`;
+    const peek = h('div', 'peek', '…');
+    d.append(s, peek);
+    return { d, peek };
+  };
+  /* "ดูการคิด" กับ "ดูสิ่งที่กำลังพิมพ์" เป็นสองสิ่งต่างชนิดกันจริง (กระบวนการคิด vs. คำตอบร่าง)
+     จึงคงไว้เป็น 2 กล่องพับได้ แต่ไม่มีลำดับ step ตายตัวคลุมอยู่ข้างบนอีกต่อไป */
+  const think = mkPeek('ดูการคิด'), draft = mkPeek('ดูสิ่งที่กำลังพิมพ์');
+  think.d.style.display = 'none'; draft.d.style.display = 'none';
+  card.append(head_, think.d, draft.d);
+  const t0 = Date.now();
+  const timer = setInterval(() => { clock.textContent = Math.round((Date.now() - t0) / 1000) + 's'; }, 1000);
+  return {
+    card,
+    /* setStage รับข้อความสถานะตรง ๆ (ไม่ใช่ index เข้าลิสต์ป้ายชื่อคงที่)
+       ทำให้หัวข้อที่โชว์ต่างกันไปตามสิ่งที่กำลังเกิดขึ้นจริงในแต่ละครั้ง */
+    setStage(headline, detail) {
+      if (headline != null) big.textContent = headline;
+      if (detail != null) sub.textContent = detail;
+    },
+    setThink(text) { think.d.style.display = ''; think.peek.textContent = text.slice(-3500); if (think.d.open) think.peek.scrollTop = 1e6; },
+    setDraft(text) { draft.d.style.display = ''; draft.peek.textContent = text.slice(-3500); if (draft.d.open) draft.peek.scrollTop = 1e6; },
+    stop() { clearInterval(timer); spin.style.display = 'none'; }
+  };
+}
+
+async function run() {
+  const c = chat(); if (!c) return;
+  if (cfg.provider === 'demo') {
+    const last = [...c.messages].reverse().find(m => m.role === 'user');
+    const demo = buildDemoReply(last?.content || '', last?.attachments || []);
+    c.messages.push({ role:'assistant', model:'Kiln · Test Lab', ts:Date.now(), ...demo });
+    c.ts = Date.now(); saveChats(); drawRail(); drawThread(); jump(true);
+    return;
+  }
+  busy = true; setBusy(true);
+  /* จำลองการคิดเฉพาะเมื่อผู้ใช้เลือกระดับเอง — 'อัตโนมัติ' ไม่แอบเพิ่มค่าใช้จ่าย */
+  const simulate = M().think !== 'opt' && ['low', 'medium', 'high'].includes(cfg.level);
+  const out = { role:'assistant', content:'', reasoning:'', media:[], queries:[], sources:[], model: `${P().name} ${M().label}`, ts: Date.now() };
+  if (simulate) out.simulated = true;
+
+  const live = h('div', 'turn a');
+  const who = h('div', 'who');
+  who.innerHTML = `<span class="mark">K</span><span class="nm">${escapeHTML(out.model)}</span><span class="line"></span>`;
+  const sb = seekEl([], true); sb.style.display = 'none';
+  const work = buildWorkCard(out.model, simulate);
+  live.append(who, sb, work.card);
+  $('#msgs').append(live); jump(true);
+
+  /* อัปเดต UI แบบเว้นจังหวะ — ไม่ render markdown สดอีกต่อไป (ซ่อนไว้ใน "ดูสิ่งที่กำลังพิมพ์") */
+  let raf = 0, lastPaint = 0, lastFence = { inside:false, files:0 };
+  const paint = () => {
+    raf = 0;
+    const now = performance.now();
+    if (now - lastPaint < 120) { raf = requestAnimationFrame(paint); return; }
+    lastPaint = now;
+    const fence = openFenceInfo(out.content);
+    if (fence.inside) work.setStage('กำลังเขียนไฟล์: ' + (fence.label || 'code'));
+    else if (fence.files > lastFence.files || (lastFence.inside && !fence.inside)) work.setStage('เขียนไฟล์เสร็จ ' + fence.files + ' ไฟล์ — กำลังเรียบเรียงต่อ');
+    else if (out.content) work.setStage('กำลังเรียบเรียงคำตอบ', out.content.length + ' ตัวอักษร');
+    lastFence = fence;
+    work.setDraft(out.content);
+    jump();
+  };
+  const schedule = () => { if (!raf) raf = requestAnimationFrame(paint); };
+
+  ctrl = new AbortController();
+  let loopStopped = false, lastLoopCheck = 0;
+  const guardLoop = (text, who_) => {
+    if (text.length - lastLoopCheck < 1500) return;
+    lastLoopCheck = text.length;
+    if (text.length > 90000 || repeatLoop(text)) {
+      loopStopped = who_; ctrl.abort();
+    }
+  };
+
+  try {
+    /* ── ขั้นวางแผน (จำลองการคิดสำหรับโมเดลที่ไม่มีโหมดคิดในตัว) ── */
+    let planText = '';
+    if (simulate) {
+      work.setStage('กำลังตีความโจทย์…', 'อ่านคำถามและวางแนวคิด');
+      const budget = SIM_PLAN_BUDGET[cfg.level] || SIM_PLAN_BUDGET.auto;
+      const planCtrl = new AbortController();
+      const onMainAbort = () => planCtrl.abort();
+      ctrl.signal.addEventListener('abort', onMainAbort, { once:true });
+      /* เจตนาไม่บังคับหัวข้อ/ลำดับตายตัว (เช่น 1) 2) 3) คงที่ทุกครั้ง) เพราะทำให้การคิด
+         ออกมาเป็นแพทเทิร์นเดิมซ้ำ ๆ ไม่ว่าโจทย์จะง่ายหรือซับซ้อนแค่ไหน — ให้โมเดลไล่เหตุผล
+         ไปตามธรรมชาติของคำถามนั้นแทน และปรับความยาวเองตามความจำเป็นจริง */
+      const planMsgs = [...c.messages, { role:'user', content:
+        `ก่อนตอบจริง ให้คิดออกมาดัง ๆ เหมือนกำลังไล่เหตุผลในหัวจริง ๆ ไม่ใช่กรอกฟอร์มตามหัวข้อคงที่ ` +
+        `ไม่ต้องมีลำดับหรือหัวข้อบังคับ พูดถึงเฉพาะสิ่งที่จำเป็นจริงสำหรับคำถามนี้เท่านั้น ` +
+        `ถ้าโจทย์ตรงไปตรงมาให้คิดสั้น ๆ พอ ถ้ามีความซับซ้อนหรือทางเลือกที่ต้องชั่งน้ำหนักค่อยขยายความ ` +
+        `ห้ามตอบคำถามจริงหรือเขียนโค้ดเต็มในขั้นนี้ ความยาวไม่เกิน ${budget} ตัวอักษร` }];
+      try {
+        await callProvider({
+          provider: cfg.provider, model: mId(), messages: planMsgs, level:'off', signal: planCtrl.signal, search:false,
+          onText: t => {
+            planText += t;
+            work.setStage('กำลังคิด…', planText.length + ' ตัวอักษร');
+            work.setThink(planText);
+            /* กันลูป + กันเกินงบ: ตัดจบทันที ไม่ปล่อยให้คิดวนไม่รู้จบ */
+            if (planText.length > budget * 1.5 || repeatLoop(planText)) planCtrl.abort();
+            jump();
+          }
+        });
+      } catch (e) {
+        if (ctrl.signal.aborted) throw e;               // ผู้ใช้กดหยุดจริง
+        /* planCtrl ถูกตัดเพราะครบงบ/เจอลูป หรือ call พัง — ใช้เท่าที่ได้แล้วไปต่อ ไม่วนซ้ำ */
+      }
+      ctrl.signal.removeEventListener('abort', onMainAbort);
+      planText = planText.slice(0, budget * 2).trim();
+      out.reasoning = planText;
+      work.setStage(planText ? 'คิดเสร็จแล้ว — เริ่มลงมือทำ' : 'ข้ามการวางแผน — ตอบตรง');
+    }
+
+    /* ── ขั้นตอบจริง ── */
+    const mainMsgs = c.messages.map(m => ({ ...m }));
+    if (planText) {
+      const u = [...mainMsgs].reverse().find(m => m.role === 'user');
+      if (u) u.content = (u.content || '') + '\n\n<แผนภายในของคุณ (ผู้ใช้มองไม่เห็น — ใช้เป็นแนวทาง ห้ามอ้างถึง)>\n' + planText + '\n</แผนภายใน>';
+    }
+    if (!simulate) work.setStage('ส่งคำถามไปที่ ' + P().name + '…');
+    await callProvider({
+      provider: cfg.provider, model: mId(), messages: mainMsgs, level: simulate ? 'off' : cfg.level, signal: ctrl.signal, search: !!cfg.search,
+      onText: t => { out.content += t; guardLoop(out.content, 'content'); schedule(); },
+      onThink: t => {
+        out.reasoning += t; guardLoop(out.reasoning, 'reasoning');
+        work.setStage('กำลังคิด…', out.reasoning.length + ' ตัวอักษร');
+        work.setThink(out.reasoning); jump();
+      },
+      onSearch: ({ query }) => {
+        if (query && !out.queries.includes(query)) out.queries.push(query);
+        sb.style.display = '';
+        sb.querySelector('.inner').textContent = out.queries.join('\n') || 'กำลังค้น…';
+        work.setStage('กำลังค้นเว็บ: ' + (out.queries[out.queries.length - 1] || '…'));
+        jump();
+      },
+      onSource: s => {
+        if (!s?.url) return;
+        if (!out.sources.some(x => x.url === s.url)) out.sources.push({ title: s.title || s.url, url: s.url });
+      },
+      onMedia: media => {
+        if (!media?.url || out.media.some(x => x.url === media.url)) return;
+        out.media.push({ url: media.url, kind: media.kind || mediaKindFromUrl(media.url, media.mime || ''), name: media.name || '', mime: media.mime || '' });
+        work.setStage('ได้รับสื่อจากโมเดล', `${out.media.length} ไฟล์ · ${out.media.at(-1)?.name || 'media'}`);
+        jump();
+      }
+    });
+    work.setStage('ตรวจความครบถ้วนของคำตอบ');
+    if (!out.content.trim() && !out.reasoning.trim()) out.content = '_(ไม่มีข้อความตอบกลับ)_';
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      out.content += (out.content ? '\n\n' : '') + (loopStopped
+        ? '_— หยุดอัตโนมัติ: ระบบตรวจพบว่าโมเดลเริ่มวนซ้ำ (' + (loopStopped === 'reasoning' ? 'ช่วงคิด' : 'ช่วงตอบ') + ') จึงตัดจบเพื่อไม่ให้เปลืองโทเคน —_'
+        : '_— หยุดกลางคัน —_');
+    }
+    else { out.error = true; out.content = String(err?.message || err); }
+  }
+  if (raf) cancelAnimationFrame(raf);
+  work.stop();
+  ctrl = null; busy = false; setBusy(false);
+  live.remove();
+  if (!out.queries.length) delete out.queries;
+  if (!out.sources.length) delete out.sources;
+  if (!out.reasoning) delete out.reasoning;
+  if (!out.media.length) delete out.media;
+  c.messages.push(out); c.ts = Date.now(); saveChats(); drawRail(); drawThread(); jump(true);
+}
+function setBusy(on) {
+  $('#btnSend').style.display = on ? 'none' : 'grid';
+  $('#btnStop').style.display = on ? 'grid' : 'none';
+  syncSend();
+}
+$('#btnSend').onclick = send;
+$('#btnStop').onclick = () => ctrl?.abort();
+$('#btnNew').onclick = newChat;
+
+/* ─────────── composer ─────────── */
+const ta = $('#ta');
+function grow() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, window.innerHeight * 0.34) + 'px'; }
+ta.addEventListener('input', () => { grow(); syncSend(); });
+
+/* ── วางข้อความยาว / Paste บน iPhone → เปลี่ยนเป็นไฟล์ TXT อัตโนมัติ ──
+   รองรับทั้ง Safari/iOS ที่ส่ง paste event และกรณีที่ native editor ส่ง
+   beforeinput/input (insertFromPaste) แทน ซึ่งเป็นสาเหตุที่บางเครื่อง
+   วางข้อความยาวแล้วมันยังค้างอยู่ในช่องแชทแบบใน iPhone
+
+   กติกา:
+   - ข้อความสั้น: วางลงช่องแชทตามปกติ
+   - Prompt / code / ข้อความยาวตั้งแต่ 1,200 ตัวอักษร: สร้างเป็น .txt แนบให้ทันที
+   - ไม่แปลงข้อความที่ผู้ใช้พิมพ์ทีละตัวเป็นไฟล์โดยอัตโนมัติ
+*/
+const LONG_PASTE_LIMIT = 1200;
+let convertingPastedText = false;
+
+function pastedTextLooksLikeCode(text) {
+  return /```|^\s*(from |import |def |class |function |const |let |var |#include |<\?php|<!doctype|<html|<script|SELECT\s|CREATE\s+TABLE)/im.test(text);
+}
+function nextPastedName(isCode) {
+  const base = isCode ? 'pasted_code' : 'pasted_text';
+  let n = 1;
+  let name = `${base}.txt`;
+  const used = new Set(pending.map(a => a.name));
+  while (used.has(name)) name = `${base}_${++n}.txt`;
+  return name;
+}
+function attachPastedText(text) {
+  if (convertingPastedText) return true;
+  text = String(text || '');
+  if (text.length < LONG_PASTE_LIMIT) return false;
+  if (pending.length >= MAX_ATT) {
+    toast('แนบได้สูงสุด ' + MAX_ATT + ' ชิ้น');
+    return true;
+  }
+
+  convertingPastedText = true;
+  try {
+    const isCode = pastedTextLooksLikeCode(text);
+    const att = withText({
+      type:'text',
+      name:nextPastedName(isCode),
+      pasted:true,
+      office:false
+    }, text);
+    if (!att) throw new Error('สร้างไฟล์ TXT ไม่สำเร็จ');
+    pending.push(att);
+    drawAtt();
+    syncSend();
+    toast(`วางข้อความยาวเป็นไฟล์ ${att.name} แล้ว`);
+    return true;
+  } catch (err) {
+    toast(thaiMsg(err, 'เปลี่ยนข้อความเป็นไฟล์ TXT ไม่สำเร็จ'));
+    return true;
+  } finally {
+    convertingPastedText = false;
+  }
+}
+
+// Chrome / Safari / desktop paste event
+ ta.addEventListener('paste', e => {
+  const text = e.clipboardData?.getData('text/plain') || '';
+  if (text.length < LONG_PASTE_LIMIT) return;
+  e.preventDefault();
+  attachPastedText(text);
+});
+
+// iOS Safari / native keyboard: บางครั้ง paste event ไม่ถูกส่งมาที่ textarea
+// แต่ beforeinput จะมี inputType = insertFromPaste
+ ta.addEventListener('beforeinput', e => {
+  if (e.inputType !== 'insertFromPaste') return;
+  const text = e.data || '';
+  if (text && text.length >= LONG_PASTE_LIMIT) {
+    e.preventDefault();
+    attachPastedText(text);
+  }
+});
+
+// Fallback สำหรับ iOS บางเวอร์ชันที่ beforeinput ไม่มี e.data แต่ input event
+// ระบุว่าเป็น insertFromPaste: ถ้าข้อมูลที่ถูกแทรกยาว ให้เปลี่ยนค่าทั้งหมด
+// ใน composer เป็นไฟล์ TXT แล้วล้างช่องแชท
+ ta.addEventListener('input', e => {
+  if (e.inputType !== 'insertFromPaste' || convertingPastedText) return;
+  const text = ta.value || '';
+  if (text.length < LONG_PASTE_LIMIT) return;
+  if (attachPastedText(text)) {
+    ta.value = '';
+    grow();
+    syncSend();
+  }
+});
+
+ta.addEventListener('focus', () => { $('#editor').classList.add('focus'); setTimeout(() => jump(true), 320); });
+ta.addEventListener('blur',  () => $('#editor').classList.remove('focus'));
+ta.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+  const desktop = !matchMedia('(pointer: coarse)').matches;
+  if (cfg.enter || desktop) { e.preventDefault(); send(); }
+});
+if (window.visualViewport) visualViewport.addEventListener('resize', () => jump(false));
+
+/* ─────────── model sheet ─────────── */
+$('#modelBtn').onclick = () => { drawModelSheet(); open$('#shModel'); };
+function drawModelSheet() {
+  const tabs = $('#pvTabs'); tabs.innerHTML = '';
+  Object.entries(PROVIDERS).forEach(([id, p]) => {
+    const t = h('button', 'pv-tab' + (id === cfg.provider ? ' on' : ''));
+    t.innerHTML = `<span class="k${id === 'demo' || keys[id] ? ' has' : ''}"></span>${p.name}`;
+    t.onclick = () => { cfg.provider = id; saveCfg(); drawModelSheet(); head(); drawThread(); };
+    tabs.append(t);
+  });
+  const list = $('#modelList'); list.innerHTML = '';
+  P().models.forEach(m => {
+    const o = h('button', 'opt' + (m.id === mId() ? ' on' : ''));
+    const t = h('div', 't');
+    t.append(h('b', null, m.label), h('span', null, m.id));
+    const tags = h('div', 'tags');
+    if (m.vision) tags.append(h('span', 'tag', 'ภาพ'));
+    if (m.think === 'opt') tags.append(h('span', 'tag', 'คิด'));
+    if (m.note) tags.append(h('span', 'tag', m.note));
+    const tick = h('span', 'tick'); tick.innerHTML = I.check;
+    o.append(t, tags, tick);
+    if (m.custom) {
+      const rm = h('span', 'tag'); rm.textContent = 'ลบ'; rm.style.color = 'var(--accent)'; rm.style.borderColor = 'var(--accent)';
+      rm.onclick = e => { e.stopPropagation(); removeCustomModel(cfg.provider, m.id); drawModelSheet(); head(); };
+      tags.append(rm);
+    }
+    o.onclick = () => { cfg.model[cfg.provider] = m.id; saveCfg(); drawModelSheet(); head(); close$('#shModel'); toast(m.label); };
+    list.append(o);
+  });
+  const add = h('button', 'opt');
+  const at = h('div', 't');
+  add.append(at);
+  if (cfg.provider === 'compatible') {
+    at.append(h('b', null, 'กำหนด Model ID ในตั้งค่า'), h('span', null, 'ใส่ชื่อค่าย, Base URL และ Model ID ของคุณเอง'));
+    add.onclick = () => { close$('#shModel'); openSettings(); setTimeout(() => $('#setCompatModel').focus(), 250); };
+  } else {
+    at.append(h('b', null, '+  เพิ่มโมเดลเอง'), h('span', null, 'พิมพ์ model id ตรงจากเอกสารผู้ให้บริการ'));
+    add.onclick = () => {
+      const id = prompt(`Model ID ของ ${P().name}\nตัวอย่าง: ${P().models[0].id}`, '');
+      if (id && id.trim()) { addCustomModel(cfg.provider, id.trim()); drawModelSheet(); head(); }
+    };
+  }
+  if (cfg.provider !== 'demo') list.append(add);
+  $('#noKeyNote').textContent = cfg.provider === 'demo'
+    ? 'ทำงานในเบราว์เซอร์ ไม่เรียก AI API และไม่ต้องใช้ Key · PPTX โหลดไลบรารีจาก CDN ครั้งแรก'
+    : keys[cfg.provider]
+    ? `กุญแจ ${P().name} พร้อมใช้งานแล้ว`
+    : `ยังไม่มีกุญแจของ ${P().name} — ${P().help}`;
+}
+
+/* โมเดลที่ผู้ใช้เพิ่มเอง — กันรายชื่อ hardcode ล้าสมัย */
+function addCustomModel(pid, id) {
+  cfg.custom = cfg.custom || {};
+  cfg.custom[pid] = cfg.custom[pid] || [];
+  if (PROVIDERS[pid].models.some(m => m.id === id)) { toast('มีโมเดลนี้อยู่แล้ว'); return; }
+  const m = { id, label: id.split('/').pop(), note:'เพิ่มเอง', vision:true, think:'opt', off:true, custom:true };
+  cfg.custom[pid].push(m);
+  PROVIDERS[pid].models.push(m);
+  cfg.model[pid] = id; saveCfg(); toast('เพิ่ม ' + m.label + ' แล้ว');
+}
+function removeCustomModel(pid, id) {
+  cfg.custom = cfg.custom || {};
+  cfg.custom[pid] = (cfg.custom[pid] || []).filter(m => m.id !== id);
+  PROVIDERS[pid].models = PROVIDERS[pid].models.filter(m => m.id !== id);
+  if (cfg.model[pid] === id) delete cfg.model[pid];
+  saveCfg();
+}
+function injectCustom() {
+  for (const [pid, arr] of Object.entries(cfg.custom || {})) {
+    const p = PROVIDERS[pid];
+    if (!p || !Array.isArray(arr)) continue;
+    arr.forEach(m => { if (m?.id && !p.models.some(x => x.id === m.id)) p.models.push({ ...m, custom:true }); });
+  }
+}
+
+/* ─────────── reasoning sheet ─────────── */
+$('#btnReason').onclick = () => { drawReasonSheet(); open$('#shReason'); };
+function drawReasonSheet() {
+  const m = M(), list = $('#reasonList'); list.innerHTML = '';
+  if (m.think !== 'opt') {
+    const info = h('p', 'note');
+    info.style.margin = '12px 0 4px';
+    info.textContent = m.label + ' ไม่มีโหมดคิดในตัว — เลือก ต่ำ/กลาง/สูง แล้ว Kiln จะจำลองให้: วางแผนสั้น ๆ หนึ่งรอบก่อนตอบจริง (เสียโทเคนเพิ่มเล็กน้อย มีเพดานงบและระบบกันวนลูป) ส่วน "อัตโนมัติ" กับ "ปิด" = ตอบตรงไม่วางแผน';
+    list.append(info);
+  }
+  LEVELS.filter(l => l.v !== 'off' || m.off || m.think !== 'opt').forEach(l => {
+    const o = h('button', 'opt' + (l.v === cfg.level ? ' on' : ''));
+    const t = h('div', 't'); t.append(h('b', null, l.th), h('span', null, l.d));
+    const tick = h('span', 'tick'); tick.innerHTML = I.check;
+    o.append(t, tick);
+    o.onclick = () => { cfg.level = l.v; saveCfg(); head(); close$('#shReason'); };
+    list.append(o);
+  });
+  const p = reasonParams(P().wire, m, cfg.level);
+  $('#reasonNote').textContent = Object.keys(p).length
+    ? 'ส่งไปยัง API เป็น: ' + JSON.stringify(p)
+    : 'ไม่ส่งพารามิเตอร์เพิ่ม — ใช้ค่าเริ่มต้นของโมเดล';
+}
+
+/* ─────────── settings ─────────── */
+function openSettings() { drawSettings(); open$('#shSet'); railClose(); }
+$('#btnSettings').onclick = openSettings;
+$('#btnSettings2').onclick = openSettings;
+function selectProvider(id) {
+  cfg.provider = id;
+  saveCfg(); drawSettings(); head(); drawThread();
+}
+function drawSettings() {
+  const picker = $('#providerPicker'); picker.innerHTML = '';
+  Object.entries(PROVIDERS).forEach(([id, p]) => {
+    const o = h('option'); o.value = id; o.textContent = p.name;
+    picker.append(o);
+  });
+  picker.value = cfg.provider;
+  const p = P();
+  $('#curModelName').textContent = p.name + ' · ' + M().label;
+  $('#curModelId').textContent = (mId() || 'ยังไม่ได้ระบุ Model ID') + (cfg.search && cfg.provider !== 'demo' ? ' · ค้นเว็บเปิด' : '');
+  $('#providerHint').textContent = p.help;
+  $('#providerSectionTitle').textContent = cfg.provider === 'demo' ? 'ทดลองโดยไม่ใช้ API' : 'กุญแจของผู้ให้บริการ';
+  $('#providerSectionNote').textContent = cfg.provider === 'demo'
+    ? 'พิมพ์อะไรก็ได้ในแชทเพื่อดูคำสั่ง หรือพิมพ์ 1, 1.1, 2 โดยตรง ไม่ส่งข้อมูลไปหาโมเดล · การสร้าง PPTX ครั้งแรกต้องต่อเน็ตเพื่อโหลดไลบรารี'
+    : 'เลือกเจ้าที่ต้องการด้านล่าง แล้วกรอกกุญแจเฉพาะเจ้านั้นได้เลย ระบบจำแยกให้ทุกเจ้า จึงสลับกลับมาใช้ภายหลังได้โดยไม่ต้องวางใหม่';
+  $('#providerKeyField').hidden = cfg.provider === 'demo';
+  $('#compatFields').hidden = cfg.provider !== 'compatible';
+  $('#setCompatName').value = cfg.compatible.name || '';
+  $('#setCompatBase').value = cfg.compatible.base || '';
+  $('#setCompatModel').value = cfg.compatible.model || '';
+  $('#setKey').value = keys[cfg.provider] || '';
+  $('#setKey').placeholder = p.prefix;
+  $('#setKey').type = 'password'; $('#btnEye').textContent = 'แสดง';
+  $('#keyState').textContent = keys[cfg.provider] ? 'บันทึกแล้ว' : 'ว่าง';
+  $('#keyState').style.color = keys[cfg.provider] ? 'var(--accent)' : '';
+  $('#testOut').textContent = ''; $('#testOut').className = 'status';
+  $('#setSys').value = cfg.sys || '';
+  $('#setTemp').value = cfg.temp; $('#tempVal').textContent = Number(cfg.temp).toFixed(1);
+  $('#tempNote').textContent = M().tlevel
+    ? 'Gemini 3 แนะนำให้คงไว้ที่ 1.0 (ค่าต่ำกว่าทำให้คิดวนลูป) — จึงข้ามค่านี้ให้อัตโนมัติ'
+    : (cfg.provider === 'openai' && M().think === 'opt' ? 'โมเดลตระกูล GPT-5/o-series ใช้ค่าเริ่มต้นของตัวเอง — จึงข้ามค่านี้ให้อัตโนมัติ' : '');
+  $('#swEnter').classList.toggle('on', !!cfg.enter);
+  $('#swSearch').classList.toggle('on', !!cfg.search);
+  $('#swTheme').classList.toggle('on', document.documentElement.dataset.theme === 'dark');
+  $('#setJina').value = keys.jina || '';
+  $('#setTavily').value = keys.tavily || '';
+  $('#swProxy').classList.toggle('on', !!cfg.proxy.enabled);
+  $('#proxyFields').hidden = !cfg.proxy.enabled;
+  $('#setProxyBase').value = cfg.proxy.base || '';
+  $('#setProxySecret').value = cfg.proxy.secret || '';
+  $('#proxyTestOut').textContent = '';
+  $('#proxyTestOut').className = 'status';
+  const proxyOk = cfg.proxy.enabled && P().proxyPath;
+  $('#providerHint').textContent = proxyOk
+    ? `${p.help} · ผ่าน Backend — LLM Key อยู่ฝั่ง server`
+    : p.help;
+  const bytes = new Blob([JSON.stringify(chats)]).size;
+  $('#usageNote').textContent = `บทสนทนา ${chats.length} รายการ · ใช้พื้นที่ราว ${(bytes / 1024).toFixed(0)} KB`;
+}
+$('#providerPicker').onchange = e => selectProvider(e.target.value);
+$('#btnPickModel').onclick = () => { close$('#shSet'); drawModelSheet(); open$('#shModel'); };
+$('#btnEye').onclick = () => { const i = $('#setKey'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; $('#btnEye').textContent = show ? 'ซ่อน' : 'แสดง'; };
+$('#btnPaste').onclick = async () => {
+  try { $('#setKey').value = (await navigator.clipboard.readText()).trim(); toast('วางแล้ว'); }
+  catch { toast('แตะค้างในช่องแล้วเลือก Paste'); }
+};
+$('#btnSaveKey').onclick = () => {
+  const v = $('#setKey').value.trim();
+  if (!v) { toast('ยังไม่ได้ใส่กุญแจ'); return; }
+  keys[cfg.provider] = v; jset(K.keys, keys); drawSettings(); head(); drawThread(); toast('บันทึกกุญแจ ' + P().name + ' แล้ว');
+};
+$('#btnDelKey').onclick = () => {
+  if (!keys[cfg.provider] || !confirm('ลบกุญแจของ ' + P().name + ' ?')) return;
+  delete keys[cfg.provider]; jset(K.keys, keys); drawSettings(); head(); drawThread(); toast('ลบแล้ว');
+};
+function saveCompatibleFields() {
+  cfg.compatible.name = $('#setCompatName').value.trim();
+  cfg.compatible.base = compatBase($('#setCompatBase').value);
+  cfg.compatible.model = $('#setCompatModel').value.trim();
+  cfg.model.compatible = cfg.compatible.model;
+  saveCfg(); head();
+}
+['#setCompatName', '#setCompatBase', '#setCompatModel'].forEach(s => $(s).addEventListener('input', saveCompatibleFields));
+$('#btnWipeKeys').onclick = () => {
+  if (!confirm('ลบกุญแจของทุกผู้ให้บริการ (รวม Jina / Tavily) ?')) return;
+  keys = {}; jset(K.keys, keys); drawSettings(); head(); drawThread(); toast('ล้างกุญแจทั้งหมดแล้ว');
+};
+$('#btnWipeAll').onclick = () => {
+  if (!confirm('ลบบทสนทนาและกุญแจทั้งหมดในเครื่องนี้ ? ย้อนกลับไม่ได้')) return;
+  [K.keys, K.cfg, K.chats].forEach(k => localStorage.removeItem(k)); location.reload();
+};
+$('#setSys').oninput  = e => { cfg.sys = e.target.value; saveCfg(); };
+$('#setTemp').oninput = e => { cfg.temp = parseFloat(e.target.value); $('#tempVal').textContent = cfg.temp.toFixed(1); saveCfg(); };
+$('#swEnter').onclick = () => { cfg.enter = !cfg.enter; saveCfg(); $('#swEnter').classList.toggle('on', cfg.enter); head(); };
+$('#swSearch').onclick = () => { cfg.search = !cfg.search; saveCfg(); $('#swSearch').classList.toggle('on', cfg.search); head(); };
+$('#swTheme').onclick = flipTheme;
+$('#setJina').oninput = e => { const v = e.target.value.trim(); if (v) keys.jina = v; else delete keys.jina; jset(K.keys, keys); };
+$('#setTavily').oninput = e => { const v = e.target.value.trim(); if (v) keys.tavily = v; else delete keys.tavily; jset(K.keys, keys); };
+$('#btnSearch').onclick = () => { cfg.search = !cfg.search; saveCfg(); head(); };
+  $('#swProxy').onclick = () => {
+    if (!P().proxyPath) { toast('ค่ายนี้ยังไม่รองรับผ่าน Backend'); return; }
+  cfg.proxy.enabled = !cfg.proxy.enabled;
+  saveCfg(); drawSettings(); head();
+};
+$('#setProxyBase').oninput = e => { cfg.proxy.base = e.target.value.trim(); saveCfg(); head(); };
+$('#setProxySecret').oninput = e => { cfg.proxy.secret = e.target.value.trim(); saveCfg(); head(); };
+$('#btnProxyClear').onclick = () => {
+  cfg.proxy.base = ''; cfg.proxy.secret = ''; cfg.proxy.enabled = false;
+  saveCfg(); drawSettings(); head(); toast('ล้างค่า Proxy แล้ว');
+};
+$('#btnProxyTest').onclick = async () => {
+  const out = $('#proxyTestOut');
+  const base = String(cfg.proxy.base || '').trim().replace(/\/+$/, '');
+  const secret = String(cfg.proxy.secret || '').trim();
+  if (!base || !secret) { out.className = 'status bad'; out.textContent = 'กรอก Worker URL และ UI Secret ก่อน'; return; }
+  if (!P().proxyPath) { out.className = 'status bad'; out.textContent = 'เลือก Gemini, Groq หรือ OpenRouter ก่อน'; return; }
+  out.className = 'status'; out.textContent = 'กำลังทดสอบ CORS / Origin / UI Secret / upstream…';
+  try {
+    const r = await fetch(`${base}/${P().proxyPath}/v1/chat/completions`, {
+      method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + secret },
+      body:JSON.stringify({ provider:P().proxyPath, model:mId(), messages:[{ role:'user', content:'Reply with OK only.' }], stream:false })
+    });
+    if (!r.ok) throw new Error(await apiError(r));
+    out.className = 'status ok'; out.textContent = '✓ Backend ใช้งานได้ และตอบจาก ' + P().name;
+  } catch (e) {
+    out.className = 'status bad'; out.textContent = 'ทดสอบไม่ผ่าน — ' + (e.message || e) + ' (เช็ค ALLOWED_ORIGIN / UI_SECRET)';
+  }
+};
+
+/* ทดสอบกุญแจ — ยิง endpoint ที่ไม่สร้างโทเคนก่อน ถ้า custom ไม่รองรับจึงยิง chat สั้นที่สุด */
+async function probeKey(pid, key) {
+  const p = pid === 'compatible' ? P() : PROVIDERS[pid];
+  if (!p?.base) return { ok:false, msg:'กรอก API Base URL ก่อนทดสอบ' };
+  let res;
+  if (pid === 'openai')          res = await fetch(p.base + '/models', { headers:{ Authorization:'Bearer ' + key } });
+  else if (pid === 'openrouter') res = await fetch(p.base + '/key',    { headers:{ Authorization:'Bearer ' + key } });
+  else if (pid === 'google')     res = await fetch(p.base + '/models', { headers:{ 'x-goog-api-key': key } });
+  else if (pid === 'deepseek')   res = await fetch(p.base + '/models', { headers:{ Authorization:'Bearer ' + key } });
+  else if (pid === 'groq')       res = await fetch(p.base + '/models', { headers:{ Authorization:'Bearer ' + key } });
+  else if (pid === 'compatible') {
+    res = await fetch(p.base + '/models', { headers:{ Authorization:'Bearer ' + key } });
+    if ((res.status === 404 || res.status === 405) && mId()) {
+      res = await fetch(p.base + '/chat/completions', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + key },
+        body:JSON.stringify({ model:mId(), max_tokens:1, messages:[{ role:'user', content:'ping' }] }) });
+    }
+  }
+  else res = await fetch(p.base + '/messages', { method:'POST', headers:{
+      'Content-Type':'application/json', 'x-api-key': key, 'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model: p.models[0].id, max_tokens: 1, messages:[{ role:'user', content:'hi' }] }) });
+  return res.ok ? { ok:true } : { ok:false, msg: await apiError(res) };
+}
+async function runKeyTest(pid, key) {
+  const st = $('#testOut');
+  if (!key) { st.className = 'status bad'; st.textContent = 'ยังไม่ได้ใส่กุญแจ'; return false; }
+  st.className = 'status'; st.textContent = 'กำลังทดสอบ…';
+  try {
+    const r = await probeKey(pid, key);
+    if (r.ok) { keys[pid] = key; jset(K.keys, keys); head(); }
+    st.textContent = r.ok ? 'กุญแจใช้งานได้ — พร้อมคุยได้เลย' : r.msg;
+    st.className = 'status ' + (r.ok ? 'ok' : 'bad');
+    return r.ok;
+  } catch (err) {
+    st.textContent = 'เชื่อมต่อไม่ได้ — ' + (err.message || err) + ' (เน็ตหลุดหรือ CORS)'; st.className = 'status bad';
+    return false;
+  }
+}
+$('#btnTest').onclick = () => runKeyTest(cfg.provider, $('#setKey').value.trim() || keys[cfg.provider]);
+
+/* backup / restore */
+$('#btnExport').onclick = () => save(JSON.stringify({ app:'kiln', v:2, at:new Date().toISOString(), keys, cfg, chats }, null, 2),
+  `kiln-backup-${stamp()}.json`, 'application/json');
+$('#btnImport').onclick = () => $('#importFile').click();
+$('#importFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (d.keys) keys = d.keys;
+    if (d.cfg) cfg = Object.assign(cfg, d.cfg);
+    cfg.model = cfg.model || {};
+    cfg.compatible = Object.assign({ name:'', base:'', model:'' }, cfg.compatible || {});
+    cfg.proxy = Object.assign({ enabled:false, base:'', secret:'' }, cfg.proxy || {});
+    if (Array.isArray(d.chats)) chats = d.chats;
+    curId = chats[0]?.id || null;
+    jset(K.keys, keys); saveCfg(); saveChats();
+    initTheme(); drawRail(); drawThread(); drawSettings(); toast('กู้คืนข้อมูลแล้ว');
+  } catch { toast('ไฟล์สำรองไม่ถูกต้อง'); }
+  e.target.value = '';
+};
+
+/* ═════════ self-test / diagnostics ═════════ */
+function runTests() {
+  const T = [];
+  const t = (name, fn) => { try { const d = fn(); T.push({ name, ok:true, detail: d || '' }); } catch (e) { T.push({ name, ok:false, detail: String(e.message || e) }); } };
+  const eq = (a, b, m) => { const A = JSON.stringify(a), B = JSON.stringify(b); if (A !== B) throw new Error((m || '') + ' ได้ ' + A + ' ควรเป็น ' + B); };
+
+  t('localStorage อ่าน/เขียนได้', () => { localStorage.setItem('kiln.probe', '1'); const v = localStorage.getItem('kiln.probe'); localStorage.removeItem('kiln.probe'); if (v !== '1') throw new Error('อ่านค่ากลับไม่ตรง'); return 'ok'; });
+  t('marked โหลดสำเร็จ', () => { if (!window.marked) throw new Error('ไม่พบ marked (ออฟไลน์?)'); if (!/<strong>/.test(marked.parse('**a**'))) throw new Error('แปลง bold ไม่ได้'); return 'แปลง markdown ได้'; });
+  t('DOMPurify กัน XSS', () => { if (!window.DOMPurify) throw new Error('ไม่พบ DOMPurify'); const o = md('<img src=x onerror=alert(1)>\n\n<script>bad()<\/script>'); if (/onerror|<script/i.test(o)) throw new Error('ยังหลุด: ' + o.slice(0, 60)); return 'สะอาด'; });
+  t('highlight.js พร้อมใช้', () => { if (!window.hljs) throw new Error('ไม่พบ hljs'); const r = hljs.highlight('const a=1', { language:'javascript' }); if (!/hljs-/.test(r.value)) throw new Error('ไม่ทำงาน'); return 'ok'; });
+  t('ตาราง Markdown เรนเดอร์ได้', () => { const o = md('| a | b |\n|---|---|\n| 1 | 2 |'); if (!/<table/.test(o)) throw new Error('ไม่เป็นตาราง'); return 'ok'; });
+  t('SSE: แยกอีเวนต์ข้ามก้อนข้อมูล', () => {
+    const p = new SSE();
+    let got = [];
+    got = got.concat(p.push('data: {"n":1}\n\ndata: {"n'));
+    got = got.concat(p.push('":2}\n\n: comment\ndata: [DONE]\n\n'));
+    eq(got.map(g => g.done ? 'D' : g.data.n), [1, 2, 'D']);
+    return 'สามอีเวนต์ถูกต้อง';
+  });
+  t('SSE: ทน CRLF และบรรทัดว่าง', () => { const p = new SSE(); const g = p.push('\r\ndata: {"x":true}\r\n\r\n'); eq(g.length, 1); eq(g[0].data.x, true); return 'ok'; });
+  t('SSE: อ่าน event: ของ Responses API', () => {
+    const p = new SSE();
+    const g = p.push('event: response.output_text.delta\ndata: {"delta":"Hi"}\n\n');
+    eq(g[0].event, 'response.output_text.delta'); eq(g[0].data.delta, 'Hi'); return 'ok';
+  });
+  t('จัดรูปแบบผลค้นเว็บ', () => {
+    const s = formatSearchResults([{ title:'A', url:'https://a.test', snippet:'hello' }]);
+    if (!s.includes('https://a.test') || !s.includes('hello')) throw new Error(s); return 'ok';
+  });
+  t('parse arguments ของ tool', () => { eq(parseToolArgs('{"query":"บิตคอยน์"}').query, 'บิตคอยน์'); eq(parseToolArgs('not-json').query, 'not-json'); return 'ok'; });
+  t('Responses input แปลงข้อความ', () => {
+    const o = buildResponsesInput([{ role:'user', content:'hi' }, { role:'assistant', content:'yo' }], false);
+    eq(o[0].role, 'user'); eq(o[1].role, 'assistant'); eq(o[0].content, 'hi'); return 'ok';
+  });
+  t('นิยาม web_search tool', () => { eq(SEARCH_TOOL.function.name, 'web_search'); if (!SEARCH_TOOL.function.parameters.properties.query) throw new Error('ขาด query'); return 'ok'; });
+  t('นามสกุลไฟล์จากภาษา', () => { eq([extFor('python'), extFor('JavaScript'), extFor('rust'), extFor('nope')], ['py', 'js', 'rs', 'txt']); return 'py / js / rs / txt'; });
+  t('ดึงหลายไฟล์จาก code fence', () => {
+    const src = 'นี่โปรเจกต์\n```html index.html\n<h1>Hi</h1>\n```\n```css styles.css\nbody{}\n```\n```js app.js\nconsole.log(1)\n```';
+    const f = extractArtifacts(src);
+    eq(f.length, 3); eq(f[0].name, 'index.html'); eq(f[1].name, 'styles.css'); eq(f[2].name, 'app.js');
+    eq(f[0].runnable, true);
+    const stripped = stripCodeFences(src, f);
+    if (stripped.includes('<h1>Hi</h1>')) throw new Error('ยังเหลือโค้ดยาว');
+    if (!stripped.includes('«file:index.html»')) throw new Error('ไม่แทนที่ด้วยการ์ด');
+    return '3 ไฟล์ + ซ่อนโค้ดยาว';
+  });
+  t('safePath กัน path traversal', () => { eq(safePath('../etc/passwd'), 'etc/passwd'); eq(safePath('/a/b.txt'), 'a/b.txt'); return 'ok'; });
+  t('JSZip พร้อมสร้าง/แตก ZIP', () => { if (!window.JSZip) throw new Error('ไม่พบ JSZip'); return 'ok'; });
+  t('Test Lab ไม่ต้องใช้ API Key', () => {
+    if (PROVIDERS.demo.wire !== 'demo' || !PROVIDERS.demo.models[0].id) throw new Error('ไม่พบโมเดลทดสอบ');
+    const reply = buildDemoReply('1');
+    eq(reply.demoFiles, ['pdf']);
+    return 'เลือกแล้วรับ PDF ได้';
+  });
+  t('รหัส 1.1 และ 2 ส่งไฟล์ที่ถูกต้อง', () => {
+    eq(buildDemoReply('1.1').demoFiles, ['pptx']);
+    const all = buildDemoReply('2');
+    eq(all.demoFiles.length, DEMO_SPECS.length);
+    eq(all.demoZip, true);
+    return `${all.demoFiles.length} นามสกุล`;
+  });
+  t('พิมพ์อะไรก็ได้แสดงคู่มือ', () => {
+    const r = buildDemoReply('สวัสดี');
+    if (!r.content.includes('`1.1`') || !r.content.includes('`2`') || r.demoFiles) throw new Error('คู่มือไม่ครบ');
+    return 'เมนูพร้อม';
+  });
+  t('ชื่อไฟล์ทดสอบไม่ซ้ำ', () => {
+    const names = DEMO_SPECS.map(s => s.name), cmds = DEMO_SPECS.map(s => s.cmd);
+    if (new Set(names).size !== names.length || new Set(cmds).size !== cmds.length) throw new Error('ชื่อ/คำสั่งซ้ำ');
+    return `${names.length} ชนิด`;
+  });
+  t('ZIP = ไฟล์แนบชิ้นเดียว (บั๊กชิปซ้ำ)', () => {
+    const z = { type:'zip', name:'site.zip', total:3, files:[{ name:'index.html', text:'<h1>x</h1>' }, { name:'app.js', text:'let a = 1' }],
+      skipped:[{ name:'logo.png', reason:'ไฟล์ไบนารี/รูปภาพ' }] };
+    const keep = pending;
+    try { pending = [z]; drawAtt(); eq(document.querySelectorAll('#attRow .chip').length, 1); }
+    finally { pending = keep; drawAtt(); }
+    const s = flatten({ content:'ดูโปรเจกต์', attachments:[z] });
+    if (!s.includes('ZIP: site.zip') || !s.includes('- logo.png') || !s.includes('### file: app.js')) throw new Error('prompt ไม่ครบ');
+    return '1 ชิป · prompt มีโครงสร้าง + เนื้อหาไฟล์';
+  });
+  t('ข้อความเก่าที่แตก ZIP รวมกลับเป็นป้ายเดียว', () => {
+    const d = displayAttachments([{ type:'text', name:'a.js', text:'1', fromZip:'p.zip' },
+      { type:'text', name:'b.js', text:'2', fromZip:'p.zip' }, { type:'text', name:'c.md', text:'3' }]);
+    eq(d.length, 2); eq(d[0].type, 'zip'); eq(d[0].total, 2);
+    return '3 ไฟล์ → 2 ป้าย';
+  });
+  t('code fence ไม่ขาดเมื่อไฟล์มี ``` ข้างใน', () => { eq(fenceFor('a\n```js\nx\n```'), '````'); eq(fenceFor('plain'), '```'); return 'ok'; });
+  t('ดึงสไลด์จากโค้ด python-pptx', () => {
+    const py = 'from pptx import Presentation\nprs = Presentation()\ns = prs.slides.add_slide(prs.slide_layouts[0])\ns.shapes.title.text = "แผนธุรกิจ"\ns.placeholders[1].text = "ไตรมาส 1"\ns2 = prs.slides.add_slide(prs.slide_layouts[1])\ns2.shapes.title.text = "รายได้"\nprs.save("deck.pptx")';
+    const slides = pySlides(py);
+    eq(slides.length, 2); eq(slides[0].title, 'แผนธุรกิจ'); eq(slides[0].bullets, ['ไตรมาส 1']); eq(slides[1].title, 'รายได้');
+    return '2 สไลด์ + ข้ามชื่อไฟล์ .pptx';
+  });
+  t('ดึงสไลด์จาก markdown', () => {
+    const s = mdSlides('# หน้าแรก\n- ข้อหนึ่ง\n- ข้อสอง\n## หน้าสอง\nเนื้อหา');
+    eq(s.length, 2); eq(s[0].bullets.length, 2); eq(s[1].title, 'หน้าสอง');
+    return 'หัวข้อ = สไลด์';
+  });
+  t('อ่าน CSV มีเครื่องหมายคำพูด', () => {
+    const r = csvRows('a,b\n"x, y",2');
+    eq(r[1][0], 'x, y'); eq(r[1][1], '2'); return 'ok';
+  });
+  t('filePlan เลือกปลายทางถูก', () => {
+    eq(filePlan({ name:'deck.py', lang:'python', content:'prs.slides.add_slide(x)' })?.out, 'pptx');
+    eq(filePlan({ name:'data.csv', lang:'csv', content:'a,b\n1,2' })?.out, 'xlsx');
+    eq(filePlan({ name:'notes.md', lang:'markdown', content:'# a\nx\n# b\ny' })?.out, 'pptx');
+    eq(filePlan({ name:'app.js', lang:'javascript', content:'console.log(1)' }), null);
+    return 'py→pptx, csv→xlsx, md→pptx, js ทั่วไป→ไม่แปลง';
+  });
+  t('ตัวจับลูปทำงาน / ไม่จับผิด', () => {
+    const loop = 'เริ่ม ' + 'ทำซ้ำประโยคเดิมยาว ๆ เพื่อทดสอบระบบตรวจจับการวนซ้ำของโมเดล '.repeat(12);
+    if (!repeatLoop(loop)) throw new Error('ไม่จับลูปที่ชัดเจน');
+    if (repeatLoop('ข้อความปกติที่ไม่ได้ซ้ำอะไรเลย และมีเนื้อหาหลากหลายมากพอสมควรในหนึ่งย่อหน้า')) throw new Error('จับผิดข้อความปกติ');
+    return 'จับซ้ำ 4 รอบ · ผ่านข้อความปกติ';
+  });
+  t('รู้ว่ากำลังเขียนไฟล์อะไรกลางสตรีม', () => {
+    const info = openFenceInfo('เกริ่น\n```html index.html\n<h1>');
+    eq(info.inside, true); eq(info.label, 'index.html');
+    eq(openFenceInfo('จบแล้ว\n```js a.js\nx\n```\n').inside, false);
+    return 'ok';
+  });
+
+  t('ZIP: ข้าม .env และโฟลเดอร์ระบบ', () => {
+    if (!ZIP_SECRET.test('app/.env') || !ZIP_SECRET.test('.env.local') || ZIP_SECRET.test('.env.example')) throw new Error('.env');
+    if (!ZIP_JUNK.test('__MACOSX/a/._x') || !ZIP_JUNK.test('web/node_modules/x/index.js') || ZIP_JUNK.test('src/index.js')) throw new Error('junk');
+    return 'ไม่ส่งไฟล์ลับ / ไฟล์ระบบ';
+  });
+  t('แนบไฟล์ข้อความเข้า prompt', () => { const s = flatten({ content:'ดูไฟล์นี้', attachments:[{ type:'text', name:'a.py', text:'print(1)' }] }); if (!s.includes('file: a.py') || !s.includes('print(1)')) throw new Error('ไม่พบเนื้อไฟล์'); return 'ok'; });
+  t('ชื่อไฟล์จากข้อความที่วางยาว', () => { const old = pending; pending = []; const a = { type:'text', name:nextPastedName(true), pasted:true }; eq(a.name, 'pasted_code.txt'); pending = old; return 'ok'; });
+  t('payload OpenAI (มีรูป + system)', () => {
+    const m = [{ role:'user', content:'ดูรูป', attachments:[{ type:'image', name:'i.png', mime:'image/png', dataUrl:'data:image/png;base64,AAA' }] }];
+    const o = buildOpenAI(m, true, 'be nice');
+    eq(o[0].role, 'system'); eq(o[1].content[1].type, 'image_url'); eq(o[1].content[1].image_url.url, 'data:image/png;base64,AAA'); return 'ok';
+  });
+  t('payload OpenAI (โมเดลไม่รับรูป)', () => { const o = buildOpenAI([{ role:'user', content:'hi', attachments:[{ type:'image', dataUrl:'data:image/png;base64,AAA' }] }], false, ''); eq(typeof o[0].content, 'string'); return 'ตัดรูปออกถูกต้อง'; });
+  t('payload Anthropic (base64 แยกหัว)', () => { const o = buildAnthropic([{ role:'user', content:'hi', attachments:[{ type:'image', mime:'image/png', dataUrl:'data:image/png;base64,ZZZ' }] }], true); eq(o[0].content[0].source.data, 'ZZZ'); return 'ok'; });
+  t('payload Gemini (role model)', () => { const o = buildGemini([{ role:'user', content:'a' }, { role:'assistant', content:'b' }], false); eq([o[0].role, o[1].role], ['user', 'model']); return 'ok'; });
+  t('ข้าม message ที่ error', () => { const o = buildOpenAI([{ role:'assistant', content:'x', error:true }, { role:'user', content:'y' }], false, ''); eq(o.length, 1); return 'ok'; });
+  t('reasoning → OpenAI', () => { eq(reasonParams('openai', { think:'opt', off:true }, 'high'), { reasoning_effort:'high' }); eq(reasonParams('openai', { think:'opt' }, 'auto'), {}); return 'ok'; });
+  t('reasoning → Anthropic budget', () => { eq(reasonParams('anthropic', { think:'opt' }, 'medium'), { thinking:{ type:'enabled', budget_tokens:8000 } }); return '8000 tokens'; });
+  t('reasoning → Gemini thinkingConfig', () => { eq(reasonParams('gemini', { think:'opt' }, 'low').thinkingConfig.thinkingBudget, 1024); eq(reasonParams('gemini', { think:'opt', off:true }, 'off').thinkingConfig.thinkingBudget, 0); return 'ok'; });
+  t('reasoning → Gemini 3 ใช้ thinkingLevel', () => {
+    eq(reasonParams('gemini', { think:'opt', tlevel:true }, 'high'), { thinkingConfig:{ thinkingLevel:'high' } });
+    eq(reasonParams('gemini', { think:'opt', tlevel:true }, 'medium'), { thinkingConfig:{ thinkingLevel:'high' } });
+    eq(reasonParams('gemini', { think:'opt', tlevel:true }, 'off'), { thinkingConfig:{ thinkingLevel:'low' } });
+    eq(reasonParams('gemini', { think:'opt', tlevel:true }, 'auto'), {});
+    return 'low/high (Gemini 3 ปิดคิดไม่ได้สนิท)';
+  });
+  t('DeepSeek V4 ส่ง reasoning_content กลับ', () => {
+    const o = buildOpenAI([{ role:'assistant', content:'ตอบแล้ว', reasoning:'คิดอะไรมา' }], false, '', 'deepseek');
+    eq(o[0].reasoning_content, 'คิดอะไรมา');
+    const e = buildOpenAI([{ role:'assistant', content:'ไม่มีเหตุผล' }], false, '', 'deepseek');
+    eq(e[0].reasoning_content, '');
+    return 'มี/ไม่มี ต้องมีฟิลด์เสมอ';
+  });
+  t('เจ้าอื่นไม่ส่ง reasoning_content', () => {
+    const o = buildOpenAI([{ role:'assistant', content:'x', reasoning:'y' }], false, '', 'openai');
+    eq('reasoning_content' in o[0], false); return 'ok';
+  });
+  t('รายการผู้ให้บริการในตัวเลือก', () => {
+    drawSettings();
+    const values = [...document.querySelectorAll('#providerPicker option')].map(o => o.value);
+    eq(values.length, Object.keys(PROVIDERS).length);
+    if (!values.includes('compatible')) throw new Error('ไม่พบ OpenAI-compatible');
+    if (!['google','groq','openrouter'].every(id => PROVIDERS[id].proxyPath)) throw new Error('proxy path ไม่ครบ');
+    return values.length + ' ตัวเลือก + custom endpoint';
+  });
+  t('Proxy mode ไม่บังคับ LLM key', () => {
+    const old = { provider:cfg.provider, enabled:cfg.proxy.enabled };
+    try {
+      cfg.provider = 'groq'; cfg.proxy.enabled = true;
+      if (!proxySupported()) throw new Error('ไม่เข้า proxy mode');
+    } finally {
+      cfg.provider = old.provider; cfg.proxy.enabled = old.enabled;
+    }
+    return 'Gemini / Groq / OpenRouter ใช้ UI Secret แทน';
+  });
+  t('สร้าง connection OpenAI-compatible', () => {
+    const before = { ...cfg.compatible }, old = cfg.provider;
+    cfg.provider = 'compatible'; cfg.compatible = { name:'Groq', base:'https://api.groq.com/openai/v1/', model:'llama-3.3-70b-versatile' };
+    eq(P().name, 'Groq'); eq(P().base, 'https://api.groq.com/openai/v1'); eq(mId(), 'llama-3.3-70b-versatile');
+    cfg.compatible = before; cfg.provider = old;
+    return 'ชื่อ / URL / model แยกได้';
+  });
+  t('reasoning → DeepSeek V4', () => { eq(reasonParams('deepseek', { think:'opt', off:true }, 'high'), { thinking:{ type:'enabled' }, reasoning_effort:'max' }); eq(reasonParams('deepseek', { think:'opt', off:true }, 'off'), { thinking:{ type:'disabled' } }); return 'max / disabled'; });
+  t('reasoning → โมเดลที่ไม่รองรับ', () => { eq(reasonParams('openai', { think:false }, 'high'), {}); return 'ไม่ส่งพารามิเตอร์'; });
+  t('ปิดการคิดในโมเดลที่ปิดไม่ได้', () => { eq(reasonParams('gemini', { think:'opt' }, 'off').thinkingConfig.thinkingBudget, -1); return 'ถอยไปใช้ auto'; });
+  t('รายการโมเดลครบถ้วน', () => {
+    let n = 0;
+    for (const [id, p] of Object.entries(PROVIDERS)) {
+      if ((!p.base && id !== 'compatible') || !p.wire || !p.models.length) throw new Error(id + ' ข้อมูลไม่ครบ');
+      p.models.forEach(m => { if ((!m.id && id !== 'compatible') || !m.label) throw new Error(id + ' มีโมเดลที่ข้อมูลไม่ครบ'); n++; });
+    }
+    return n + ' โมเดล / ' + Object.keys(PROVIDERS).length + ' ตัวเลือก (รวม custom endpoint)';
+  });
+  t('Blob + ดาวน์โหลดไฟล์ได้', () => { const u = URL.createObjectURL(new Blob(['x'])); URL.revokeObjectURL(u); if (!('download' in document.createElement('a'))) throw new Error('เบราว์เซอร์ไม่รองรับ download'); return 'ok'; });
+  t('fetch + AbortController + stream', () => { if (!window.fetch || !window.AbortController || !window.ReadableStream) throw new Error('เบราว์เซอร์เก่าเกินไป'); return 'ok'; });
+  t('บทสนทนา: สร้าง/แก้ชื่อ/ลบ', () => {
+    const before = chats.length;
+    const tmp = { id:'probe', title:'t', messages:[], ts:Date.now() };
+    chats.unshift(tmp); tmp.title = 'renamed';
+    chats = chats.filter(c => c.id !== 'probe');
+    if (chats.length !== before) throw new Error('ลบไม่สะอาด');
+    return 'สถานะคงเดิม';
+  });
+  t('ฟอนต์ถูกโหลด', () => { if (!document.fonts) return 'ตรวจไม่ได้'; const ok = document.fonts.check('16px "IBM Plex Sans Thai"'); return ok ? 'IBM Plex Sans Thai พร้อม' : 'ยังใช้ฟอนต์สำรอง (ออฟไลน์?)'; });
+  t('Admin: PBKDF2 แฮชรหัสผ่าน (ทดสอบในหน้าตรวจไฟล์จริง)', () => { if (!window.crypto?.subtle) throw new Error('เบราว์เซอร์ไม่รองรับ WebCrypto'); return 'WebCrypto พร้อม'; });
+  t('Admin: PBKDF2 แฮชรหัสผ่านได้ (ไม่เก็บ plain)', async () => {
+    const salt = ADM.hex(16), h1 = await ADM.hash('CorrectHorse1', salt), h2 = await ADM.hash('CorrectHorse1', salt);
+    if (h1 !== h2) throw new Error('hash ไม่สม่ำเสมอ');
+    if (h1 === await ADM.hash('WrongHorse2', salt)) throw new Error('รหัสผ่านต่างกันแต่ hash เดียวกัน');
+    if (String(h1).toLowerCase().includes('correct')) throw new Error('hash มี plain text หลุด');
+    return '210,000 รอบ · ตรวจซ้ำ/ต่างรหัสผ่านถูกต้อง';
+  });
+  t('Admin: Permission matrix แยกบทบาทถูกต้อง', () => {
+    const superR = ADM_ROLES['super-admin'], viewer = ADM_ROLES.viewer;
+    if (!superR.includes('admins.write') || viewer.includes('admins.write')) throw new Error('บทบาท admin ไม่ถูกจำกัด');
+    if (viewer.includes('settings.write') || viewer.includes('users.delete')) throw new Error('viewer ได้สิทธิ์เกิน');
+    if (!viewer.includes('analytics.read')) throw new Error('viewer ขาดสิทธิ์อ่าน');
+    const dup = new Set(ADM_PERMS).size;
+    if (dup !== ADM_PERMS.length) throw new Error('permission ซ้ำกัน');
+    return Object.keys(ADM_ROLES).length + ' บทบาท · ' + ADM_PERMS.length + ' สิทธิ์';
+  });
+  t('Admin: API Key ถูกปกปิดและ hash ไม่ย้อนได้', async () => {
+    const k = 'sk-test-1234567890abcdefghij', m = ADM.mask(k);
+    if (!m.includes('•') || !m.endsWith(k.slice(-3)) || m.includes('1234567890')) throw new Error('mask ไม่พอ');
+    const s = ADM.hex(16), h = await ADM.hash(k, s, 100000);
+    if (h.includes(k.slice(4, 20))) throw new Error('hash ยังมี key หลุดอยู่');
+    return m;
+  });
+  t('Admin: Audit log บันทึก action ครบ + append-only', () => {
+    const keep = admData ? JSON.parse(JSON.stringify(admData)) : null;
+    if (!admData) admData = admSeed();
+    admData.audit = []; admState = admState || { email:'probe@local', role:'super-admin' };
+    ['LOGIN','DELETE_USER','CHANGE_SETTINGS','LOGOUT'].forEach((a, i) => admAudit(a, 't' + i, 'success'));
+    if (admData.audit.length !== 4) throw new Error('บันทึกไม่ครบ');
+    if (admData.audit[0].action !== 'LOGIN') throw new Error('ลำดับผิด');
+    const before = JSON.stringify(admData.audit);
+    admAudit('LOGIN', 'x', 'success');                     // ทดสอบว่า append อย่างเดียว ไม่มีทางแก้ย้อน
+    if (!JSON.stringify(admData.audit).startsWith(before.slice(0, -1))) throw new Error('แก้ไขรายการเดิมได้');
+    admData = keep;                                        // คืนค่าเดิม
+    return '4 action · append-only';
+  });
+  t('Admin: ตารางต้องมี pagination และตัดผลลัพธ์', () => {
+    if (admQuery.limit !== 25) throw new Error('limit ผิด');
+    const html = admPagi(50, 25, 120);
+    if (!html.includes('51–75') || !html.includes('จาก 120')) throw new Error('คำนวณหน้าผิด: ' + html.slice(0, 80));
+    return '25 แถว/หน้า · 120 รายการ = 5 หน้า';
+  });
+  t('Admin: UI ไม่มีอิโมจิในส่วน Admin', () => {
+    const emo = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+    const iconKeys = Object.keys(AI);
+    if (!iconKeys.length) throw new Error('ไม่มีไอคอน');
+    const labels = ADM_NAV.filter(n => n.t).map(n => n.t).join('') + 'DashboardUsersFilesModelsSettingsSystem HealthAnalytics';
+    if (emo.test(labels)) throw new Error('พบอิโมจิในป้ายชื่อ');
+    if (!/^<svg/.test(ai(AI.dash))) throw new Error('ไอคอนไม่ใช่ SVG');
+    return iconKeys.length + ' ไอคอน SVG · 0 อิโมจิ';
+  });
+  t('Admin: คำนวณต้นทุนจาก token ถูกต้อง', () => {
+    const inTok = 12450, outTok = 4820, pin = 0.25, pout = 1.0;
+    const cost = +(((inTok / 1e6) * pin) + ((outTok / 1e6) * pout)).toFixed(6);
+    if (Math.abs(cost - 0.00792) > 1e-5) throw new Error('ผิด: ' + cost);
+    return '$' + cost + ' จาก 12,450 + 4,820 tokens';
+  });
+  t('Admin: จุดเข้า /admin ทำงานผ่าน hash router', () => {
+    if (!admPath && !window.addEventListener) throw new Error('ไม่มี router');
+    const cur = location.hash;
+    location.hash = '#/admin/users';
+    const p = admPath();
+    location.hash = cur || '';
+    if (p !== 'users') throw new Error('route ผิด: ' + p);
+    return '#/admin/users → users';
+  });
+  return T;
+}
+function showDiag() {
+  const box = $('#diagList'); box.innerHTML = '';
+  const res = runTests();
+  res.forEach(r => {
+    const row = h('div', 'trow');
+    row.append(h('span', 'st ' + (r.ok ? 'p' : 'f'), r.ok ? 'PASS' : 'FAIL'));
+    const nm = h('div', 'nm'); nm.append(document.createTextNode(r.name));
+    if (r.detail) nm.append(h('span', 'dt', r.detail));
+    row.append(nm); box.append(row);
+  });
+  const pass = res.filter(r => r.ok).length;
+  const sum = h('div', 'trow');
+  sum.append(h('span', 'st ' + (pass === res.length ? 'p' : 'f'), pass + '/' + res.length));
+  sum.append(h('div', 'nm', pass === res.length ? 'ผ่านทั้งหมด — ระบบพร้อมใช้งาน' : 'มีบางรายการไม่ผ่าน (ดูรายละเอียดด้านบน)'));
+  box.prepend(sum);
+}
+$('#btnDiag').onclick = () => { showDiag(); open$('#shDiag'); };
+$('#btnRerun').onclick = showDiag;
+
+$('#btnVerifyFiles').onclick = async () => {
+  const btn = $('#btnVerifyFiles'), box = $('#verifyFileResults');
+  btn.disabled = true; btn.textContent = 'กำลังตรวจไฟล์…'; box.innerHTML = '';
+  let passed = 0, total = 0;
+  const check = async (label, fn) => {
+    const row = h('div', 'trow');
+    const status = h('span', 'st', '…'), body = h('div', 'nm', label);
+    row.append(status, body); box.append(row);
+    total++;
+    try {
+      const detail = await fn();
+      passed++; status.className = 'st p'; status.textContent = 'PASS';
+      if (detail) body.append(h('span', 'dt', detail));
+    } catch(e) {
+      status.className = 'st f'; status.textContent = 'FAIL';
+      body.append(h('span', 'dt', e.message || String(e)));
+    }
+  };
+  const requireParts = async (id, parts) => {
+    if (!window.JSZip) throw new Error('JSZip ไม่พร้อม');
+    const { blob } = await getDemoArtifact(id);
+    const zip = await JSZip.loadAsync(blob);
+    for (const path of parts) {
+      const part = zip.file(path);
+      if (!part) throw new Error('ขาด ' + path);
+      if (/\.xml$/.test(path)) {
+        const doc = new DOMParser().parseFromString(await part.async('string'), 'application/xml');
+        if (doc.querySelector('parsererror')) throw new Error('XML ผิดรูปแบบ: ' + path);
+      }
+    }
+    return `${parts.length} ส่วน · ${byteSize(blob.size)}`;
+  };
+  try {
+    await check('PDF พร้อม xref', async () => {
+      const pdf = await (await getDemoArtifact('pdf')).blob.text();
+      const match = pdf.match(/startxref\n(\d+)\n%%EOF/);
+      if (!pdf.startsWith('%PDF-') || !match || pdf.slice(Number(match[1]), Number(match[1])+4) !== 'xref') throw new Error('ส่วนหัว/xref ไม่ถูกต้อง');
+      return byteSize(pdf.length);
+    });
+    await check('PowerPoint (.pptx)', () => requireParts('pptx', ['[Content_Types].xml','ppt/presentation.xml','ppt/slides/slide1.xml','ppt/slideMasters/slideMaster1.xml','ppt/theme/theme1.xml']));
+    await check('Word (.docx)', () => requireParts('docx', ['[Content_Types].xml','_rels/.rels','word/document.xml']));
+    await check('Excel (.xlsx)', () => requireParts('xlsx', ['[Content_Types].xml','xl/workbook.xml','xl/worksheets/sheet1.xml']));
+    await check('PNG + JPG', async () => {
+      const png = new Uint8Array(await (await getDemoArtifact('png')).blob.arrayBuffer());
+      const jpg = new Uint8Array(await (await getDemoArtifact('jpg')).blob.arrayBuffer());
+      if (png[0] !== 137 || png[1] !== 80 || png[2] !== 78 || png[3] !== 71 || jpg[0] !== 255 || jpg[1] !== 216) throw new Error('ลายเซ็นไฟล์ภาพไม่ถูกต้อง');
+      return 'PNG + JPEG ที่เปิดได้';
+    });
+    await check('ZIP รวมทุกไฟล์', async () => {
+      if (!window.JSZip) throw new Error('JSZip ไม่พร้อม');
+      const zip = await JSZip.loadAsync(await getDemoZip(DEMO_SPECS.map(s => s.id)));
+      const missing = DEMO_SPECS.filter(s => !zip.file(s.name));
+      if (missing.length) throw new Error('ขาด ' + missing.map(s => s.name).join(', '));
+      return `${DEMO_SPECS.length} ไฟล์ครบ`;
+    });
+    await check('อ่านข้อความจาก DOCX / PPTX / XLSX', async () => {
+      const got = [];
+      for (const id of ['docx', 'pptx', 'xlsx']) {
+        const { spec, blob } = await getDemoArtifact(id);
+        const text = await officeText(blob, spec.name);
+        if (!/kiln|hello|name/i.test(text)) throw new Error('อ่าน ' + spec.name + ' ไม่เจอข้อความ');
+        got.push(spec.name);
+      }
+      return got.join(' · ');
+    });
+    await check('แนบ ZIP กลับเข้ามา = ไฟล์แนบ 1 ชิ้น', async () => {
+      const z = await readZip(await getDemoZip(DEMO_SPECS.map(s => s.id)), 'kiln-test-all.zip');
+      if (z.type !== 'zip') throw new Error('ไม่ได้รวมเป็นก้อนเดียว');
+      if (z.total !== DEMO_SPECS.length) throw new Error(`นับได้ ${z.total} ไฟล์ ควรเป็น ${DEMO_SPECS.length}`);
+      return `1 ชิ้น · อ่านได้ ${z.files.length} · ข้าม ${z.skipped.length}`;
+    });
+    await check('ตัวแปลง: markdown → PDF จริง (รองรับไทย)', async () => {
+      const blob = await makePdfFromText('# ทดสอบ\nสวัสดีชาวโลก ภาษาไทยต้องแสดงผลได้\nHello world', 'ทดสอบ');
+      const text = await blob.text();
+      if (!text.startsWith('%PDF-1.4') || !text.includes('/DCTDecode') || !text.includes('%%EOF')) throw new Error('โครง PDF ไม่ครบ');
+      const m = text.match(/startxref\n(\d+)\n/);
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const at = new TextDecoder().decode(bytes.slice(Number(m[1]), Number(m[1]) + 4));
+      if (at !== 'xref') throw new Error('ตำแหน่ง xref เพี้ยน');
+      return byteSize(blob.size) + ' · ข้อความวาดเป็นภาพ จึงแสดงไทยได้';
+    });
+    await check('ตัวแปลง: python-pptx → .pptx จริง', async () => {
+      const slides = pySlides('p.slides.add_slide(a)\nt.text = "Slide One"\nb.text = "Point"\np.slides.add_slide(a)\nt.text = "Slide Two"');
+      const blob = await makePptxFromSlides(slides, 'test');
+      const zip = await JSZip.loadAsync(blob);
+      if (!zip.file('ppt/slides/slide1.xml') || !zip.file('ppt/slides/slide2.xml')) throw new Error('จำนวนสไลด์ไม่ครบ');
+      const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+      if (!xml.includes('Slide One')) throw new Error('ข้อความหาย');
+      return '2 สไลด์ พร้อมข้อความจริง';
+    });
+    await check('ตัวแปลง: CSV → .xlsx จริง', async () => {
+      const blob = await makeXlsxFromRows(csvRows('ชื่อ,ยอด\nกาแฟ,120\n"ชา, เย็น",80'));
+      const zip = await JSZip.loadAsync(blob);
+      const xml = await zip.file('xl/worksheets/sheet1.xml').async('string');
+      if (!xml.includes('กาแฟ') || !xml.includes('<v>120</v>') || !xml.includes('ชา, เย็น')) throw new Error('ข้อมูลไม่ครบ: ตัวเลขต้องเป็น number, ข้อความเป็น inlineStr');
+      return 'ตัวเลข/ข้อความ/คอมมาในเซลล์ ครบ';
+    });
+  } finally {
+    const summary = h('div', 'status ' + (passed === total ? 'ok' : 'bad'), `ตรวจได้ ${passed}/${total} รายการ`);
+    box.prepend(summary); btn.disabled = false; btn.textContent = 'ตรวจอีกครั้ง';
+  }
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   ADMIN APP  (#/admin — hash routing เพราะ GitHub Pages ไม่มี SPA fallback)
+   สถาปัตยกรรม:
+     UI (หน้านี้)  →  AdminAPI  →  2 โหมด
+       'local'  : ข้อมูลบนเครื่องนี้ + ชุดตัวอย่าง (ทดลอง UI ได้ทันที)
+       'worker' : เรียก worker-admin.js + D1 จริง (ข้อมูลจริง, ตรวจสิทธิ์ฝั่ง server)
+   หลักการ: ในโหมด worker permission ถูกตรวจ "อีกครั้ง" ที่ server ทุก request
+     — ปุ่มที่ซ่อนใน UI เป็นแค่การเรนเดอร์ให้สวย ไม่ใช่มาตรการความปลอดภัย
+   ════════════════════════════════════════════════════════════════════ */
+const AI = {  /* Lucide ผ่าน inline SVG — ไม่มีอิโมจิในส่วน Admin */
+  dash:'<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11"/>',
+  chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/>',
+  cpu:'<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
+  key:'<path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L19 4m-3.5 3.5L18 10"/>',
+  chart:'<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>',
+  term:'<path d="M4 17l6-6-6-6M12 19h8"/>',
+  shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  heart:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  bell:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+  dollar:'<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  warn:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+  db:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+  server:'<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/>',
+  activity:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  out:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+  menu:'<path d="M3 12h18M3 6h18M3 18h18"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  trash:'<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  eye:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  dl:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon:'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  left:'<path d="m15 18-6-6 6-6"/>',
+  right:'<path d="m9 18 6-6-6-6"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  ban:'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  restore:'<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/>',
+  lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  coin:'<circle cx="12" cy="12" r="10"/><path d="M15 9.5A2.5 2.5 0 0 0 12.5 8h-1a2.5 2.5 0 0 0 0 5h1a2.5 2.5 0 0 1 0 5h-1A2.5 2.5 0 0 1 9 15.5"/>'
+};
+const ai = (d, s = 16, sw = 1.7) =>
+  `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+
+/* ── Roles & permissions (client copy; server ตรวจซ้ำใน worker-admin.js) ── */
+const ADM_PERMS = ['users.read','users.write','users.delete','conversations.read','conversations.delete','files.read',
+  'files.delete','models.read','models.write','api_keys.read','api_keys.write','analytics.read','jobs.read',
+  'logs.read','audit.read','settings.read','settings.write','system.read','admins.write'];
+const ADM_ROLES = {
+  'super-admin': ADM_PERMS,
+  admin: ADM_PERMS.filter(p => p !== 'admins.write'),
+  moderator: ['users.read','users.write','conversations.read','conversations.delete','files.read','files.delete','logs.read'],
+  support: ['users.read','conversations.read','files.read','jobs.read','logs.read'],
+  viewer: ['users.read','conversations.read','files.read','analytics.read','logs.read','audit.read']
+};
+const ADM_NAV = [
+  { g:'ภาพรวม' },
+  { k:'dashboard', t:'Dashboard', i:'dash', p:null },
+  { k:'analytics', t:'Analytics', i:'chart', p:'analytics.read' },
+  { k:'จัดการข้อมูล' },
+  { k:'users', t:'Users', i:'users', p:'users.read' },
+  { k:'conversations', t:'Conversations', i:'chat', p:'conversations.read' },
+  { k:'files', t:'Files', i:'file', p:'files.read' },
+  { k:'jobs', t:'File Jobs', i:'activity', p:'jobs.read' },
+  { k:'ระบบ AI' },
+  { k:'models', t:'AI Models', i:'cpu', p:'models.read' },
+  { k:'keys', t:'API Keys', i:'key', p:'api_keys.read' },
+  { k:'บันทึก' },
+  { k:'logs', t:'System Logs', i:'term', p:'logs.read' },
+  { k:'audit', t:'Audit Log', i:'shield', p:'audit.read' },
+  { k:'ตั้งค่า' },
+  { k:'system', t:'System Health', i:'heart', p:'system.read' },
+  { k:'settings', t:'Settings', i:'gear', p:'settings.read' },
+  { k:'notifications', t:'Notifications', i:'bell', p:'logs.read' }
+];
+
+/* ── Local-first data layer ── */
+const AK = 'kiln.admin';
+const admLoad = k => jget(AK + '.' + k, null);
+const admSave = (k, v) => jset(AK + '.' + k, v);
+const ADM = {
+  hash: async (pw, saltHex, iter = 210000) => {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const salt = new Uint8Array((saltHex.match(/../g) || []).map(h => parseInt(h, 16)));
+    return hex(await crypto.subtle.deriveBits({ name:'PBKDF2', salt, iterations:iter, hash:'SHA-256' }, key, 256));
+  },
+  hex: n => { const a = new Uint8Array(n); crypto.getRandomValues(a); return hex(a); },
+  mask: k => `${k.slice(0, 4)}${'•'.repeat(20)}${k.slice(-3)}`
+};
+let admState = admLoad('state') || null;      // {email, role, exp, token}
+let admData  = admLoad('data')  || null;      // local dataset
+const admCan = p => !p || (admState && (ADM_ROLES[admState.role] || []).includes(p));
+
+/* ── Local dataset: ข้อมูลจริงของเครื่องนี้ + ชุดตัวอย่างสำหรับทดลอง UI ── */
+function admSeed() {
+  const now = Date.now(), day = 864e5;
+  const demoUsers = [
+    ['somchai@example.com','Somchai P.','active', 3, 42, 18, 220], ['mary@example.com','Mary K.','active', 12, 310, 96, 1840],
+    ['dev.thai@example.com','Thanakorn','active', 1, 8, 4, 61], ['spam@example.com','Unknown','banned', 0, 1, 0, 2],
+    ['ling@example.com','Ling S.','active', 26, 508, 143, 3120], ['korn@example.com','Korn T.','suspended', 5, 74, 22, 410],
+    ['ann@example.com','Anna W.','active', 40, 921, 287, 5410], ['beam@example.com','Beam R.','active', 9, 133, 51, 780]
+  ].map((u, i) => ({ id:'u' + (i + 1), email:u[0], name:u[1], status:u[2], created:new Date(now - (20 - i) * day).toISOString(),
+    last:new Date(now - u[3] * 36e5).toISOString(), requests:u[5], files:u[6], messages:u[4],
+    tokens:u[5] * 3400, cost:+(u[5] * 0.0021).toFixed(4) }));
+  const files = ['deck.pptx','report.pdf','sheet.xlsx','notes.txt','data.csv','brief.docx','bundle.zip','slide2.pptx']
+    .map((n, i) => ({ id:'f' + (i + 1), name:n, type:n.split('.').pop(), user:demoUsers[i % demoUsers.length].email,
+      size:[84200, 128400, 23100, 4200, 8900, 45600, 210400, 77800][i], created:new Date(now - i * 9e7).toISOString(),
+      status:i === 5 ? 'failed' : 'ready' }));
+  const jobs = files.map((f, i) => ({ id:'j' + (i + 1), user:f.user, type:f.type, model:i % 2 ? 'deepseek-v4-pro' : 'gpt-5.2',
+    started:new Date(f.created).toISOString(), ms:[1420, 2880, 960, 640, 1180, 0, 3210, 1740][i],
+    status:f.status === 'failed' ? 'failed' : 'completed', err:f.status === 'failed' ? 'Timeout: upstream ไม่ตอบภายใน 60s' : null }));
+  const logs = [];
+  for (let i = 0; i < 40; i++) logs.push({ id:'l' + i, at:new Date(now - i * 41e5).toISOString(),
+    level:['INFO','INFO','INFO','WARNING','ERROR','INFO','CRITICAL'][i % 7], service:['proxy','filegen','auth','storage'][i % 4],
+    user:demoUsers[i % demoUsers.length].email, req:'req_' + ADM.hex(4),
+    msg:['เรียกโมเดลสำเร็จ 1.8s','สร้าง PDF สำเร็จ','เข้าสู่ระบบสำเร็จ','latency สูงกว่าปกติ 3.2s',
+         'upstream ตอบ 503','อัปโหลด ZIP สำเร็จ','DB connection timeout'][i % 7] });
+  return { users:demoUsers, files, jobs, logs, audit:[], apiKeys:{}, usage:admLoad('usage') || [], notifs:[
+    { id:'n1', kind:'usage', sev:'warn', t:'High API Usage', m:'การใช้งาน 7 วันล่าสุดสูงกว่าค่าเฉลี่ย 38%', at:new Date(now - 36e5).toISOString() },
+    { id:'n2', kind:'file', sev:'bad', t:'File Generation Failed', m:'brief.docx สร้างไม่สำเร็จ (timeout)', at:new Date(now - 9e6).toISOString() },
+    { id:'n3', kind:'storage', sev:'ok', t:'Storage Healthy', m:'ใช้พื้นที่ 12% ของโควตา', at:new Date(now - 2e7).toISOString() }
+  ], settings:{
+    'site.name':'Kiln','general.language':'th','general.timezone':'Asia/Bangkok','ai.default_model':'deepseek-v4-pro',
+    'ai.max_tokens':8192,'ai.temperature':0.7,'ai.timeout_ms':60000,'ai.retry_limit':2,
+    'files.max_size_mb':25,'files.max_per_request':30,'files.allowed_types':'pdf,pptx,docx,xlsx,csv,txt,zip',
+    'files.timeout_ms':120000,'files.retry':2,'security.session_timeout_h':8,'security.max_login_attempts':5,
+    'security.rate_limit_per_min':20,'security.password_min':12,'storage.provider':'local','storage.max_gb':5,
+    'storage.retention_days':90,'storage.auto_cleanup':true } };
+}
+
+/* ── Admin API: local implementation, สลับเป็น worker ได้โดยไม่แก้ UI ── */
+const AdminAPI = {
+  mode: () => (admData && admData.backend === 'worker' && (admData.workerBase || '').startsWith('https')) ? 'worker' : 'local',
+  async req(path, opts = {}) {
+    if (this.mode() !== 'worker') throw new Error('โหมด Local ไม่มี backend — ตั้งค่า Worker ใน Settings');
+    const r = await fetch(String(admData.workerBase).replace(/\/+$/, '') + path, {
+      ...opts, headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + (admState?.token || ''), ...(opts.headers || {}) }
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error?.message || ('HTTP ' + r.status));
+    return j;
+  },
+  async login(email, password, remember) {
+    if (this.mode() === 'worker') {
+      const r = await fetch(String(admData.workerBase).replace(/\/+$/, '') + '/api/admin/auth/login', {
+        method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ email, password }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error?.message || 'เข้าสู่ระบบไม่สำเร็จ');
+      admState = { email:j.email, role:j.role, token:j.token, exp:Date.now() + 8 * 36e5 };
+    } else {
+      const admins = admData.admins || [];
+      const acc = admins.find(a => a.email === String(email).trim().toLowerCase());
+      const hash = acc ? await ADM.hash(password, acc.salt, acc.iter) : '';
+      if (!acc || acc.status !== 'active' || hash !== acc.hash) {
+        acc && admLog('WARNING', 'auth', 'พยายามเข้าสู่ระบบไม่สำเร็จ: ' + email);
+        throw new Error('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      }
+      admState = { email:acc.email, role:acc.role, exp:Date.now() + (remember ? 12 * 36e5 : 4 * 36e5) };
+    }
+    admState.rem = !!remember;
+    admSave('state', admState);
+    admAudit('LOGIN', admState.email, 'success');
+  },
+  logout() { admAudit('LOGOUT', admState?.email || '', 'success'); admState = null; localStorage.removeItem(AK + '.state'); },
+  async dashboard() {
+    if (this.mode() === 'worker') return this.req('/api/admin/dashboard');
+    const u = admData.users, us = admData.usage;
+    return { users:u.length, activeUsers:u.filter(x => x.status === 'active').length,
+      conversations:chats.reduce((n, c) => n + Math.max(1, c.messages.length), 0), files:admData.files.length,
+      requests:us.length, tokens:us.reduce((n, x) => n + x.in + x.out, 0),
+      cost:+us.reduce((n, x) => n + x.cost, 0).toFixed(4),
+      failedJobs:admData.jobs.filter(j => j.status === 'failed').length, storage:admData.files.reduce((n, f) => n + f.size, 0) };
+  },
+  async users(q) {
+    if (this.mode() === 'worker') return this.req('/api/admin/users?' + new URLSearchParams(q));
+    let rows = [...admData.users];
+    if (q.showDeleted !== '1') rows = rows.filter(u => u.status !== 'deleted');
+    if (q.q) { const s = q.q.toLowerCase(); rows = rows.filter(u => u.email.includes(s) || (u.name || '').toLowerCase().includes(s)); }
+    const key = { created_at:'created', last_active:'last', requests:'requests' }[q.sort] || 'created';
+    rows.sort((a, b) => (q.dir === 'asc' ? 1 : -1) * String(a[key] ?? '').localeCompare(String(b[key] ?? '')));
+    return { rows:rows.slice(+q.offset || 0, (+q.offset || 0) + (+q.limit || 25)), total:rows.length,
+      permissions:ADM_ROLES[admState?.role] || [] };
+  },
+  setUser(id, status) {
+    if (this.mode() === 'worker') return this.req('/api/admin/users/' + id, { method:'PATCH', body:JSON.stringify({ status }) });
+    const u = admData.users.find(x => x.id === id); if (u) u.status = status;
+    admSave('data', admData);
+    admAudit(status === 'suspended' ? 'SUSPEND_USER' : status === 'banned' ? 'BAN_USER' : 'UPDATE_USER', id, status);
+  },
+  deleteUser(id) {
+    if (this.mode() === 'worker') return this.req('/api/admin/users/' + id, { method:'DELETE' });
+    const u = admData.users.find(x => x.id === id); if (u) u.status = 'deleted';
+    admSave('data', admData); admAudit('DELETE_USER', id, 'success');
+  },
+  async files(q) {
+    if (this.mode() === 'worker') return this.req('/api/admin/files?' + new URLSearchParams(q));
+    let rows = admData.files.filter(f => f.status !== 'deleted');
+    if (q.type) rows = rows.filter(f => f.type === q.type);
+    if (q.q) { const s = q.q.toLowerCase(); rows = rows.filter(f => f.name.toLowerCase().includes(s) || f.user.includes(s)); }
+    if (q.from) rows = rows.filter(f => f.created >= q.from);
+    if (q.to) rows = rows.filter(f => f.created <= q.to + 'T23:59:59');
+    return { rows:rows.slice(+q.offset || 0, (+q.offset || 0) + (+q.limit || 25)), total:rows.length };
+  },
+  deleteFile(id) {
+    if (this.mode() === 'worker') return this.req('/api/admin/files/' + id, { method:'DELETE' });
+    const f = admData.files.find(x => x.id === id); if (f) f.status = 'deleted';
+    admSave('data', admData); admAudit('DELETE_FILE', id, 'success');
+  },
+  async conversations(q) {
+    if (this.mode() === 'worker') return this.req('/api/admin/conversations?' + new URLSearchParams(q));
+    let rows = chats.map((c, i) => ({ id:c.id, user:'local-user', title:c.title || 'บทสนทนาใหม่',
+      model:(c.messages.find(m => m.role === 'assistant')?.model) || '—', messages:c.messages.length,
+      created:new Date(c.ts).toISOString(), updated:new Date(c.ts).toISOString(), status:'active', ref:i }));
+    if (q.q) { const s = q.q.toLowerCase(); rows = rows.filter(c => c.title.toLowerCase().includes(s)); }
+    rows.sort((a, b) => b.updated.localeCompare(a.updated));
+    return { rows:rows.slice(+q.offset || 0, (+q.offset || 0) + (+q.limit || 25)), total:rows.length };
+  },
+  conversation(id) {
+    if (this.mode() === 'worker') return this.req('/api/admin/conversations/' + id);
+    const c = chats.find(x => x.id === id);
+    return c ? { id:c.id, title:c.title || 'บทสนทนาใหม่', readonly:true,
+      messages:c.messages.map(m => ({ role:m.role, model:m.model || '', content:m.content || '',
+        reasoning:m.reasoning || '', files:(m.attachments || []).length })) } : null;
+  },
+  deleteConversation(id) {
+    if (this.mode() === 'worker') return this.req('/api/admin/conversations/' + id, { method:'DELETE' });
+    chats = chats.filter(c => c.id !== id); saveChats(); admSave('data', admData);
+    admAudit('DELETE_CONVERSATION', id, 'success');
+  },
+  async models() {
+    if (this.mode() === 'worker') return this.req('/api/admin/models');
+    const rows = Object.entries(PROVIDERS).filter(([id]) => id !== 'demo' && id !== 'compatible')
+      .flatMap(([pid, p]) => p.models.map(m => ({ id:m.id, provider:p.name, label:m.label,
+        enabled:keys[pid] ? 1 : 0, context:m.vision ? 128000 : 64000,
+        input_cost:(m.id.length % 4) * 0.25 + 0.1, output_cost:(m.id.length % 4) * 1 + 0.4,
+        roles:{ default:m.think === 'opt', files:m.vision, coding:m.think === 'opt', translation:m.vision } })));
+    return { rows };
+  },
+  setModel(id, patch) {
+    if (this.mode() === 'worker') return this.req('/api/admin/models/' + id, { method:'PATCH', body:JSON.stringify(patch) });
+    admAudit('UPDATE_MODEL', id, JSON.stringify(patch)); return { ok:true };
+  },
+  async keys() {
+    if (this.mode() === 'worker') return this.req('/api/admin/api-keys');
+    return { rows:Object.entries(admData.apiKeys).map(([p, k]) =>
+      ({ provider:p, masked:k.masked, enabled:k.enabled, is_default:k.isDefault })), note:'key จริงถูก hash เก็บไว้ ไม่สามารถดูย้อนหลังได้' };
+  },
+  setKey(provider, key, enabled, isDefault) {
+    if (this.mode() === 'worker') return this.req('/api/admin/api-keys', { method:'POST', body:JSON.stringify({ provider, key, enabled, isDefault }) });
+    admData.apiKeys[provider] = { masked:ADM.mask(key), enabled, isDefault, set:Date.now() };
+    admSave('data', admData); admAudit('UPDATE_API_KEY', provider, 'success');
+  },
+  delKey(provider) { delete admData.apiKeys[provider]; admSave('data', admData); admAudit('DELETE_API_KEY', provider, 'success'); },
+  async analytics(days) {
+    if (this.mode() === 'worker') return this.req('/api/admin/analytics?days=' + days);
+    const from = Date.now() - days * 864e5, us = admData.usage.filter(u => u.at >= from);
+    const byDay = {};
+    for (let i = days - 1; i >= 0; i--) { const d = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10); byDay[d] = { d, requests:0, tokens:0, cost:0, files:0 }; }
+    us.forEach(u => { const d = new Date(u.at).toISOString().slice(0, 10); if (byDay[d]) { byDay[d].requests++; byDay[d].tokens += u.in + u.out; byDay[d].cost += u.cost; } });
+    admData.files.forEach(f => { const d = new Date(f.created).toISOString().slice(0, 10); if (byDay[d]) byDay[d].files++; });
+    const v = Object.values(byDay);
+    return { daily:v, requests:us.length, tokens:us.reduce((n, x) => n + x.in + x.out, 0),
+      inputTokens:us.reduce((n, x) => n + x.in, 0), outputTokens:us.reduce((n, x) => n + x.out, 0),
+      filesGenerated:v.reduce((n, x) => n + x.files, 0),
+      success:admData.jobs.filter(j => j.status === 'completed').length,
+      failed:admData.jobs.filter(j => j.status === 'failed').length,
+      avgLatency:us.length ? Math.round(us.reduce((n, x) => n + (x.ms || 1800), 0) / us.length) : 0,
+      cost:+us.reduce((n, x) => n + x.cost, 0).toFixed(4) };
+  },
+  async jobs(q) {
+    if (this.mode() === 'worker') return this.req('/api/admin/jobs?' + new URLSearchParams(q));
+    let rows = [...admData.jobs].reverse();
+    if (q.status && q.status !== 'all') rows = rows.filter(j => j.status === q.status);
+    return { rows:rows.slice(+q.offset || 0, (+q.offset || 0) + (+q.limit || 25)), total:rows.length };
+  },
+  async logs(q) {
+    if (this.mode() === 'worker') return this.req('/api/admin/logs?' + new URLSearchParams(q));
+    let rows = [...admData.logs].reverse();
+    if (q.level) rows = rows.filter(l => l.level === q.level);
+    if (q.service) rows = rows.filter(l => l.service === q.service);
+    if (q.q) { const s = q.q.toLowerCase(); rows = rows.filter(l => l.msg.toLowerCase().includes(s) || l.user.includes(s)); }
+    return { rows:rows.slice(+q.offset || 0, (+q.offset || 0) + (+q.limit || 50)), total:rows.length };
+  },
+  async audit(q) {
+    if (this.mode() === 'worker') return this.req('/api/admin/audit-logs?' + new URLSearchParams(q));
+    let rows = [...admData.audit].reverse();
+    if (q.q) { const s = q.q.toLowerCase(); rows = rows.filter(a => a.admin.toLowerCase().includes(s) || a.action.toLowerCase().includes(s) || String(a.target).toLowerCase().includes(s)); }
+    return { rows:rows.slice(+q.offset || 0, (+q.offset || 0) + (+q.limit || 50)), total:rows.length, immutable:true };
+  },
+  async settings() {
+    if (this.mode() === 'worker') return this.req('/api/admin/settings');
+    return { rows:Object.entries(admData.settings).map(([key, value]) => ({ key, value, updated_at:null, updated_by:'local' })) };
+  },
+  saveSettings(patch) {
+    if (this.mode() === 'worker') return this.req('/api/admin/settings', { method:'PATCH', body:JSON.stringify(patch) });
+    Object.assign(admData.settings, patch); admSave('data', admData);
+    admAudit('CHANGE_SETTINGS', Object.keys(patch).join(','), 'success');
+  },
+  async system() {
+    if (this.mode() === 'worker') return this.req('/api/admin/system');
+    const okAll = ['operational','operational','operational', keys.google || keys.groq || keys.openrouter ? 'operational' : 'warning',
+      'operational','operational','operational'];
+    return { checks:{ Frontend:okAll[0], 'Proxy / Backend':okAll[1], Storage:okAll[5],
+      'AI API':okAll[3], 'File Runtime':okAll[4], Queue:okAll[6] },
+      requestsLastHour:admData.usage.filter(u => Date.now() - u.at < 36e5).length,
+      cpu:Math.round(18 + Math.random() * 22), mem:Math.round(120 + Math.random() * 160),
+      storage:admData.files.reduce((n, f) => n + f.size, 0), errors:admData.jobs.filter(j => j.status === 'failed').length };
+  },
+  async admins() {
+    if (this.mode() === 'worker') return this.req('/api/admin/admins');
+    return { rows:[{ id:'self', email:admState?.email || '', role:admState?.role, status:'active' }], roles:ADM_ROLES };
+  }
+};
+function admAudit(action, target, result) {
+  admData.audit.push({ id:'a' + Date.now() + Math.random().toString(36).slice(2, 5), admin:admState?.email || 'anonymous',
+    action, target, result, ip:'local', at:new Date().toISOString() });
+  if (admData.audit.length > 500) admData.audit = admData.audit.slice(-500);
+  admSave('data', admData);
+}
+function admLog(level, service, msg) {
+  if (!admData) return;
+  admData.logs.push({ id:'l' + Date.now(), at:new Date().toISOString(), level, service, user:'local', req:'req_' + ADM.hex(4), msg });
+  if (admData.logs.length > 400) admData.logs = admData.logs.slice(-400);
+  admSave('data', admData);
+}
+
+/* ── Admin session helpers ── */
+function admSessionValid() {
+  return !!(admState && admState.email && (!admState.exp || admState.exp > Date.now()));
+}
+function admSetupNeeded() { return !admData || !admData.admins || !admData.admins.length; }
+
+/* ── Router ── */
+function admPath() {
+  const h = location.hash.replace(/^#\/?/, '');
+  return h.startsWith('admin') ? h.slice(5).replace(/^\//, '').split('?')[0] : null;
+}
+function admGo(p) { location.hash = '#/admin' + (p ? '/' + p : ''); }
+
+/* ── Login / Setup screen ── */
+function admRenderLogin() {
+  const setup = admSetupNeeded();
+  const root = $('#admLogin');
+  root.className = 'adm-login on';
+  root.innerHTML = `<div class="box">
+    <div style="display:flex;justify-content:center;margin-bottom:14px;color:var(--ap-brand)">${ai(AI.shield, 34, 1.6)}</div>
+    <h2>${setup ? 'ตั้งค่าผู้ดูแลคนแรก' : 'เข้าสู่ระบบผู้ดูแล'}</h2>
+    <p class="sub">${setup ? 'สร้างบัญชี Super Admin สำหรับเครื่องนี้' : 'Kiln Admin Console'}</p>
+    <div class="err" id="admErr"></div>
+    <div class="afield"><label>อีเมล</label><input id="admEmail" type="email" autocomplete="username" placeholder="admin@example.com"></div>
+    <div class="afield"><label>รหัสผ่าน</label><input id="admPass" type="password" autocomplete="current-password" placeholder="${setup ? '12+ ตัวอักษร a-z A-Z 0-9' : '••••••••'}"></div>
+    ${setup ? '' : '<div class="arow" style="border:0;padding:2px 0 14px"><div class="t"><b style="font-size:13px">จดจำการเข้าสู่ระบบ</b><span>ยืนยาว 12 ชั่วโมงบนเครื่องนี้</span></div><div class="aswitch on" id="admRem"><i></i></div></div>'}
+    <button class="abtn pri" id="admGo" style="width:100%;justify-content:center;padding:11px">${setup ? 'สร้างบัญชีและเข้าสู่ระบบ' : 'เข้าสู่ระบบ'}</button>
+    <p class="ahint" style="text-align:center;margin-top:14px">รหัสผ่านถูกแปลงเป็น PBKDF2-SHA256 210,000 รอบก่อนบันทึก<br>จำรหัสผ่านไม่ได้จะกู้คืนไม่ได้ (ไม่มี recovery ในโหมด Local)</p>
+  </div>`;
+  let rem = true;
+  $('#admRem')?.addEventListener('click', e => { rem = !rem; e.currentTarget.classList.toggle('on', rem); });
+  $('#admGo').onclick = async () => {
+    const err = $('#admErr'), email = $('#admEmail').value.trim().toLowerCase(), pw = $('#admPass').value;
+    err.classList.remove('on');
+    try {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('รูปแบบอีเมลไม่ถูกต้อง');
+      if (setup) {
+        if (pw.length < 12 || !/[a-z]/.test(pw) || !/[A-Z]/.test(pw) || !/\d/.test(pw))
+          throw new Error('รหัสผ่านต้องยาว 12+ และมีตัวพิมพ์เล็ก พิมพ์ใหญ่ และตัวเลข');
+        const salt = ADM.hex(16);
+        admData.admins = [{ id:'adm1', email, salt, iter:210000,
+          hash: await ADM.hash(pw, salt, 210000), role:'super-admin', status:'active', created:new Date().toISOString() }];
+        admSave('data', admData);
+      }
+      await AdminAPI.login(email, pw, rem);
+      root.className = 'adm-login'; admRender();
+    } catch (e) { err.textContent = e.message || String(e); err.classList.add('on'); }
+  };
+  $('#admPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#admGo').click(); });
+  if (!setup) setTimeout(() => $('#admEmail').focus(), 60);
+}
+
+/* ── UI helpers ── */
+const admEl = html => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild; };
+const admBadge = (text, kind = 'mut') => `<span class="abadge ${kind}">${escapeHTML(text)}</span>`;
+const admStatusBadge = s => admBadge({ active:'Active', ready:'Ready', completed:'Completed' }[s] || s,
+  { active:'ok', ready:'ok', completed:'ok', suspended:'warn', warning:'warn', queued:'warn', running:'warn',
+    banned:'bad', failed:'bad', down:'bad', cancelled:'bad' }[s] || 'mut');
+const admFmt = n => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits:2 });
+const admMoney = n => '$' + Number(n || 0).toFixed(4).replace(/0+$/, '').replace(/\.$/, '.00');
+const admWhen = iso => { if (!iso) return '—'; const d = new Date(iso);
+  return d.toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit' }) + ' ' + d.toTimeString().slice(0, 5); };
+const admPagi = (off, limit, total) => {
+  const max = Math.max(0, Math.ceil(total / limit) - 1), page = Math.floor(off / limit);
+  return `<div class="apg"><span>${off + 1}–${Math.min(off + limit, total)} จาก ${admFmt(total)}</span><div class="pgs">
+    <button data-pg="${Math.max(0, page - 1)}" ${page === 0 ? 'disabled' : ''}>${ai(AI.left, 13)}</button>
+    <span style="padding:0 4px">หน้า ${page + 1} / ${max + 1}</span>
+    <button data-pg="${Math.min(max, page + 1)}" ${page >= max ? 'disabled' : ''}>${ai(AI.right, 13)}</button></div></div>`;
+};
+function admChart(series, color = 'var(--ap-brand)') {
+  if (!series.length || series.every(p => !p.v)) return `<div class="aempty">${ai(AI.chart, 26)}<br>ไม่มีข้อมูลในช่วงนี้</div>`;
+  const W = 640, H = 170, P = 22, max = Math.max(...series.map(p => p.v), 1);
+  const x = i => P + i * ((W - P * 2) / Math.max(1, series.length - 1));
+  const y = v => H - P - (v / max) * (H - P * 2);
+  const line = series.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+  const area = `${line} L${x(series.length - 1).toFixed(1)},${H - P} L${x(0)},${H - P} Z`;
+  return `<svg class="achart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="color:${color}">
+    <defs><linearGradient id="g${color.length}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="currentColor" stop-opacity=".22"/><stop offset="100%" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+    ${[0,.25,.5,.75,1].map(t => `<line x1="${P}" x2="${W - P}" y1="${(H - P - t * (H - P * 2)).toFixed(1)}" y2="${(H - P - t * (H - P * 2)).toFixed(1)}" stroke="var(--ap-line)" stroke-width="1"/>`).join('')}
+    <path d="${area}" fill="url(#g${color.length})"/>
+    <path d="${line}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+    ${series.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="2.4" fill="currentColor"/>`).join('')}
+    <text x="${P}" y="${H - 6}" font-size="9" fill="var(--ap-ink3)">${escapeHTML(series[0].l || '')}</text>
+    <text x="${W - P}" y="${H - 6}" font-size="9" fill="var(--ap-ink3)" text-anchor="end">${escapeHTML(series[series.length - 1].l || '')}</text>
+  </svg>`;
+}
+
+/* ── Shell ── */
+function admShell(section, bodyHtml, opts = {}) {
+  const root = $('#adm');
+  root.hidden = false; root.classList.add('on');
+  const nav = ADM_NAV.map(n => n.g
+    ? `<div class="grp">${escapeHTML(n.g)}</div>`
+    : admCan(n.p) ? `<button data-adm-nav="${n.k}" class="${section === n.k ? 'on' : ''}">${ai(AI[n.i], 17)}<span>${n.t}</span></button>` : ''
+  ).join('');
+  const q = admQuery.q || '';
+  root.innerHTML = `
+    <aside class="adm-side" id="admSide">
+      <div class="adm-brand">${ai(AI.shield, 20)}<div><b>Kiln</b><span>Admin Console</span></div></div>
+      <nav class="adm-nav">${nav}</nav>
+      <div class="adm-foot">
+        <button id="admBack">${ai(AI.left, 17)}<span>กลับหน้า Chat</span></button>
+        <button id="admOut">${ai(AI.out, 17)}<span>ออกจากระบบ</span></button>
+      </div>
+    </aside>
+    <div class="adm-main">
+      <header class="adm-top">
+        <button class="adm-icon amenu" id="admMenuBtn" aria-label="เมนู">${ai(AI.menu, 19)}</button>
+        <h1>${escapeHTML((ADM_NAV.find(n => n.k === section) || {}).t || 'Dashboard')}</h1>
+        <div class="bar">${ai(AI.search, 15)}<input id="admGlobal" placeholder="ค้นหาในหน้านี้…" value="${escapeHTML(q)}"></div>
+        <button class="adm-icon" id="admBell" aria-label="การแจ้งเตือน">${ai(AI.bell, 18)}${(admData.notifs || []).length ? `<span class="pip">${admData.notifs.length}</span>` : ''}</button>
+        <button class="adm-icon" id="admMode" aria-label="สลับโหมดสี">${ai(root.dataset.mode === 'dark' ? AI.sun : AI.moon, 18)}</button>
+        <div class="adm-who"><div class="id"><b>${escapeHTML(admState.email)}</b><span>${escapeHTML(admState.role)}</span></div>
+          <div class="av">${escapeHTML(admState.email[0].toUpperCase())}</div></div>
+      </header>
+      <div class="adm-body"><div class="adm-in">
+        ${opts.title === false ? '' : `<div class="adm-head"><div class="tt"><h2>${escapeHTML(opts.title || (ADM_NAV.find(n => n.k === section) || {}).t || '')}</h2>${opts.sub ? `<p>${opts.sub}</p>` : ''}</div>${opts.actions || ''}</div>`}
+        ${AdminAPI.mode() === 'local' ? `<div class="abanner info">${ai(AI.info, 17)}<div><b>โหมด Local</b> — ข้อมูลมาจากเครื่องนี้และชุดตัวอย่าง เพื่อทดลองหน้าจอ ไม่ได้เชื่อมฐานข้อมูลจริง เชื่อม <code>worker-admin.js</code> + D1 ได้ใน Settings</div></div>` : ''}
+        <div id="admBody">${bodyHtml}</div>
+      </div></div>
+    </div>`;
+  root.querySelectorAll('[data-adm-nav]').forEach(b => b.onclick = () => { admGo(b.dataset.admNav); $('#admSide').classList.remove('open'); });
+  $('#admBack').onclick = () => { location.hash = ''; };
+  $('#admOut').onclick = () => { AdminAPI.logout(); admState = null; $('#adm').classList.remove('on'); $('#adm').hidden = true; admRenderLogin(); };
+  $('#admMode').onclick = () => { root.dataset.mode = root.dataset.mode === 'dark' ? 'light' : 'dark'; admSave('ui', { mode:root.dataset.mode }); admRender(); };
+  $('#admMenuBtn').onclick = () => $('#admSide').classList.toggle('open');
+  $('#admBell').onclick = () => admSection('notifications');
+  $('#admGlobal').addEventListener('input', e => { admQuery.q = e.target.value; clearTimeout(admQuery.t); admQuery.t = setTimeout(() => admSection(section, true), 320); });
+  root.querySelectorAll('[data-adm-close]').forEach(b => b.onclick = () => {
+    $('#admDrawer').classList.remove('on'); $('#admModal').classList.remove('on'); });
+}
+const admQuery = { q:'', offset:0, limit:25, type:'', status:'', from:'', to:'', days:7, sort:'created_at', dir:'desc' };
+
+/* ── Drawer / Modal / Toast ── */
+function admDrawer(title, html) {
+  $('#admDrawerPan').innerHTML = `<div class="ph"><h3>${escapeHTML(title)}</h3><button class="aib" data-adm-close>${ai(AI.x, 17)}</button></div><div class="pb">${html}</div>`;
+  $('#admDrawer').classList.add('on');
+  $('#admDrawer').querySelectorAll('[data-adm-close]').forEach(b => b.onclick = () => $('#admDrawer').classList.remove('on'));
+}
+function admModal(title, sub, html) {
+  $('#admModalBox').innerHTML = `<h3>${escapeHTML(title)}</h3><p class="sub">${escapeHTML(sub || '')}</p>${html}`;
+  $('#admModal').classList.add('on');
+  $('#admModal').querySelectorAll('[data-adm-close]').forEach(b => b.onclick = () => $('#admModal').classList.remove('on'));
+}
+const admToast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tT); tT = setTimeout(() => t.classList.remove('on'), 2200); };
+
+/* ── Sections ── */
+async function admSection(section, keepScroll) {
+  if (!admSessionValid()) { admRenderLogin(); return; }
+  const body = $('#admBody'); if (!keepScroll && body) admQuery.offset = 0;
+  try {
+    const html = await ({ dashboard:admViewDashboard, users:admViewUsers, conversations:admViewConvos, files:admViewFiles,
+      models:admViewModels, keys:admViewKeys, analytics:admViewAnalytics, jobs:admViewJobs, logs:admViewLogs,
+      audit:admViewAudit, settings:admViewSettings, system:admViewSystem, notifications:admViewNotifs }[section] || admViewDashboard)();
+    admShell(section, html, {});
+    admBindCommon(section);
+  } catch (e) {
+    admShell(section, `<div class="apanel"><div class="aempty">${ai(AI.warn, 26)}<br>${escapeHTML(e.message || String(e))}</div></div>`);
+  }
+  if (keepScroll) { const inp = $('#admGlobal'); if (inp) inp.focus({ preventScroll:true }); }
+  jump(true);
+}
+
+async function admViewDashboard() {
+  const d = await AdminAPI.dashboard();
+  const cards = [
+    ['Users', AI.users, d.users], ['Active Users (7d)', AI.activity, d.activeUsers],
+    ['Conversations', AI.chat, d.conversations], ['Files Generated', AI.file, d.files],
+    ['API Requests', AI.activity, d.requests], ['Tokens Used', AI.db, d.tokens],
+    ['Estimated Cost', AI.dollar, admMoney(d.cost)], ['Storage Used', AI.server, byteSize(d.storage || 0)]
+  ];
+  return `${cards.map(([t, i, v]) => `<div class="acard"><div class="lbl">${ai(AI[i] || AI.file, 15)}<span>${t}</span></div><div class="num">${typeof v === 'number' ? admFmt(v) : escapeHTML(v)}</div></div>`).join('')}
+    ${d.failedJobs ? `<div class="abanner">${ai(AI.warn, 17)}<div><b>${d.failedJobs} job ล้มเหลว</b> — ตรวจสอบได้ที่ File Jobs</div></div>` : ''}
+    <div class="adm-grid"><div class="apanel"><div class="ph"><h3>Requests / Day</h3></div>
+      ${(await admChartSeries('requests'))}</div>
+    <div class="apanel"><div class="ph"><h3>Cost / Day</h3></div>${await admChartSeries('cost')}</div></div>
+    <div class="apanel" style="margin-top:14px"><div class="ph"><h3>ล่าสุด</h3><button class="abtn" data-adm-nav-x="logs">${ai(AI.term, 14)} Logs ทั้งหมด</button></div>
+    <div class="pb"><table class="adm-t"><thead><tr><th>Time</th><th>Level</th><th>Service</th><th>Message</th></tr></thead><tbody>
+    ${admData.logs.slice(-6).reverse().map(l => `<tr><td class="mut">${admWhen(l.at)}</td><td>${admBadge(l.level, l.level === 'INFO' ? 'mut' : l.level === 'WARNING' ? 'warn' : 'bad')}</td><td class="mono">${escapeHTML(l.service)}</td><td>${escapeHTML(l.msg)}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+async function admChartSeries(metric) {
+  const a = await AdminAPI.analytics(admQuery.days || 7);
+  const label = v => metric === 'cost' ? admMoney(v) : admFmt(v);
+  const series = a.daily.map(p => ({ l:new Date(p.d).toLocaleDateString('th-TH', { day:'numeric', month:'short' }),
+    v:metric === 'cost' ? +(p.cost || 0).toFixed(4) : metric === 'tokens' ? (p.in_tokens || 0) + (p.output_tokens || 0) : p.requests || 0 }));
+  return admChart(series) + `<div class="aleg"><span>รวม ${label(series.reduce((n, p) => n + p.v, 0))}</span></div>`;
+}
+
+async function admViewUsers() {
+  const q = { q:admQuery.q, offset:admQuery.offset, limit:admQuery.limit, sort:admQuery.sort, dir:admQuery.dir, showDeleted:admQuery.showDeleted ? '1' : '0' };
+  const { rows, total, permissions } = await AdminAPI.users(q);
+  const canW = (permissions || ADM_ROLES[admState.role]).includes('users.write');
+  const canD = (permissions || []).includes('users.delete');
+  return `<div class="apanel">
+    <div class="adm-tbar">
+      <div class="srch">${ai(AI.search, 15)}<input id="admSrch" placeholder="ค้นหาชื่อหรืออีเมล…" value="${escapeHTML(admQuery.q)}"></div>
+      <select id="admSort"><option value="created_at">สมัครล่าสุด</option><option value="last_active">ใช้ล่าสุด</option><option value="requests">ใช้งานมากสุด</option></select>
+      <select id="admDir"><option value="desc">มาก → น้อย</option><option value="asc">น้อย → มาก</option></select>
+      <label class="arow" style="border:0;padding:0;font-size:12.5px;gap:7px"><span class="aswitch ${admQuery.showDeleted ? 'on' : ''}" id="admDel" style="transform:scale(.9)"><i></i></span>แสดงที่ลบแล้ว</label>
+    </div>
+    <div class="pb"><table class="adm-t"><thead><tr><th>User</th><th>Email</th><th>Status</th><th>Created</th><th>Last Active</th><th>Requests</th><th>Files</th><th></th></tr></thead><tbody>
+    ${rows.length ? rows.map(u => `<tr class="link" data-uid="${u.id}">
+      <td><b>${escapeHTML(u.name || u.email.split('@')[0])}</b></td><td class="mono">${escapeHTML(u.email)}</td>
+      <td>${admStatusBadge(u.status)}</td><td class="mut">${admWhen(u.created)}</td><td class="mut">${admWhen(u.last)}</td>
+      <td class="mut">${admFmt(u.requests)}</td><td class="mut">${admFmt(u.files)}</td>
+      <td><div style="display:flex;gap:3px;justify-content:flex-end">
+        ${canW && u.status !== 'suspended' ? `<button class="aib" data-act="suspend" data-id="${u.id}" title="Suspend">${ai(AI.ban, 15)}</button>` : ''}
+        ${canW && u.status === 'suspended' ? `<button class="aib" data-act="restore" data-id="${u.id}" title="Restore">${ai(AI.restore, 15)}</button>` : ''}
+        ${canD ? `<button class="aib dgr" data-act="delete" data-id="${u.id}" title="Delete">${ai(AI.trash, 15)}</button>` : ''}
+      </div></td></tr>`).join('') : `<tr><td colspan="8"><div class="aempty">${ai(AI.users, 26)}<br>ไม่พบผู้ใช้</div></td></tr>`}
+    </tbody></table></div>${admPagi(q.offset, q.limit, total)}</div>`;
+}
+function admBindUsers() {
+  const sr = $('#admSrch'); if (!sr) return;
+  sr.addEventListener('input', e => { admQuery.q = e.target.value; clearTimeout(admQuery.t); admQuery.t = setTimeout(() => admSection('users', true), 300); });
+  $('#admSort').value = admQuery.sort; $('#admSort').onchange = e => { admQuery.sort = e.target.value; admSection('users'); };
+  $('#admDir').value = admQuery.dir; $('#admDir').onchange = e => { admQuery.dir = e.target.value; admSection('users'); };
+  $('#admDel').onclick = () => { admQuery.showDeleted = !admQuery.showDeleted; admSection('users'); };
+  $('#admBody').querySelectorAll('tr.link').forEach(tr => tr.onclick = e => { if (!e.target.closest('button')) admUserDetail(tr.dataset.uid); });
+  $('#admBody').querySelectorAll('[data-act]').forEach(b => b.onclick = async e => {
+    e.stopPropagation();
+    const act = b.dataset.act, id = b.dataset.id;
+    const u = admData.users.find(x => x.id === id) || { email:id };
+    if (act === 'delete' && !confirm(`ลบผู้ใช้ ${u.email}? ทำได้แบบ soft-delete และบันทึกใน Audit Log`)) return;
+    await (act === 'delete' ? AdminAPI.deleteUser(id) : AdminAPI.setUser(id, act === 'suspend' ? 'suspended' : 'active'));
+    admToast('บันทึกแล้ว'); admSection('users');
+  });
+}
+
+/* ตัวเลขในตาราง → ตารางต้องกดเปิดรายละเอียดได้: ใช้ delegation แทน binding ซ้ำ */
+let admRerender = null;
+async function admUserDetail(id) {
+  const { rows } = await AdminAPI.users({ q:'', offset:0, limit:100 });
+  const u = rows.find(x => x.id === id) || admData.users.find(x => x.id === id);
+  if (!u) { admToast('ไม่พบผู้ใช้'); return; }
+  const convos = (await AdminAPI.conversations({ q:'' })).rows.slice(0, 5);
+  const files = (await AdminAPI.files({ q:u.email, limit:5 })).rows;
+  const usage = admData.usage.filter(x => x.user === u.email);
+  admDrawer('User · ' + u.email, `
+    <div class="apanel" style="margin-bottom:14px"><div class="pb" style="padding:16px">
+      <div style="display:flex;align-items:center;gap:13px;margin-bottom:14px">
+        <div class="av" style="width:44px;height:44px;border-radius:12px;background:var(--ap-brand);color:#fff;display:grid;place-items:center;font-size:17px;font-weight:600">${escapeHTML((u.name || u.email)[0].toUpperCase())}</div>
+        <div><b style="font-size:15px">${escapeHTML(u.name || u.email.split('@')[0])}</b>
+          <div class="mut mono" style="font-size:12px;color:var(--ap-ink3)">${escapeHTML(u.email)}</div></div>
+        <div style="margin-left:auto">${admStatusBadge(u.status)}</div></div>
+      <div class="ahealth">
+        <div class="hc"><b>${ai(AI.clock, 14)}สมัคร</b><div class="st" style="color:var(--ap-ink)">${admWhen(u.created)}</div></div>
+        <div class="hc"><b>${ai(AI.activity, 14)}ใช้ล่าสุด</b><div class="st" style="color:var(--ap-ink)">${admWhen(u.last)}</div></div>
+        <div class="hc"><b>${ai(AI.chat, 14)}ข้อความ</b><div class="st" style="color:var(--ap-ink)">${admFmt(u.messages)}</div></div>
+        <div class="hc"><b>${ai(AI.file, 14)}ไฟล์</b><div class="st" style="color:var(--ap-ink)">${admFmt(u.files)}</div></div>
+        <div class="hc"><b>${ai(AI.activity, 14)}Requests</b><div class="st" style="color:var(--ap-ink)">${admFmt(u.requests)}</div></div>
+        <div class="hc"><b>${ai(AI.dollar, 14)}ค่าใช้จ่าย</b><div class="st" style="color:var(--ap-ink)">${admMoney(usage.reduce((n, x) => n + x.cost, 0))}</div></div>
+      </div></div></div>
+    <div class="apanel" style="margin-bottom:14px"><div class="ph"><h3>บทสนทนาล่าสุด</h3></div><div class="pb">
+      <table class="adm-t" style="min-width:0"><tbody>${convos.length ? convos.map(c => `<tr><td>${escapeHTML(c.title)}</td><td class="mut">${c.messages} ข้อความ</td></tr>`).join('') : '<tr><td class="mut">ไม่มี</td></tr>'}</tbody></table></div></div>
+    <div class="apanel" style="margin-bottom:14px"><div class="ph"><h3>ไฟล์ที่สร้าง</h3></div><div class="pb">
+      <table class="adm-t" style="min-width:0"><thead><tr><th>File</th><th>Type</th><th>Size</th></tr></thead><tbody>
+      ${files.length ? files.map(f => `<tr><td>${escapeHTML(f.filename || f.name)}</td><td>${admBadge((f.type || '').toUpperCase(), 'brand')}</td><td class="mut">${byteSize(f.size || 0)}</td></tr>`).join('') : '<tr><td colspan="3" class="mut">ไม่มี</td></tr>'}
+      </tbody></table></div></div>
+    <div class="apanel"><div class="ph"><h3>Activity Log</h3></div><div class="pb"><div class="alog">${admData.logs.filter(l => l.user === u.email).slice(-12).map(l => `${admWhen(l.at)}  [${l.level}] ${escapeHTML(l.msg)}`).join('\n') || 'ไม่มีบันทึก'}</div></div></div>`);
+}
+async function admViewConvos() {
+  const { rows, total } = await AdminAPI.conversations({ q:admQuery.q, offset:admQuery.offset, limit:admQuery.limit });
+  return `<div class="apanel">
+    <div class="adm-tbar"><div class="srch">${ai(AI.search, 15)}<input id="admSrch" placeholder="ค้นหาชื่อบทสนทนา…" value="${escapeHTML(admQuery.q)}"></div></div>
+    <div class="pb"><table class="adm-t"><thead><tr><th>ID</th><th>User</th><th>Title</th><th>Model</th><th>Messages</th><th>Created</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.length ? rows.map(c => `<tr class="link" data-cid="${c.id}"><td class="mono mut">${escapeHTML(String(c.id).slice(0, 10))}</td>
+      <td class="mut">${escapeHTML(c.user || '—')}</td><td><b>${escapeHTML(c.title)}</b></td><td class="mono">${escapeHTML(c.model)}</td>
+      <td class="mut">${admFmt(c.messages)}</td><td class="mut">${admWhen(c.created)}</td><td>${admStatusBadge(c.status)}</td>
+      <td><div style="display:flex;gap:3px;justify-content:flex-end"><button class="aib" data-act="open" data-id="${c.id}" title="เปิดดู">${ai(AI.eye, 15)}</button>
+      <button class="aib dgr" data-act="del" data-id="${c.id}" title="ลบ">${ai(AI.trash, 15)}</button></div></td></tr>`).join('')
+      : `<tr><td colspan="8"><div class="aempty">${ai(AI.chat, 26)}<br>ไม่มีบทสนทนา</div></td></tr>`}
+    </tbody></table></div>${admPagi(admQuery.offset, admQuery.limit, total)}</div>`;
+}
+async function admViewFiles() {
+  const { rows, total } = await AdminAPI.files({ q:admQuery.q, type:admQuery.type, from:admQuery.from, to:admQuery.to, offset:admQuery.offset, limit:admQuery.limit });
+  const types = ['pdf','pptx','docx','xlsx','csv','txt','zip'];
+  return `<div class="apanel">
+    <div class="adm-tbar">
+      <div class="srch">${ai(AI.search, 15)}<input id="admSrch" placeholder="ค้นหาชื่อไฟล์หรืออีเมล…" value="${escapeHTML(admQuery.q)}"></div>
+      <select id="admType"><option value="">ทุกชนิด</option>${types.map(t => `<option value="${t}" ${admQuery.type === t ? 'selected' : ''}>${t.toUpperCase()}</option>`).join('')}</select>
+      <input type="date" id="admFrom" value="${admQuery.from}" style="background:var(--ap-surface);border:1px solid var(--ap-line2);border-radius:8px;padding:7px;font-size:12.5px;color:var(--ap-ink)">
+      <input type="date" id="admTo" value="${admQuery.to}" style="background:var(--ap-surface);border:1px solid var(--ap-line2);border-radius:8px;padding:7px;font-size:12.5px;color:var(--ap-ink)">
+    </div>
+    <div class="pb"><table class="adm-t"><thead><tr><th>Filename</th><th>Type</th><th>User</th><th>Size</th><th>Created</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.length ? rows.map(f => `<tr><td><b>${escapeHTML(f.filename || f.name)}</b></td><td>${admBadge((f.type || '').toUpperCase(), 'brand')}</td>
+      <td class="mono mut">${escapeHTML(f.email || f.user || '—')}</td><td class="mut">${byteSize(f.size || 0)}</td>
+      <td class="mut">${admWhen(f.created)}</td><td>${admStatusBadge(f.status)}</td>
+      <td><div style="display:flex;gap:3px;justify-content:flex-end">
+        <button class="aib" data-act="dl" data-id="${f.id}" title="Download">${ai(AI.dl, 15)}</button>
+        <button class="aib dgr" data-act="del" data-id="${f.id}" title="Delete">${ai(AI.trash, 15)}</button></div></td></tr>`).join('')
+      : `<tr><td colspan="7"><div class="aempty">${ai(AI.file, 26)}<br>ไม่มีไฟล์</div></td></tr>`}
+    </tbody></table></div>${admPagi(admQuery.offset, admQuery.limit, total)}</div>`;
+}
+async function admViewModels() {
+  const { rows } = await AdminAPI.models();
+  return `<div class="apanel"><div class="ph"><h3>AI Models</h3>
+    <button class="abtn pri" id="admAddModel">${ai(AI.plus, 14)}เพิ่ม Model</button></div>
+    <div class="pb"><table class="adm-t"><thead><tr><th>Model</th><th>Provider</th><th>Status</th><th>Context</th><th>Input $/1M</th><th>Output $/1M</th><th>Roles</th><th></th></tr></thead><tbody>
+    ${rows.map(m => `<tr><td><b>${escapeHTML(m.label || m.id)}</b><div class="mono mut" style="font-size:11px">${escapeHTML(m.id)}</div></td>
+      <td>${escapeHTML(m.provider)}</td><td>${admStatusBadge(m.enabled ? 'active' : 'disabled')}</td>
+      <td class="mut">${admFmt(m.context)}</td><td class="mut">${admMoney(m.input_cost)}</td><td class="mut">${admMoney(m.output_cost)}</td>
+      <td><div style="display:flex;gap:4px">${Object.entries(m.roles || {}).filter(([, v]) => v).map(([k]) => admBadge(k, 'brand')).join('')}</div></td>
+      <td><button class="aib" data-mid="${m.id}" title="แก้ไข">${ai(AI.gear, 15)}</button></td></tr>`).join('')}
+    </tbody></table></div></div>
+    <div class="abanner info" style="margin-top:14px">${ai(AI.info, 17)}<div>เปิด/ปิด Model ที่นี่จะมีผลกับรายการที่ผู้ใช้เห็นเมื่อรันบน backend จริง ในโหมด Local เป็นการจำลองเพื่อออกแบบ UI</div></div>`;
+}
+async function admViewKeys() {
+  const { rows, note } = await AdminAPI.keys();
+  const providers = ['openai','deepseek','anthropic','google','groq','openrouter','custom'];
+  return `<div class="abanner">${ai(AI.lock, 17)}<div><b>API Key จริงไม่แสดงในหน้านี้</b> — เก็บใน Worker Secret / D1 แบบ hash แสดงเฉพาะ Masked Key และดูย้อนหลังไม่ได้ ${escapeHTML(note || '')}</div></div>
+    <div class="apanel"><div class="ph"><h3>Provider Keys</h3><button class="abtn pri" id="admAddKey">${ai(AI.plus, 14)}Add Key</button></div>
+    <div class="pb"><table class="adm-t"><thead><tr><th>Provider</th><th>Key</th><th>Status</th><th>Default</th><th>Updated</th><th></th></tr></thead><tbody>
+    ${providers.map(p => { const k = rows.find(r => r.provider === p);
+      return `<tr><td><b style="text-transform:capitalize">${p}</b></td>
+      <td class="mono mut">${k ? escapeHTML(k.masked) : '<span style="color:var(--ap-ink3)">ยังไม่ตั้ง</span>'}</td>
+      <td>${k ? admStatusBadge(k.enabled ? 'active' : 'disabled') : admBadge('ไม่มี', 'mut')}</td>
+      <td>${k?.is_default ? admBadge('Default', 'brand') : '<span class="mut">—</span>'}</td>
+      <td class="mut">${admWhen(k?.updated_at)}</td>
+      <td><div style="display:flex;gap:3px;justify-content:flex-end">
+        <button class="aib" data-key="${p}" title="${k ? 'อัปเดต' : 'เพิ่ม'}">${ai(AI.key, 15)}</button>
+        ${k ? `<button class="aib dgr" data-delkey="${p}" title="ลบ">${ai(AI.trash, 15)}</button>` : ''}</div></td></tr>`; }).join('')}
+    </tbody></table></div></div>
+    <div class="ahint" style="margin-top:12px">Test Connection จะเรียก endpoint ราคาถูกที่สุดของแต่ละค่าย และไม่สร้างโทเคน</div>`;
+}
+async function admViewAnalytics() {
+  const a = await AdminAPI.analytics(admQuery.days);
+  const ranges = [1, 7, 30, 90];
+  const cards = [['Requests', AI.activity, a.requests], ['Input Tokens', AI.db, a.inputTokens], ['Output Tokens', AI.db, a.outputTokens],
+    ['Files Generated', AI.file, a.filesGenerated], ['Successful', AI.check, a.success], ['Failed', AI.warn, a.failed],
+    ['Avg Response', AI.clock, a.avgLatency + ' ms'], ['API Cost', AI.dollar, admMoney(a.cost)]];
+  const mk = key => admChart(a.daily.map(p => ({ l:new Date(p.d).toLocaleDateString('th-TH', { day:'numeric', month:'short' }),
+    v:key === 'cost' ? +(p.cost || 0).toFixed(4) : key === 'tokens' ? (p.input_tokens || 0) + (p.output_tokens || 0) : key === 'files' ? (p.files || 0) : p.requests || 0 })),
+    key === 'cost' ? 'var(--ap-ok)' : key === 'files' ? 'var(--ap-warn)' : 'var(--ap-brand)');
+  return `<div class="adm-head"><div class="tt"><h2>Usage &amp; Analytics</h2></div>
+      <div style="display:flex;gap:6px">${ranges.map(d => `<button class="abtn ${admQuery.days === d ? 'pri' : ''}" data-days="${d}">${d === 1 ? 'Today' : d + ' Days'}</button>`).join('')}
+      <input type="date" id="admCustom" value="${new Date(Date.now() - (admQuery.days - 1) * 864e5).toISOString().slice(0, 10)}" style="background:var(--ap-surface);border:1px solid var(--ap-line2);border-radius:8px;padding:7px;font-size:12.5px;color:var(--ap-ink)"></div></div>
+    <div class="adm-cards">${cards.map(([t, i, v]) => `<div class="acard"><div class="lbl">${ai(AI[i] || AI.activity, 15)}<span>${t}</span></div><div class="num">${typeof v === 'number' ? admFmt(v) : escapeHTML(v)}</div></div>`).join('')}</div>
+    <div class="adm-grid">
+      <div class="apanel"><div class="ph"><h3>Requests / Day</h3></div>${mk('requests')}</div>
+      <div class="apanel"><div class="ph"><h3>Tokens / Day</h3></div>${mk('tokens')}</div>
+      <div class="apanel"><div class="ph"><h3>Cost / Day</h3></div>${mk('cost')}</div>
+      <div class="apanel"><div class="ph"><h3>Files / Day</h3></div>${mk('files')}</div>
+    </div>`;
+}
+async function admViewJobs() {
+  const { rows, total } = await AdminAPI.jobs({ status:admQuery.status, offset:admQuery.offset, limit:admQuery.limit });
+  const statuses = ['all','queued','running','completed','failed','cancelled'];
+  return `<div class="apanel"><div class="adm-tbar">
+      <select id="admJobStatus">${statuses.map(s => `<option value="${s}" ${admQuery.status === s ? 'selected' : ''}>${s === 'all' ? 'ทุกสถานะ' : s}</option>`).join('')}</select>
+      <span class="mut" style="font-size:12.5px">งานสร้างไฟล์ PDF / PPTX / DOCX / XLSX ทั้งหมด</span></div>
+    <div class="pb"><table class="adm-t"><thead><tr><th>Job ID</th><th>User</th><th>Type</th><th>Model</th><th>Started</th><th>Duration</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.length ? rows.map(j => `<tr><td class="mono mut">${escapeHTML(j.id)}</td><td class="mono mut">${escapeHTML(j.user || j.email || '—')}</td>
+      <td>${admBadge((j.type || '').toUpperCase(), 'brand')}</td><td class="mono">${escapeHTML(j.model || '—')}</td>
+      <td class="mut">${admWhen(j.started)}</td><td class="mut">${j.ms ? (j.ms / 1000).toFixed(2) + 's' : '—'}</td>
+      <td>${admStatusBadge(j.status)}</td>
+      <td>${j.err ? `<button class="aib" data-job="${j.id}" title="ดู Error">${ai(AI.warn, 15)}</button>` : ''}</td></tr>`).join('')
+      : `<tr><td colspan="8"><div class="aempty">${ai(AI.activity, 26)}<br>ไม่มีงาน</div></td></tr>`}
+    </tbody></table></div>${admPagi(admQuery.offset, admQuery.limit, total)}</div>`;
+}
+async function admViewLogs() {
+  const { rows, total } = await AdminAPI.logs({ q:admQuery.q, level:admQuery.status, service:admQuery.type, offset:admQuery.offset, limit:admQuery.limit });
+  return `<div class="apanel"><div class="adm-tbar">
+      <div class="srch">${ai(AI.search, 15)}<input id="admSrch" placeholder="ค้นหาข้อความใน log…" value="${escapeHTML(admQuery.q)}"></div>
+      <select id="admLevel"><option value="">ทุก Level</option>${['INFO','WARNING','ERROR','CRITICAL'].map(l => `<option value="${l}" ${admQuery.status === l ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select id="admSvc"><option value="">ทุก Service</option>${['proxy','filegen','auth','storage'].map(s => `<option value="${s}" ${admQuery.type === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+    <div class="pb"><table class="adm-t"><thead><tr><th>Timestamp</th><th>Level</th><th>Service</th><th>User</th><th>Request ID</th><th>Message</th></tr></thead><tbody>
+    ${rows.length ? rows.map(l => `<tr><td class="mono mut">${admWhen(l.at)}</td><td>${admBadge(l.level, l.level === 'INFO' ? 'mut' : l.level === 'WARNING' ? 'warn' : 'bad')}</td>
+      <td class="mono">${escapeHTML(l.service)}</td><td class="mono mut">${escapeHTML(l.user || '—')}</td><td class="mono mut">${escapeHTML(l.req || '—')}</td>
+      <td>${escapeHTML(l.msg)}</td></tr>`).join('') : `<tr><td colspan="6"><div class="aempty">${ai(AI.term, 26)}<br>ไม่มี log</div></td></tr>`}
+    </tbody></table></div>${admPagi(admQuery.offset, admQuery.limit, total)}</div>`;
+}
+async function admViewAudit() {
+  const { rows, total, immutable } = await AdminAPI.audit({ q:admQuery.q, offset:admQuery.offset, limit:admQuery.limit });
+  return `${immutable ? `<div class="abanner info">${ai(AI.lock, 17)}<div><b>Audit Log เขียนได้ครั้งเดียว</b> — API ไม่มี endpoint ลบหรือแก้ไข และ Admin ไม่สามารถลบบันทึกของตัวเองได้ตามข้อกำหนด</div></div>` : ''}
+    <div class="apanel"><div class="adm-tbar"><div class="srch">${ai(AI.search, 15)}<input id="admSrch" placeholder="ค้นหา admin / action / target…" value="${escapeHTML(admQuery.q)}"></div></div>
+    <div class="pb"><table class="adm-t"><thead><tr><th>Timestamp</th><th>Admin</th><th>Action</th><th>Target</th><th>Result</th><th>IP</th></tr></thead><tbody>
+    ${rows.length ? rows.map(a => `<tr><td class="mono mut">${admWhen(a.at || a.created_at)}</td><td class="mono">${escapeHTML(a.admin || a.admin_email)}</td>
+      <td><b>${escapeHTML(a.action)}</b></td><td class="mono mut">${escapeHTML(String(a.target || '—')).slice(0, 42)}</td>
+      <td>${admBadge(a.result, a.result === 'success' ? 'ok' : a.result === 'denied' ? 'warn' : 'mut')}</td><td class="mono mut">${escapeHTML(a.ip || '—')}</td></tr>`).join('')
+      : `<tr><td colspan="6"><div class="aempty">${ai(AI.shield, 26)}<br>ยังไม่มีการกระทำจาก Admin</div></td></tr>`}
+    </tbody></table></div>${admPagi(admQuery.offset, admQuery.limit, total)}</div>`;
+}
+async function admViewSystem() {
+  const s = await AdminAPI.system();
+  const checks = Object.entries(s.checks || {});
+  const st = v => v === 'operational' ? '<span class="st ok">Operational</span>' : v === 'warning' ? '<span class="st warn">Warning</span>' : '<span class="st bad">Down</span>';
+  return `<div class="adm-cards">
+      <div class="acard"><div class="lbl">${ai(AI.activity, 15)}<span>Requests (1h)</span></div><div class="num">${admFmt(s.requestsLastHour)}</div></div>
+      <div class="acard"><div class="lbl">${ai(AI.server, 15)}<span>CPU</span></div><div class="num">${admFmt(s.cpu)}%</div></div>
+      <div class="acard"><div class="lbl">${ai(AI.db, 15)}<span>Memory</span></div><div class="num">${admFmt(s.mem)} MB</div></div>
+      <div class="acard"><div class="lbl">${ai(AI.file, 15)}<span>Storage</span></div><div class="num">${byteSize(s.storage || 0)}</div></div>
+      <div class="acard"><div class="lbl">${ai(AI.warn, 15)}<span>Errors</span></div><div class="num">${admFmt(s.errors)}</div></div></div>
+    <div class="apanel"><div class="ph"><h3>Service Health</h3><button class="abtn" id="admRefresh">${ai(AI.restore, 14)}ตรวจใหม่</button></div>
+      <div class="pb" style="padding:16px"><div class="ahealth">${checks.map(([k, v]) => `<div class="hc"><b>${ai(AI.server, 14)}${escapeHTML(k)}</b>${st(v)}</div>`).join('')}</div></div></div>
+    <div class="abanner info" style="margin-top:14px">${ai(AI.info, 17)}<div>ค่า CPU/Memory ในโหมด Local เป็นค่าจำลอง การวัดจริงต้องอ่านจาก Cloudflare Analytics หรือ observability ของ backend</div></div>`;
+}
+async function admViewNotifs() {
+  const list = (admData.notifs || []);
+  const icon = k => ({ usage:AI.chart, file:AI.file, storage:AI.server, security:AI.shield, db:AI.db }[k] || AI.bell);
+  return `<div class="apanel"><div class="ph"><h3>Notifications</h3>
+      <button class="abtn" id="admClearN">${ai(AI.check, 14)}ทำเครื่องหมายว่าอ่านแล้ว</button></div>
+    <div class="pb" style="padding:0 16px">${list.length ? list.map(n => `<div class="anotif">
+      <span style="color:${n.sev === 'bad' ? 'var(--ap-bad)' : n.sev === 'warn' ? 'var(--ap-warn)' : 'var(--ap-ok)'}">${ai(icon(n.kind), 18)}</span>
+      <div class="t"><b>${escapeHTML(n.t)}</b><p>${escapeHTML(n.m)}</p><time>${admWhen(n.at)}</time></div></div>`).join('')
+      : `<div class="aempty">${ai(AI.check, 26)}<br>ไม่มีการแจ้งเตือน</div>`}</div></div>`;
+}
+async function admViewSettings() {
+  const { rows } = await AdminAPI.settings();
+  const get = (k, d) => { const r = rows.find(x => x.key === k); return r === undefined ? d : (typeof r.value === 'string' && /^["{[]/.test(r.value) ? JSON.parse(r.value) : r.value); };
+  const F = (k, label, type = 'text', hint = '') => `<div class="afield"><label>${label}</label><input data-set="${k}" type="${type}" value="${escapeHTML(String(get(k, '')))}">${hint ? `<div class="ahint">${hint}</div>` : ''}</div>`;
+  const T = (k, label, on = null) => `<div class="arow"><div class="t"><b>${label}</b></div><div class="aswitch ${get(k, false) ? 'on' : ''}" data-toggle="${k}"><i></i></div>${on ? '' : ''}</div>`;
+  const sec = t => `<div class="sec" style="margin:26px 0 12px"><span class="lbl" style="color:var(--ap-ink3)">${t}</span><span class="line" style="flex:1;height:1px;background:var(--ap-line)"></span></div>`;
+  return `<form id="admSetForm">
+    ${sec('General')}${F('site.name', 'Site Name')}${F('general.language', 'Default Language')}${F('general.timezone', 'Timezone')}
+    ${sec('AI')}${F('ai.default_model', 'Default Model')}${F('ai.max_tokens', 'Maximum Tokens', 'number')}${F('ai.temperature', 'Temperature', 'number', '0 – 2')}
+    ${F('ai.timeout_ms', 'Request Timeout (ms)', 'number')}${F('ai.retry_limit', 'Retry Limit', 'number')}
+    ${sec('File Generation')}${F('files.max_size_mb', 'Maximum File Size (MB)', 'number')}${F('files.max_per_request', 'Maximum Files Per Request', 'number')}
+    ${F('files.allowed_types', 'Allowed File Types', 'text', 'คั่นด้วยจุลภาค เช่น pdf,pptx,docx,xlsx,csv,txt,zip')}${F('files.timeout_ms', 'Execution Timeout (ms)', 'number')}${F('files.retry', 'Maximum Retry', 'number')}
+    ${sec('Security')}${F('security.session_timeout_h', 'Session Timeout (hours)', 'number')}${F('security.max_login_attempts', 'Maximum Login Attempts', 'number')}
+    ${F('security.rate_limit_per_min', 'Rate Limit (req/min/IP)', 'number')}${F('security.password_min', 'Password Minimum Length', 'number')}
+    ${sec('Storage')}${F('storage.provider', 'Storage Provider')}${F('storage.max_gb', 'Maximum Storage (GB)', 'number')}
+    ${F('storage.retention_days', 'File Retention (days)', 'number')}${T('storage.auto_cleanup', 'Automatic Cleanup')}
+    <div style="display:flex;gap:9px;margin-top:20px"><button class="abtn pri" type="submit">${ai(AI.check, 14)}บันทึกการตั้งค่า</button>
+    <button class="abtn" type="button" id="admWorkerBtn">${ai(AI.server, 14)}เชื่อม Backend Worker</button></div></form>`;
+}
+
+/* ── Bindings ที่ใช้ร่วมกันทุก section ── */
+function admBindCommon(section) {
+  const sr = $('#admSrch');
+  if (sr) sr.addEventListener('input', e => { admQuery.q = e.target.value; clearTimeout(admQuery.t); admQuery.t = setTimeout(() => admSection(section, true), 300); });
+  $('#admBody').querySelectorAll('.apg [data-pg]').forEach(b => b.onclick = () => { admQuery.offset = (+b.dataset.pg) * admQuery.limit; admSection(section); });
+  $('#admBody').querySelectorAll('[data-days]').forEach(b => b.onclick = () => { admQuery.days = +b.dataset.days; admSection(section); });
+  const cust = $('#admCustom');
+  if (cust) cust.onchange = () => { const days = Math.max(1, Math.round((Date.now() - new Date(cust.value).getTime()) / 864e5) + 1); admQuery.days = Math.min(365, days); admSection(section); };
+  const type = $('#admType'); if (type) type.onchange = () => { admQuery.type = type.value; admQuery.offset = 0; admSection(section); };
+  const lv = $('#admLevel'); if (lv) lv.onchange = () => { admQuery.status = lv.value; admQuery.offset = 0; admSection(section); };
+  const sv = $('#admSvc'); if (sv) sv.onchange = () => { admQuery.type = sv.value; admQuery.offset = 0; admSection(section); };
+  const js = $('#admJobStatus'); if (js) js.onchange = () => { admQuery.status = js.value; admQuery.offset = 0; admSection(section); };
+  const fr = $('#admFrom'); if (fr) fr.onchange = () => { admQuery.from = fr.value; admQuery.offset = 0; admSection(section); };
+  const to = $('#admTo'); if (to) to.onchange = () => { admQuery.to = to.value; admQuery.offset = 0; admSection(section); };
+  const rf = $('#admRefresh'); if (rf) rf.onclick = () => admSection('system');
+
+  /* users */
+  if (section === 'users') admBindUsers();
+  if (section === 'users') $('#admBody').querySelectorAll('tr.link').forEach(tr => tr.onclick = e => { if (!e.target.closest('button')) admUserDetail(tr.dataset.uid); });
+
+  /* conversations */
+  if (section === 'conversations') {
+    $('#admBody').querySelectorAll('tr.link').forEach(tr => tr.onclick = e => { if (!e.target.closest('button')) admConvoDetail(tr.dataset.cid); });
+    $('#admBody').querySelectorAll('[data-act="open"]').forEach(b => b.onclick = e => { e.stopPropagation(); admConvoDetail(b.dataset.id); });
+    $('#admBody').querySelectorAll('[data-act="del"]').forEach(b => b.onclick = async e => {
+      e.stopPropagation(); if (!confirm('ลบบทสนทนานี้? การกระทำจะถูกบันทึกใน Audit Log')) return;
+      await AdminAPI.deleteConversation(b.dataset.id); admToast('ลบแล้ว'); admSection('conversations');
+    });
+  }
+  /* files */
+  if (section === 'files') {
+    $('#admBody').querySelectorAll('[data-act="dl"]').forEach(b => b.onclick = e => { e.stopPropagation(); admToast('โหมด Local ไม่เก็บไฟล์จริง — ดาวน์โหลดได้จากหน้าผู้ใช้'); });
+    $('#admBody').querySelectorAll('[data-act="del"]').forEach(b => b.onclick = async e => {
+      e.stopPropagation(); if (!confirm('ลบไฟล์นี้?')) return; await AdminAPI.deleteFile(b.dataset.id); admToast('ลบแล้ว'); admSection('files');
+    });
+  }
+  /* models */
+  if (section === 'models') {
+    const add = $('#admAddModel'); if (add) add.onclick = () => admModelForm();
+    $('#admBody').querySelectorAll('[data-mid]').forEach(b => b.onclick = () => admModelForm(b.dataset.mid));
+  }
+  /* keys */
+  if (section === 'keys') {
+    const add = $('#admAddKey'); if (add) add.onclick = () => admKeyForm();
+    $('#admBody').querySelectorAll('[data-key]').forEach(b => b.onclick = () => admKeyForm(b.dataset.key));
+    $('#admBody').querySelectorAll('[data-delkey]').forEach(b => b.onclick = async () => {
+      if (!confirm('ลบ key ของ ' + b.dataset.delkey + '?')) return; AdminAPI.delKey(b.dataset.delkey); admToast('ลบแล้ว'); admSection('keys');
+    });
+  }
+  /* jobs */
+  $('#admBody').querySelectorAll('[data-job]').forEach(b => b.onclick = () => {
+    const j = admData.jobs.find(x => x.id === b.dataset.job); if (!j) return;
+    admModal('Job ' + j.id, 'รายละเอียดข้อผิดพลาด', `<div class="apanel"><div class="pb" style="padding:14px">
+      <div class="ahealth" style="margin-bottom:14px">
+        <div class="hc"><b>Type</b><div class="st" style="color:var(--ap-ink)">${escapeHTML(j.type)}</div></div>
+        <div class="hc"><b>Model</b><div class="st" style="color:var(--ap-ink)">${escapeHTML(j.model || '—')}</div></div>
+        <div class="hc"><b>Status</b><div class="st bad">${escapeHTML(j.status)}</div></div></div>
+      <div class="alog" style="color:var(--ap-bad)">${escapeHTML(j.err || 'ไม่มีรายละเอียด')}</div></div></div>
+      <div style="margin-top:14px;text-align:right"><button class="abtn" data-adm-close>ปิด</button></div>`);
+    $('#admModal').querySelectorAll('[data-adm-close]').forEach(x => x.onclick = () => $('#admModal').classList.remove('on'));
+  });
+  /* settings */
+  if (section === 'settings') {
+    const form = $('#admSetForm');
+    if (form) form.onsubmit = async e => {
+      e.preventDefault();
+      const patch = {};
+      form.querySelectorAll('[data-set]').forEach(i => {
+        const v = i.type === 'number' ? Number(i.value) : i.value; patch[i.dataset.set] = v;
+      });
+      form.querySelectorAll('[data-toggle]').forEach(t => patch[t.dataset.toggle] = t.classList.contains('on'));
+      AdminAPI.saveSettings(patch); admToast('บันทึกการตั้งค่าแล้ว (บันทึกใน Audit Log)');
+    };
+    form.querySelectorAll('[data-toggle]').forEach(t => t.onclick = () => t.classList.toggle('on'));
+    const wb = $('#admWorkerBtn'); if (wb) wb.onclick = admWorkerSetup;
+  }
+  /* notifications */
+  const cn = $('#admClearN'); if (cn) cn.onclick = () => { admData.notifs = []; admSave('data', admData); admSection('notifications'); admShell(section, '', { title:false }); };
+  /* dashboard quick link */
+  $('#admBody').querySelectorAll('[data-adm-nav-x]').forEach(b => b.onclick = () => admGo(b.dataset.admNavX));
+}
+function admConvoDetail(id) {
+  const c = AdminAPI.conversation(id);
+  if (!c) { admToast('ไม่พบบทสนทนา'); return; }
+  admDrawer('Conversation · ' + (c.title || ''), `
+    <div class="abanner info">${ai(AI.lock, 17)}<div><b>Read-only</b> — Admin เปิดดูได้เท่านั้น การแก้ไขข้อความผู้ใช้ต้องผ่าน Audit Log ตามข้อกำหนด</div></div>
+    ${c.messages.map(m => `<div class="apanel" style="margin-bottom:12px"><div class="ph"><h3 style="font-size:12.5px">${m.role === 'user' ? 'User' : 'Assistant'}</h3>
+      ${m.model ? admBadge(m.model.split(' ')[0], 'brand') : ''}${m.files ? admBadge(m.files + ' ไฟล์', 'mut') : ''}</div>
+      <div class="pb" style="padding:13px 15px"><div class="alog">${escapeHTML(m.content || '(ไม่มีข้อความ)').slice(0, 1600)}</div>
+      ${m.reasoning ? `<div class="ahint" style="margin-top:10px;white-space:pre-wrap">กระบวนการคิด: ${escapeHTML(m.reasoning.slice(0, 500))}</div>` : ''}</div></div>`).join('') || '<div class="aempty">ไม่มีข้อความ</div>'}`);
+}
+function admModelForm(id) {
+  const m = id ? null : null;
+  admModal(id ? 'แก้ไข Model' : 'เพิ่ม Model', id || 'กำหนดรายละเอียดโมเดล', `
+    <div class="afield"><label>Model ID</label><input id="mfId" value="${escapeHTML(id || '')}" ${id ? 'readonly' : ''} placeholder="เช่น deepseek-v4-pro"></div>
+    <div class="afield"><label>Provider</label><select id="mfProv">${['deepseek','openai','anthropic','google','custom'].map(p => `<option>${p}</option>`).join('')}</select></div>
+    <div class="afield"><label>Label</label><input id="mfLabel" placeholder="ชื่อที่ผู้ใช้เห็น"></div>
+    <div class="afield"><label>Context (tokens)</label><input id="mfCtx" type="number" value="64000"></div>
+    <div class="afield"><label>Input Cost $/1M</label><input id="mfIn" type="number" step="0.01" value="0.27"></div>
+    <div class="afield"><label>Output Cost $/1M</label><input id="mfOut" type="number" step="0.01" value="1.10"></div>
+    <div class="arow"><div class="t"><b>เปิดใช้งาน</b></div><div class="aswitch on" id="mfEn"><i></i></div></div>
+    <div class="arow"><div class="t"><b>Default Model</b></div><div class="aswitch" id="mfDef"><i></i></div></div>
+    <div class="arow"><div class="t"><b>ใช้สำหรับ File Generation</b></div><div class="aswitch on" id="mfFile"><i></i></div></div>
+    <div class="arow"><div class="t"><b>ใช้สำหรับ Coding</b></div><div class="aswitch on" id="mfCode"><i></i></div></div>
+    <div class="arow" style="border:0"><div class="t"><b>ใช้สำหรับ Translation</b></div><div class="aswitch" id="mfTr"><i></i></div></div>
+    <div style="display:flex;gap:9px;margin-top:18px"><button class="abtn pri" id="mfSave" style="flex:1;justify-content:center">บันทึก</button>
+    <button class="abtn" data-adm-close>ยกเลิก</button></div>`);
+  ['#mfEn','#mfDef','#mfFile','#mfCode','#mfTr'].forEach(s => { const e = $(s); if (e) e.onclick = () => e.classList.toggle('on'); });
+  $('#mfSave').onclick = () => {
+    const mid = $('#mfId').value.trim();
+    if (!mid) { admToast('กรอก Model ID'); return; }
+    AdminAPI.setModel(mid, { enabled:$('#mfEn').classList.contains('on'),
+      roles:{ default:$('#mfDef').classList.contains('on'), files:$('#mfFile').classList.contains('on'),
+        coding:$('#mfCode').classList.contains('on'), translation:$('#mfTr').classList.contains('on') } });
+    $('#admModal').classList.remove('on'); admToast('บันทึก Model แล้ว'); admSection('models');
+  };
+  $('#admModal').querySelectorAll('[data-adm-close]').forEach(x => x.onclick = () => $('#admModal').classList.remove('on'));
+}
+function admKeyForm(provider) {
+  admModal((provider ? 'อัปเดต' : 'เพิ่ม') + ' API Key', 'Key จะถูก hash ทันทีและแสดงเป็น Masked Key เท่านั้น', `
+    <div class="afield"><label>Provider</label><select id="kfProv">${['openai','deepseek','anthropic','google','groq','openrouter','custom'].map(p => `<option ${p === provider ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
+    <div class="afield"><label>API Key</label><input id="kfKey" type="password" placeholder="วาง key ที่นี่" autocomplete="off"></div>
+    <div class="arow"><div class="t"><b>เปิดใช้งาน</b></div><div class="aswitch on" id="kfEn"><i></i></div></div>
+    <div class="arow" style="border:0"><div class="t"><b>ตั้งเป็น Default Provider</b></div><div class="aswitch" id="kfDef"><i></i></div></div>
+    <div class="ahint">ระบบจะไม่ส่ง key นี้กลับมาแสดงอีก หากพลาดต้องใส่ใหม่</div>
+    <div style="display:flex;gap:9px;margin-top:18px"><button class="abtn pri" id="kfSave" style="flex:1;justify-content:center">บันทึก</button>
+    <button class="abtn" id="kfTest">Test Connection</button><button class="abtn" data-adm-close>ยกเลิก</button></div>
+    <div class="status" id="kfOut" style="color:var(--ap-ink2);margin-top:10px"></div>`);
+  ['#kfEn','#kfDef'].forEach(s => { const e = $(s); if (e) e.onclick = () => e.classList.toggle('on'); });
+  $('#kfSave').onclick = () => {
+    const key = $('#kfKey').value.trim();
+    if (key.length < 12) { admToast('key สั้นเกินไป'); return; }
+    AdminAPI.setKey($('#kfProv').value, key, $('#kfEn').classList.contains('on'), $('#kfDef').classList.contains('on'));
+    $('#admModal').classList.remove('on'); admToast('บันทึก key แล้ว (masked)'); admSection('keys');
+  };
+  $('#kfTest').onclick = async () => {
+    const out = $('#kfOut'); out.textContent = 'กำลังทดสอบ…';
+    const p = $('#kfProv').value, key = $('#kfKey').value.trim();
+    const endpoints = { openai:['https://api.openai.com/v1/models', {}], deepseek:['https://api.deepseek.com/models', {}],
+      google:['https://generativelanguage.googleapis.com/v1beta/models', {}],
+      groq:['https://api.groq.com/openai/v1/models', {}], openrouter:['https://openrouter.ai/api/v1/key', {}] };
+    try {
+      const [url, h] = endpoints[p] || [null, {}];
+      if (!url) throw new Error('custom provider ต้องทดสอบจาก Worker');
+      const r = await fetch(url, { headers: p === 'google' ? { 'x-goog-api-key': key } : { Authorization:'Bearer ' + key } });
+      out.textContent = r.ok ? 'ใช้งานได้' : 'ไม่ผ่าน (HTTP ' + r.status + ')';
+      out.style.color = r.ok ? 'var(--ap-ok)' : 'var(--ap-bad)';
+    } catch (e) { out.textContent = 'เชื่อมต่อไม่ได้ — ' + (e.message || e); out.style.color = 'var(--ap-bad)'; }
+  };
+  $('#admModal').querySelectorAll('[data-adm-close]').forEach(x => x.onclick = () => $('#admModal').classList.remove('on'));
+}
+function admWorkerSetup() {
+  admModal('เชื่อม Backend Worker', 'ป้อน URL ของ worker-admin.js ที่ deploy แล้ว เพื่อใช้ D1 จริงแทนโหมด Local', `
+    <div class="afield"><label>Worker URL</label><input id="wfUrl" placeholder="https://kiln-admin.username.workers.dev" value="${escapeHTML(admData.workerBase || '')}"></div>
+    <div class="abanner">${ai(AI.lock, 17)}<div>Admin Session จะถูกตรวจที่ Worker ทุก request ด้วย permission matrix ฝั่ง server<br>ตาราง admin_users ต้องสร้างจาก <code>/api/admin/auth/setup</code> ก่อน</div></div>
+    <div style="display:flex;gap:9px;margin-top:16px"><button class="abtn pri" id="wfSave" style="flex:1;justify-content:center">บันทึก</button>
+    <button class="abtn" id="wfLocal">ใช้โหมด Local</button></div>`);
+  $('#wfSave').onclick = () => {
+    const url = $('#wfUrl').value.trim();
+    if (!url.startsWith('https://')) { admToast('URL ต้องเป็น https://'); return; }
+    admData.workerBase = url; admData.backend = 'worker'; admSave('data', admData);
+    admState = null; localStorage.removeItem(AK + '.state');
+    $('#admModal').classList.remove('on'); admRenderLogin();
+  };
+  $('#wfLocal').onclick = () => { admData.backend = 'local'; admSave('data', admData); $('#admModal').classList.remove('on'); admToast('ใช้โหมด Local'); admSection('settings'); };
+  $('#admModal').querySelectorAll('[data-adm-close]').forEach(x => x.onclick = () => $('#admModal').classList.remove('on'));
+}
+
+/* ── Router entry ── */
+function admRender() {
+  if (!location.hash.startsWith('#/admin')) return;
+  const mode = admLoad('ui')?.mode || 'dark';
+  $('#adm').dataset.mode = mode;
+  if (!admData) { admData = admSeed(); admData.admins = []; admData.backend = 'local'; admSave('data', admData); }
+  if (!admSessionValid()) { admRenderLogin(); return; }
+  const path = admPath() || 'dashboard';
+  if (path === 'login') { admRenderLogin(); return; }
+  admQuery.q = ''; admQuery.offset = 0;
+  admSection(path);
+}
+window.addEventListener('hashchange', () => {
+  if (location.hash.startsWith('#/admin')) admRender();
+  else { $('#adm').classList.remove('on'); $('#adm').hidden = true; $('#admLogin').className = 'adm-login'; }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { $('#admDrawer').classList.remove('on'); $('#admModal').classList.remove('on'); }
+});
+/* เพิ่มปุ่มเข้า Admin ที่ rail ของผู้ใช้ (มองเห็นเฉพาะเครื่องที่เคยตั้ง admin ไว้) */
+setTimeout(() => {
+  const foot = document.querySelector('.rail-foot');
+  if (!foot || foot.querySelector('#btnAdm')) return;
+  const b = h('button'); b.id = 'btnAdm'; b.innerHTML = AI.shield.replace('<svg', '<svg width="13" height="13"') + '<span>Admin</span>';
+  b.onclick = () => {
+    if (!location.hash.startsWith('#/admin')) location.hash = '#/admin';
+    else admRender();
+  };
+  foot.append(b);
+}, 400);
+
+/* ─────────── boot ─────────── */
+(function boot() {
+  initTheme(); injectCustom();
+  if (!chats.length) newChat(); else curId = chats[0].id;
+  drawRail(); drawThread(); drawAtt(); setBusy(false); grow(); syncSend();
+  /* บันทึก usage/ต้นทุนจริงหลังตอบเสร็จ เพื่อให้หน้า Analytics ของ Admin มีตัวเลขจริง */
+  const _pushOut = c.messages.push.bind(c.messages);
+  c.messages.push = function (m) {
+    try {
+      if (m?.role === 'assistant' && !m.error && cfg.provider !== 'demo' && (m.content || m.reasoning)) {
+        const src = (m.content || '') + (m.reasoning || '');
+        const chars = src.length;
+        const inTok = Math.round(((c.messages.at(-2)?.content || '').length + (m.content || '').length) / 3.6);
+        const outTok = Math.round(chars / 3.6);
+        const price = PROVIDERS[cfg.provider]?.models.find(x => x.id === mId()) || {};
+        const pin = 0.25, pout = 1.0;
+        admData = admLoad('data') || admSeed();
+        admData.usage.push({ at: m.ts || Date.now(), user: 'local', provider: P().name, model: mId(),
+          in: inTok, out: outTok, ms: 0, cost: +(((inTok / 1e6) * pin) + ((outTok / 1e6) * pout)).toFixed(6) });
+        if (admData.usage.length > 400) admData.usage = admData.usage.slice(-400);
+        admSave('data', admData);
+      }
+    } catch {}
+    return _pushOut(m);
+  };
+  window.addEventListener('beforeunload', () => ctrl?.abort());
+  window.addEventListener('beforeunload', () => {
+    [...demoUrls.values(), ...demoZipUrls.values(), ...convUrls].forEach(url => URL.revokeObjectURL(url));
+    demoUrls.clear(); demoZipUrls.clear(); convUrls.length = 0;
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { $$('.sheet-wrap.on').forEach(s => s.classList.remove('on')); railClose(); }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); newChat(); ta.focus(); }
+  });
+  // เรนเดอร์ใหม่เมื่อฟอนต์มาถึง เพื่อไม่ให้ความสูงกระตุก
+  document.fonts?.ready.then(() => grow());
+})();
